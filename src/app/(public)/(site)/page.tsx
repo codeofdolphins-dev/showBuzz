@@ -20,7 +20,11 @@ const BROWSE_LANGUAGES = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Mal
 const BROWSE_GENRES = ["Action", "Sci-Fi", "Romance", "Animation", "Mythology"];
 
 async function getHeroSlides(): Promise<HeroSlide[]> {
-  const [movie, concert, match] = await Promise.all([getMovieById("mov-1"), getEventById("eve-1"), getEventById("spo-1")]);
+  const [movie, concert, match] = await Promise.all([
+    getMovieById("mov-1"),
+    getEventById("eve-1"),
+    getEventById("spo-1"),
+  ]);
   const slides: HeroSlide[] = [];
   if (movie) {
     slides.push({
@@ -30,7 +34,8 @@ async function getHeroSlides(): Promise<HeroSlide[]> {
       badgeIcon: "zap",
       tone: "rose",
       title: movie.title,
-      blurb: "The cosmic sci-fi spectacle of 2026. Watch in IMAX 3D with laser projection and heart-thumping Dolby Atmos sound.",
+      blurb:
+        "The cosmic sci-fi spectacle of 2026. Watch in IMAX 3D with laser projection and heart-thumping Dolby Atmos sound.",
       ctaLabel: "Book Now",
       ctaHref: `/movies/${movie.slug}`,
       trailer: { title: movie.title, url: movie.trailerUrl },
@@ -94,7 +99,9 @@ export default async function HomePage() {
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <span className="rounded bg-rose-500 px-1.5 text-[9px] font-extrabold text-white uppercase">Exclusive</span>
+                <span className="rounded bg-rose-500 px-1.5 text-[9px] font-extrabold text-white uppercase">
+                  Exclusive
+                </span>
                 <span className="text-xs font-bold text-indigo-300">ShowBuzz Premiere Stream</span>
               </div>
               <h4 className="mt-0.5 text-base font-black text-white sm:text-xl">Rent or Buy New Releases in 4K HDR</h4>
@@ -102,7 +109,7 @@ export default async function HomePage() {
           </div>
           <Link
             href="/stream"
-            className="gradient-btn tap-active w-full rounded-xl px-5 py-2.5 text-center text-xs font-extrabold whitespace-nowrap text-white shadow-lg shadow-rose-500/30 sm:w-auto"
+            className="w-full tap-active gradient-btn rounded-xl px-5 py-2.5 text-center text-xs font-extrabold whitespace-nowrap text-white shadow-lg shadow-rose-500/30 sm:w-auto"
           >
             Explore Stream &rarr;
           </Link>

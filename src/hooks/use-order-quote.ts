@@ -31,7 +31,9 @@ export function useOrderQuote(): QuoteState {
     let cancelled = false;
     quoteOrderAction({ tickets, food, couponCode }).then((result) => {
       if (cancelled) return;
-      setLatest(result.success ? { status: "ready", quote: result.data } : { status: "error", message: result.error.message });
+      setLatest(
+        result.success ? { status: "ready", quote: result.data } : { status: "error", message: result.error.message },
+      );
     });
     return () => {
       cancelled = true;

@@ -45,23 +45,23 @@
 
 ## Decisions already taken (don't re-litigate)
 
-| Topic | Decision |
-|---|---|
-| Customer sign-in | Phone **or** email + 6-digit OTP. Login and register are one flow: verifying an unknown identifier creates the account (no enumeration). |
-| OTP delivery | Provider interface. `dev` provider shows the code on screen only when `NODE_ENV !== "production"`. Production refuses to send until a real provider is configured (503). |
-| OTP storage | `otpChallenges` collection, code hashed with HMAC-SHA256 (`OTP_HASH_SECRET`), TTL index, max 5 attempts, single use. |
-| Rate limiting | Mongo-backed fixed window (`rateLimits` collection, TTL). Swap for Redis/Upstash later behind the same function. |
-| Tokens | jose HS256. Access JWT 15 min (`aud: showbuzz-public`), refresh JWT 7 days, rotated on every use, stored **hashed** on the user document (one entry per device session, max 10). Reuse of an old refresh token revokes that session; the immediately previous token is tolerated for 10 s to absorb multi-tab races. |
-| Cookies | Access cookie: `httpOnly`, `Secure` (prod), `SameSite=Lax`, path `/`. Refresh cookie: same flags, path `/api/v1/auth` only. `__Host-` / `__Secure-` prefixes in production. |
-| Silent refresh | Page navigations: `proxy.ts` bounces to `GET /api/v1/auth/refresh?next=` which rotates and redirects back. Client: a keep-alive hook refreshes shortly before access expiry and on tab focus; auth-required actions that return `UNAUTHENTICATED` refresh once and retry. |
-| Sign-in entry point | No separate sign-in page. Redirect to `/?auth=signin&next=<path>`; the existing AuthModal opens from that query and returns to a validated `next`. |
-| CSRF | `SameSite=Lax` cookies + Server Actions' built-in origin check + explicit `Origin` check on state-changing route handlers. |
-| Social login | Google/Apple buttons stay "coming soon". Out of scope. |
+| Topic               | Decision                                                                                                                                                                                                                                                                                                             |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Customer sign-in    | Phone **or** email + 6-digit OTP. Login and register are one flow: verifying an unknown identifier creates the account (no enumeration).                                                                                                                                                                             |
+| OTP delivery        | Provider interface. `dev` provider shows the code on screen only when `NODE_ENV !== "production"`. Production refuses to send until a real provider is configured (503).                                                                                                                                             |
+| OTP storage         | `otpChallenges` collection, code hashed with HMAC-SHA256 (`OTP_HASH_SECRET`), TTL index, max 5 attempts, single use.                                                                                                                                                                                                 |
+| Rate limiting       | Mongo-backed fixed window (`rateLimits` collection, TTL). Swap for Redis/Upstash later behind the same function.                                                                                                                                                                                                     |
+| Tokens              | jose HS256. Access JWT 15 min (`aud: showbuzz-public`), refresh JWT 7 days, rotated on every use, stored **hashed** on the user document (one entry per device session, max 10). Reuse of an old refresh token revokes that session; the immediately previous token is tolerated for 10 s to absorb multi-tab races. |
+| Cookies             | Access cookie: `httpOnly`, `Secure` (prod), `SameSite=Lax`, path `/`. Refresh cookie: same flags, path `/api/v1/auth` only. `__Host-` / `__Secure-` prefixes in production.                                                                                                                                          |
+| Silent refresh      | Page navigations: `proxy.ts` bounces to `GET /api/v1/auth/refresh?next=` which rotates and redirects back. Client: a keep-alive hook refreshes shortly before access expiry and on tab focus; auth-required actions that return `UNAUTHENTICATED` refresh once and retry.                                            |
+| Sign-in entry point | No separate sign-in page. Redirect to `/?auth=signin&next=<path>`; the existing AuthModal opens from that query and returns to a validated `next`.                                                                                                                                                                   |
+| CSRF                | `SameSite=Lax` cookies + Server Actions' built-in origin check + explicit `Origin` check on state-changing route handlers.                                                                                                                                                                                           |
+| Social login        | Google/Apple buttons stay "coming soon". Out of scope.                                                                                                                                                                                                                                                               |
 
 ## Open questions (answer before the batch that needs them)
 
-- **Before 1.8:** must a customer sign in before checkout/payment (BookMyShow style), or is guest checkout allowed? *Recommended: sign-in required before payment.*
-- **Before 1.7:** account deletion. Anonymise the user but keep bookings/payments for GST record-keeping? *Recommended: yes.*
+- **Before 1.8:** must a customer sign in before checkout/payment (BookMyShow style), or is guest checkout allowed? _Recommended: sign-in required before payment._
+- **Before 1.7:** account deletion. Anonymise the user but keep bookings/payments for GST record-keeping? _Recommended: yes._
 - **Before Phase 2:** CLAUDE.md §12 inconsistencies (ticket limit 8 vs 10, cancellation 20 min vs 4 h, coupon codes, city list).
 - **Before 3.4:** payment gateway (Razorpay vs Cashfree). **Before 1.9 go-live:** OTP/SMS + email provider.
 

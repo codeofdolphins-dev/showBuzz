@@ -8,9 +8,24 @@ export const metadata: Metadata = {
 };
 
 const VALUES = [
-  { icon: WandSparkles, tone: "bg-rose-50 text-rose-600", title: "Delightful Experience", text: "We design interfaces that feel fast, intuitive, and enjoyable from the moment you explore a trailer to the second you scan your ticket." },
-  { icon: Zap, tone: "bg-blue-50 text-blue-600", title: "Unmatched Speed", text: "Infrastructure built to handle massive ticket demand during stadium cricket finals and viral concert drops." },
-  { icon: Handshake, tone: "bg-emerald-50 text-emerald-600", title: "Empowering Organisers", text: "Giving independent artists, playwrights, comedians, and cinema exhibitors world-class discovery, promotion, and analytics tools." },
+  {
+    icon: WandSparkles,
+    tone: "bg-rose-50 text-rose-600",
+    title: "Delightful Experience",
+    text: "We design interfaces that feel fast, intuitive, and enjoyable from the moment you explore a trailer to the second you scan your ticket.",
+  },
+  {
+    icon: Zap,
+    tone: "bg-blue-50 text-blue-600",
+    title: "Unmatched Speed",
+    text: "Infrastructure built to handle massive ticket demand during stadium cricket finals and viral concert drops.",
+  },
+  {
+    icon: Handshake,
+    tone: "bg-emerald-50 text-emerald-600",
+    title: "Empowering Organisers",
+    text: "Giving independent artists, playwrights, comedians, and cinema exhibitors world-class discovery, promotion, and analytics tools.",
+  },
 ];
 
 export default function AboutPage() {
@@ -22,8 +37,8 @@ export default function AboutPage() {
           Bringing Stories, Music & Experiences to Life
         </h1>
         <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">
-          ShowBuzz was founded with a singular ambition: to build India&apos;s smoothest, most visually inspiring entertainment
-          ticketing platform.
+          ShowBuzz was founded with a singular ambition: to build India&apos;s smoothest, most visually inspiring
+          entertainment ticketing platform.
         </p>
       </div>
       <div className="relative aspect-[21/9] overflow-hidden rounded-3xl border border-slate-200 shadow-xl">

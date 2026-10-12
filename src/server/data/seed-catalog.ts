@@ -15,30 +15,50 @@ import { cinemaSchema } from "@/schemas/venue";
  * This stands in for MongoDB until the backend phase; scripts/seed.ts will load it.
  */
 
-const unsplash = (id: string, w: number) =>
-  `https://images.unsplash.com/photo-${id}?w=${w}&auto=format&fit=crop&q=80`;
+const unsplash = (id: string, w: number) => `https://images.unsplash.com/photo-${id}?w=${w}&auto=format&fit=crop&q=80`;
 
 const ist = (date: string, time: string) => `${date}T${time}:00+05:30`;
 
 const TRAILER = "https://www.youtube.com/embed/dQw4w9WgXcQ";
 
-export const cities = z.array(citySchema).parse([
-  { id: "kolkata", name: "Kolkata", state: "West Bengal", popular: true },
-  { id: "mumbai", name: "Mumbai", state: "Maharashtra", popular: true },
-  { id: "delhi", name: "Delhi-NCR", state: "Delhi", popular: true },
-  { id: "bengaluru", name: "Bengaluru", state: "Karnataka", popular: true },
-  { id: "hyderabad", name: "Hyderabad", state: "Telangana", popular: true },
-  { id: "chennai", name: "Chennai", state: "Tamil Nadu", popular: true },
-  { id: "pune", name: "Pune", state: "Maharashtra", popular: true },
-  { id: "ahmedabad", name: "Ahmedabad", state: "Gujarat", popular: true },
-  { id: "chandigarh", name: "Chandigarh", state: "Punjab", popular: true },
-  { id: "kochi", name: "Kochi", state: "Kerala", popular: true },
-  ...[
-    "Agra", "Amritsar", "Bhopal", "Bhubaneswar", "Coimbatore", "Dehradun", "Goa", "Guwahati",
-    "Indore", "Jaipur", "Jamshedpur", "Lucknow", "Madurai", "Mangaluru", "Nagpur", "Patna",
-    "Raipur", "Ranchi", "Surat", "Vadodara", "Varanasi", "Visakhapatnam",
-  ].map((name) => ({ id: name.toLowerCase(), name, popular: false })),
-]);
+export const cities = z
+  .array(citySchema)
+  .parse([
+    { id: "kolkata", name: "Kolkata", state: "West Bengal", popular: true },
+    { id: "mumbai", name: "Mumbai", state: "Maharashtra", popular: true },
+    { id: "delhi", name: "Delhi-NCR", state: "Delhi", popular: true },
+    { id: "bengaluru", name: "Bengaluru", state: "Karnataka", popular: true },
+    { id: "hyderabad", name: "Hyderabad", state: "Telangana", popular: true },
+    { id: "chennai", name: "Chennai", state: "Tamil Nadu", popular: true },
+    { id: "pune", name: "Pune", state: "Maharashtra", popular: true },
+    { id: "ahmedabad", name: "Ahmedabad", state: "Gujarat", popular: true },
+    { id: "chandigarh", name: "Chandigarh", state: "Punjab", popular: true },
+    { id: "kochi", name: "Kochi", state: "Kerala", popular: true },
+    ...[
+      "Agra",
+      "Amritsar",
+      "Bhopal",
+      "Bhubaneswar",
+      "Coimbatore",
+      "Dehradun",
+      "Goa",
+      "Guwahati",
+      "Indore",
+      "Jaipur",
+      "Jamshedpur",
+      "Lucknow",
+      "Madurai",
+      "Mangaluru",
+      "Nagpur",
+      "Patna",
+      "Raipur",
+      "Ranchi",
+      "Surat",
+      "Vadodara",
+      "Varanasi",
+      "Visakhapatnam",
+    ].map((name) => ({ id: name.toLowerCase(), name, popular: false })),
+  ]);
 
 export const movies = z.array(movieSchema).parse([
   {
@@ -73,9 +93,27 @@ export const movies = z.array(movieSchema).parse([
       { name: "Hoyte Van Hoytema Style", role: "Cinematographer" },
     ],
     reviews: [
-      { id: "rev-1", author: "Aarav Roy", rating: 5, createdAt: ist("2026-08-23", "20:10"), text: "A mind-bending visual spectacle! IMAX 3D sound mix literally vibrated the entire auditorium. A must watch!" },
-      { id: "rev-2", author: "Priya Sharma", rating: 4.5, createdAt: ist("2026-08-22", "18:30"), text: "Brilliant screenplay and stellar performance by Elena Rostova. The third act keeps you at the edge of your seat." },
-      { id: "rev-3", author: "David Miller", rating: 5, createdAt: ist("2026-08-21", "22:05"), text: "One of the best sci-fi epics of this decade. Stunning CGI and emotionally grounded." },
+      {
+        id: "rev-1",
+        author: "Aarav Roy",
+        rating: 5,
+        createdAt: ist("2026-08-23", "20:10"),
+        text: "A mind-bending visual spectacle! IMAX 3D sound mix literally vibrated the entire auditorium. A must watch!",
+      },
+      {
+        id: "rev-2",
+        author: "Priya Sharma",
+        rating: 4.5,
+        createdAt: ist("2026-08-22", "18:30"),
+        text: "Brilliant screenplay and stellar performance by Elena Rostova. The third act keeps you at the edge of your seat.",
+      },
+      {
+        id: "rev-3",
+        author: "David Miller",
+        rating: 5,
+        createdAt: ist("2026-08-21", "22:05"),
+        text: "One of the best sci-fi epics of this decade. Stunning CGI and emotionally grounded.",
+      },
     ],
   },
   {
@@ -99,7 +137,11 @@ export const movies = z.array(movieSchema).parse([
       "An ancient manuscript surfaces on the ghats of Varanasi, triggering a sequence of mysterious murders that detective Vikram Ghosh must solve before a secret order unleashes havoc.",
     director: "Sujoy Ghosh",
     cast: [
-      { name: "Manoj Bajpayee-esque", role: "Inspector Vikram Ghosh", image: unsplash("1472099645785-5658abf4ff4e", 200) },
+      {
+        name: "Manoj Bajpayee-esque",
+        role: "Inspector Vikram Ghosh",
+        image: unsplash("1472099645785-5658abf4ff4e", 200),
+      },
       { name: "Radhika Apte-esque", role: "Dr. Ananya Ray", image: unsplash("1544005313-94ddf0286df2", 200) },
       { name: "Kay Kay Menon-esque", role: "The Silent Sage", image: unsplash("1519085360753-af0119f7cbe7", 200) },
     ],
@@ -108,8 +150,20 @@ export const movies = z.array(movieSchema).parse([
       { name: "Amit Trivedi Style", role: "Music" },
     ],
     reviews: [
-      { id: "rev-4", author: "Subhashis Bose", rating: 5, createdAt: ist("2026-08-20", "21:00"), text: "Atmospheric and deeply gripping. The background score during the climax chase along the river will give you chills." },
-      { id: "rev-5", author: "Kavita Nair", rating: 4, createdAt: ist("2026-08-19", "19:15"), text: "Intense storyline and wonderful cinematography capturing the mystique of the ancient holy city." },
+      {
+        id: "rev-4",
+        author: "Subhashis Bose",
+        rating: 5,
+        createdAt: ist("2026-08-20", "21:00"),
+        text: "Atmospheric and deeply gripping. The background score during the climax chase along the river will give you chills.",
+      },
+      {
+        id: "rev-5",
+        author: "Kavita Nair",
+        rating: 4,
+        createdAt: ist("2026-08-19", "19:15"),
+        text: "Intense storyline and wonderful cinematography capturing the mystique of the ancient holy city.",
+      },
     ],
   },
   {
@@ -141,7 +195,13 @@ export const movies = z.array(movieSchema).parse([
       { name: "Daft Punk Sound Lab", role: "Soundtrack" },
     ],
     reviews: [
-      { id: "rev-6", author: "Rohan V.", rating: 5, createdAt: ist("2026-08-24", "23:40"), text: "The 4DX motion seat experience was insane! You feel every gear shift and tire drift." },
+      {
+        id: "rev-6",
+        author: "Rohan V.",
+        rating: 5,
+        createdAt: ist("2026-08-24", "23:40"),
+        text: "The 4DX motion seat experience was insane! You feel every gear shift and tire drift.",
+      },
     ],
   },
   {
@@ -170,7 +230,13 @@ export const movies = z.array(movieSchema).parse([
     ],
     crew: [{ name: "Anupam Roy Style", role: "Lyrics & Composition" }],
     reviews: [
-      { id: "rev-7", author: "Moumita Sen", rating: 5, createdAt: ist("2026-08-23", "17:45"), text: "Heart-touching music and poetic visuals. Brought tears to my eyes." },
+      {
+        id: "rev-7",
+        author: "Moumita Sen",
+        rating: 5,
+        createdAt: ist("2026-08-23", "17:45"),
+        text: "Heart-touching music and poetic visuals. Brought tears to my eyes.",
+      },
     ],
   },
   {
@@ -199,7 +265,13 @@ export const movies = z.array(movieSchema).parse([
     ],
     crew: [{ name: "M.M. Keeravani Style", role: "Music Director" }],
     reviews: [
-      { id: "rev-8", author: "Karthik R.", rating: 5, createdAt: ist("2026-08-24", "16:20"), text: "Peak Indian Cinema! The CGI of the bird deity battle is world-class." },
+      {
+        id: "rev-8",
+        author: "Karthik R.",
+        rating: 5,
+        createdAt: ist("2026-08-24", "16:20"),
+        text: "Peak Indian Cinema! The CGI of the bird deity battle is world-class.",
+      },
     ],
   },
   {
@@ -228,7 +300,13 @@ export const movies = z.array(movieSchema).parse([
     ],
     crew: [{ name: "Michael Giacchino Style", role: "Original Score" }],
     reviews: [
-      { id: "rev-9", author: "Sneha Gupta", rating: 5, createdAt: ist("2026-08-21", "15:00"), text: "Took my 6 year old kid and we both loved it immensely!" },
+      {
+        id: "rev-9",
+        author: "Sneha Gupta",
+        rating: 5,
+        createdAt: ist("2026-08-21", "15:00"),
+        text: "Took my 6 year old kid and we both loved it immensely!",
+      },
     ],
   },
   {
@@ -275,7 +353,9 @@ export const movies = z.array(movieSchema).parse([
     synopsis:
       "A thrilling expedition deep inside the Sundarbans mangrove forests where an elusive diamond cache is guarded by royal secrets.",
     director: "Sandip Ray Style",
-    cast: [{ name: "Abir Chatterjee Style", role: "Pradosh Mitter", image: unsplash("1472099645785-5658abf4ff4e", 200) }],
+    cast: [
+      { name: "Abir Chatterjee Style", role: "Pradosh Mitter", image: unsplash("1472099645785-5658abf4ff4e", 200) },
+    ],
     crew: [{ name: "Satyajit Ray Legacy Music", role: "Score" }],
     reviews: [],
   },
@@ -301,7 +381,15 @@ export const cinemas = z.array(cinemaSchema).parse([
     cityId: "kolkata",
     address: "33, Syed Amir Ali Ave, Park Circus, Beck Bagan, Kolkata 700017",
     distanceLabel: "2.4 km away",
-    amenities: ["IMAX 3D Laser", "Dolby Atmos 7.1", "Recliner Seats", "Gourmet F&B", "Free Parking", "Wheelchair Accessible", "M-Ticket"],
+    amenities: [
+      "IMAX 3D Laser",
+      "Dolby Atmos 7.1",
+      "Recliner Seats",
+      "Gourmet F&B",
+      "Free Parking",
+      "Wheelchair Accessible",
+      "M-Ticket",
+    ],
     cancellation: { allowed: true, label: "Cancellation Available (Up to 20 mins before show)" },
     showTemplates: [
       slot("09:30", "2D", "Hindi", "available", 180, "Silver"),
@@ -409,8 +497,20 @@ export const events = z.array(eventSchema).parse([
     ],
     ticketTiers: [
       tier("ga", "General Access (GA)", 999, "Entry to festival ground & main arena access", 120),
-      tier("vip-front-row", "VIP Front Row Pass", 2499, "Dedicated fast-track entry, front stage pit & exclusive bar", 45),
-      tier("fan-pit-platinum", "Fan Pit Platinum Lounge", 4999, "Unlimited curated snacks, AC lounge & artist greeting pass", 12),
+      tier(
+        "vip-front-row",
+        "VIP Front Row Pass",
+        2499,
+        "Dedicated fast-track entry, front stage pit & exclusive bar",
+        45,
+      ),
+      tier(
+        "fan-pit-platinum",
+        "Fan Pit Platinum Lounge",
+        4999,
+        "Unlimited curated snacks, AC lounge & artist greeting pass",
+        12,
+      ),
     ],
   },
   {
@@ -452,7 +552,9 @@ export const events = z.array(eventSchema).parse([
     backdrop: unsplash("1492684223066-81342ee5ff30", 1600),
     about:
       "Levitation, grand vanishing acts, mind reading and impossible sleights of hand in an all-family breathtaking magical show.",
-    artists: [{ name: "The Sorcar Illusionists", role: "Master Magicians", image: unsplash("1472099645785-5658abf4ff4e", 200) }],
+    artists: [
+      { name: "The Sorcar Illusionists", role: "Master Magicians", image: unsplash("1472099645785-5658abf4ff4e", 200) },
+    ],
     ticketTiers: [
       tier("standard", "Standard Tier", 350, "Rear auditorium view", 110),
       tier("executive-front", "Executive Front Tier", 1200, "Front row with interactive volunteer chance", 25),
@@ -474,7 +576,9 @@ export const events = z.array(eventSchema).parse([
     backdrop: unsplash("1517248135467-4c7edcad34c4", 1600),
     about:
       "Taste creations from over 50 artisanal bakeries, food trucks, masterchefs and sample 20+ craft beers with live acoustic bands.",
-    artists: [{ name: "Indie Groove Collective", role: "Live Band", image: unsplash("1511671782779-c97d3d27a1d4", 200) }],
+    artists: [
+      { name: "Indie Groove Collective", role: "Live Band", image: unsplash("1511671782779-c97d3d27a1d4", 200) },
+    ],
     ticketTiers: [
       tier("day-pass", "Carnival Day Pass", 299, "Entry + 1 Welcome Beverage", 300),
       tier("tasting-unlimited", "Tasting Pass Unlimited", 799, "Entry + 5 Craft Samples + Food Coupons", 80),
@@ -538,7 +642,13 @@ export const events = z.array(eventSchema).parse([
       "The titanic rivalry unfolds at the iconic Eden Gardens! Watch sixes raining under stadium lights as the home champions take on the explosive Blasters.",
     artists: [],
     ticketTiers: [
-      tier("corporate-box", "Corporate Hospitality Box", 8500, "AC Lounge, gourmet buffet, premier viewing terrace", 20),
+      tier(
+        "corporate-box",
+        "Corporate Hospitality Box",
+        8500,
+        "AC Lounge, gourmet buffet, premier viewing terrace",
+        20,
+      ),
       tier("lower-tier", "Lower Tier Block B & C", 2500, "Close to boundary ropes", 150),
       tier("upper-tier", "Upper Tier Club House", 800, "Standard grandstand", 500),
     ],
@@ -728,14 +838,86 @@ export const coupons = z.array(couponSchema).parse([
 ]);
 
 export const foodItems = z.array(foodItemSchema).parse([
-  { id: "fb-1", name: "Classic Salted & Golden Caramel Duo Popcorn", category: "Popcorn", isVeg: true, pricePaise: 26_000, size: "Large Tub (120g)", image: unsplash("1578849278619-e73505e9610f", 400), description: "Freshly popped crispy corn with sweet buttery caramel crunch." },
-  { id: "fb-2", name: "Cheesy Jalapeño Loaded Nachos with Salsa", category: "Snacks", isVeg: true, pricePaise: 24_000, size: "Serves 1-2", image: unsplash("1513456852971-30c0b8199d4d", 400), description: "Tortilla chips served with warm melted cheddar dip and tangy salsa." },
-  { id: "fb-3", name: "Blockbuster Duo Combo: Large Popcorn + 2 Cold Drinks", category: "Combo Meals", isVeg: true, pricePaise: 45_000, size: "Serves 2", image: unsplash("1585647347483-22b66260dfff", 400), description: "1 Large Salted Popcorn (120g) + 2 Chilled Pepsi / Coke (500ml)." },
-  { id: "fb-4", name: "Crispy Paneer Makhani Burger", category: "Snacks", isVeg: true, pricePaise: 21_000, size: "Single Burger", image: unsplash("1568901346375-23c9450c58cd", 400), description: "Fried cottage cheese patty with rich makhani gravy mayo." },
-  { id: "fb-5", name: "Smoked Chicken Tikka Panini Sandwich", category: "Snacks", isVeg: false, pricePaise: 27_000, size: "Gourmet Sandwich", image: unsplash("1528735602780-2552fd46c7af", 400), description: "Charcoal grilled spiced chicken morsels in herb focaccia bread." },
-  { id: "fb-6", name: "Chilled Vanilla Cold Brew Coffee", category: "Beverages", isVeg: true, pricePaise: 18_000, size: "400ml Can", image: unsplash("1517701550927-30cf4ba1dba5", 400), description: "Steeped Arabica coffee blended with Madagascar vanilla bean." },
-  { id: "fb-7", name: "Ice Cold Pepsi Fountain Drink", category: "Beverages", isVeg: true, pricePaise: 13_000, size: "500ml Glass", image: unsplash("1622483767028-3f66f32aef97", 400), description: "Refreshing carbonated beverage served with ice." },
-  { id: "fb-8", name: "Gourmet Margherita Personal Woodfired Pizza", category: "Combo Meals", isVeg: true, pricePaise: 32_000, size: "7-Inch Pizza", image: unsplash("1513104890138-7c749659a591", 400), description: "Fresh mozzarella, San Marzano tomato puree and basil leaf." },
+  {
+    id: "fb-1",
+    name: "Classic Salted & Golden Caramel Duo Popcorn",
+    category: "Popcorn",
+    isVeg: true,
+    pricePaise: 26_000,
+    size: "Large Tub (120g)",
+    image: unsplash("1578849278619-e73505e9610f", 400),
+    description: "Freshly popped crispy corn with sweet buttery caramel crunch.",
+  },
+  {
+    id: "fb-2",
+    name: "Cheesy Jalapeño Loaded Nachos with Salsa",
+    category: "Snacks",
+    isVeg: true,
+    pricePaise: 24_000,
+    size: "Serves 1-2",
+    image: unsplash("1513456852971-30c0b8199d4d", 400),
+    description: "Tortilla chips served with warm melted cheddar dip and tangy salsa.",
+  },
+  {
+    id: "fb-3",
+    name: "Blockbuster Duo Combo: Large Popcorn + 2 Cold Drinks",
+    category: "Combo Meals",
+    isVeg: true,
+    pricePaise: 45_000,
+    size: "Serves 2",
+    image: unsplash("1585647347483-22b66260dfff", 400),
+    description: "1 Large Salted Popcorn (120g) + 2 Chilled Pepsi / Coke (500ml).",
+  },
+  {
+    id: "fb-4",
+    name: "Crispy Paneer Makhani Burger",
+    category: "Snacks",
+    isVeg: true,
+    pricePaise: 21_000,
+    size: "Single Burger",
+    image: unsplash("1568901346375-23c9450c58cd", 400),
+    description: "Fried cottage cheese patty with rich makhani gravy mayo.",
+  },
+  {
+    id: "fb-5",
+    name: "Smoked Chicken Tikka Panini Sandwich",
+    category: "Snacks",
+    isVeg: false,
+    pricePaise: 27_000,
+    size: "Gourmet Sandwich",
+    image: unsplash("1528735602780-2552fd46c7af", 400),
+    description: "Charcoal grilled spiced chicken morsels in herb focaccia bread.",
+  },
+  {
+    id: "fb-6",
+    name: "Chilled Vanilla Cold Brew Coffee",
+    category: "Beverages",
+    isVeg: true,
+    pricePaise: 18_000,
+    size: "400ml Can",
+    image: unsplash("1517701550927-30cf4ba1dba5", 400),
+    description: "Steeped Arabica coffee blended with Madagascar vanilla bean.",
+  },
+  {
+    id: "fb-7",
+    name: "Ice Cold Pepsi Fountain Drink",
+    category: "Beverages",
+    isVeg: true,
+    pricePaise: 13_000,
+    size: "500ml Glass",
+    image: unsplash("1622483767028-3f66f32aef97", 400),
+    description: "Refreshing carbonated beverage served with ice.",
+  },
+  {
+    id: "fb-8",
+    name: "Gourmet Margherita Personal Woodfired Pizza",
+    category: "Combo Meals",
+    isVeg: true,
+    pricePaise: 32_000,
+    size: "7-Inch Pizza",
+    image: unsplash("1513104890138-7c749659a591", 400),
+    description: "Fresh mozzarella, San Marzano tomato puree and basil leaf.",
+  },
 ]);
 
 export const giftCardDesigns = z.array(giftCardDesignSchema).parse([

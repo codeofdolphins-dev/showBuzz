@@ -35,7 +35,7 @@ function MoviesSkeleton() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4 xl:grid-cols-5">
       {Array.from({ length: 10 }, (_, i) => (
-        <div key={i} className="skeleton aspect-[3/5]" />
+        <div key={i} className="aspect-[3/5] skeleton" />
       ))}
     </div>
   );

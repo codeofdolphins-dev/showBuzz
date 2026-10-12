@@ -23,12 +23,14 @@ export default async function StreamPage() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-400/30 bg-rose-500/20 px-3 py-1 text-[10px] font-extrabold tracking-wider text-rose-300 uppercase">
               <Play className="h-3 w-3" /> {featured.badge}
             </span>
-            <h1 className="text-3xl leading-tight font-black tracking-tight text-white sm:text-5xl">{featured.title}</h1>
+            <h1 className="text-3xl leading-tight font-black tracking-tight text-white sm:text-5xl">
+              {featured.title}
+            </h1>
             <p className="text-xs leading-relaxed text-slate-300 sm:text-sm">{featured.description}</p>
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <StreamActionButton
                 label="Renting"
-                className="gradient-btn tap-active flex items-center gap-2 rounded-2xl px-6 py-3 text-xs font-black text-white shadow-xl shadow-rose-500/30"
+                className="flex tap-active gradient-btn items-center gap-2 rounded-2xl px-6 py-3 text-xs font-black text-white shadow-xl shadow-rose-500/30"
               >
                 <CirclePlay className="h-4 w-4" /> Rent for {formatINR(featured.rentPricePaise)} (30 Days)
               </StreamActionButton>
@@ -41,14 +43,23 @@ export default async function StreamPage() {
             </div>
           </div>
           <div className="relative aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 shadow-2xl md:w-96">
-            <Image src={featured.poster} alt={featured.title} fill priority sizes="(min-width: 768px) 384px, 100vw" className="object-cover" />
+            <Image
+              src={featured.poster}
+              alt={featured.title}
+              fill
+              priority
+              sizes="(min-width: 768px) 384px, 100vw"
+              className="object-cover"
+            />
           </div>
         </div>
       )}
 
       <div className="mb-6">
         <h2 className="text-2xl font-black text-slate-900">Latest Premieres on Demand</h2>
-        <p className="mt-0.5 text-xs text-slate-500">Rent to watch anytime within 30 days, or purchase lifetime digital access.</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          Rent to watch anytime within 30 days, or purchase lifetime digital access.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -59,7 +70,13 @@ export default async function StreamPage() {
           >
             <div>
               <div className="relative mb-4 aspect-[16/10] overflow-hidden rounded-2xl">
-                <Image src={s.poster} alt={s.title} fill sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover" />
+                <Image
+                  src={s.poster}
+                  alt={s.title}
+                  fill
+                  sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                  className="object-cover"
+                />
                 <span className="absolute top-3 left-3 rounded-md bg-rose-600 px-2.5 py-0.5 text-[10px] font-extrabold text-white uppercase">
                   {s.badge}
                 </span>
@@ -79,10 +96,16 @@ export default async function StreamPage() {
                 <span className="text-sm font-black text-slate-900">{formatINR(s.rentPricePaise)}</span>
               </div>
               <div className="flex gap-2">
-                <StreamActionButton label="Renting" className="tap-active rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+                <StreamActionButton
+                  label="Renting"
+                  className="tap-active rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200"
+                >
                   Rent
                 </StreamActionButton>
-                <StreamActionButton label="Buying" className="gradient-btn tap-active rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md">
+                <StreamActionButton
+                  label="Buying"
+                  className="tap-active gradient-btn rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md"
+                >
                   Buy {formatINR(s.buyPricePaise)}
                 </StreamActionButton>
               </div>

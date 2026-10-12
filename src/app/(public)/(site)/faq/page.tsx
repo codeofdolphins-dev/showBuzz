@@ -35,12 +35,20 @@ export default function FaqPage() {
     <main className="w-full flex-1 px-4 py-10 sm:px-6 lg:px-8 xl:px-12">
       <div className="mb-10 text-center">
         <span className="text-xs font-black tracking-widest text-rose-600 uppercase">Help Center</span>
-        <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Frequently Asked Questions</h1>
-        <p className="mt-2 text-xs text-slate-500 sm:text-sm">Find instant answers to common questions about your entertainment tickets.</p>
+        <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
+          Frequently Asked Questions
+        </h1>
+        <p className="mt-2 text-xs text-slate-500 sm:text-sm">
+          Find instant answers to common questions about your entertainment tickets.
+        </p>
       </div>
       <div className="mx-auto max-w-4xl space-y-4">
         {FAQS.map((f) => (
-          <details key={f.q} name="faq" className="group overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
+          <details
+            key={f.q}
+            name="faq"
+            className="group overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs"
+          >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 text-sm font-bold text-slate-900 transition-colors hover:text-rose-600 [&::-webkit-details-marker]:hidden">
               <span>{f.q}</span>
               <ChevronDown className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />

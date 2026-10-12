@@ -38,7 +38,12 @@ function movieTiers(basePaise: number): TierSpec[] {
   return [
     { id: "recliner", name: "Royal Recliner", description: "Recliner Section", pricePaise: basePaise },
     { id: "prime", name: "Prime Gold", description: "Prime Gold", pricePaise: Math.max(18_000, basePaise - 18_000) },
-    { id: "classic", name: "Classic Silver", description: "Classic Silver", pricePaise: Math.max(15_000, basePaise - 30_000) },
+    {
+      id: "classic",
+      name: "Classic Silver",
+      description: "Classic Silver",
+      pricePaise: Math.max(15_000, basePaise - 30_000),
+    },
   ];
 }
 

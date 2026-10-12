@@ -1,7 +1,17 @@
 import { z } from "zod";
 
-export const idSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9-]+$/);
-export const slugSchema = z.string().trim().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+export const idSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9-]+$/);
+export const slugSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(120)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const paiseSchema = z.int().nonnegative();
 export const imageUrlSchema = z.url({ protocol: /^https$/ });
 export const isoDateTimeSchema = z.iso.datetime({ offset: true });

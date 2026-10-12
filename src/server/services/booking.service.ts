@@ -32,8 +32,20 @@ const SEED_BOOKING: BookingRecord = {
   seatLabels: ["F8", "F9"],
   ticketCount: 2,
   food: [
-    { foodItemId: "fb-1", name: "Classic Salted & Golden Caramel Duo Popcorn", quantity: 1, unitPricePaise: 26_000, totalPaise: 26_000 },
-    { foodItemId: "fb-7", name: "Ice Cold Pepsi Fountain Drink", quantity: 2, unitPricePaise: 13_000, totalPaise: 26_000 },
+    {
+      foodItemId: "fb-1",
+      name: "Classic Salted & Golden Caramel Duo Popcorn",
+      quantity: 1,
+      unitPricePaise: 26_000,
+      totalPaise: 26_000,
+    },
+    {
+      foodItemId: "fb-7",
+      name: "Ice Cold Pepsi Fountain Drink",
+      quantity: 2,
+      unitPricePaise: 13_000,
+      totalPaise: 26_000,
+    },
   ],
   amounts: {
     ticketsPaise: 96_000,
@@ -126,9 +138,7 @@ export async function getBooking(code: string, now: Date): Promise<BookingView |
 
 /** Until customer auth lands, every demo booking is listed. Will be scoped to the signed-in user. */
 export async function listBookings(now: Date): Promise<BookingView[]> {
-  return [...bookings.values()]
-    .sort((a, b) => b.bookedAt.localeCompare(a.bookedAt))
-    .map((b) => toView(b, now));
+  return [...bookings.values()].sort((a, b) => b.bookedAt.localeCompare(a.bookedAt)).map((b) => toView(b, now));
 }
 
 export async function cancelBooking(code: string, now: Date): Promise<{ refundPaise: number }> {

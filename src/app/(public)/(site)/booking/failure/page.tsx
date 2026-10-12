@@ -19,7 +19,9 @@ async function Reason({ searchParams }: Pick<PageProps<"/booking/failure">, "sea
     <div className="my-6 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left text-xs">
       <div className="flex justify-between gap-4 text-slate-500">
         <span>Error Reason:</span>
-        <span className="text-right font-bold text-rose-600">{(code && REASONS[code]) ?? "The payment could not be completed"}</span>
+        <span className="text-right font-bold text-rose-600">
+          {(code && REASONS[code]) ?? "The payment could not be completed"}
+        </span>
       </div>
       {code && (
         <div className="flex justify-between text-slate-500">
@@ -41,20 +43,23 @@ export default function BookingFailurePage({ searchParams }: PageProps<"/booking
         <span className="text-xs font-black tracking-widest text-rose-600 uppercase">Transaction Failed</span>
         <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">Payment Unsuccessful</h1>
         <p className="mt-2 text-xs leading-relaxed text-slate-500 sm:text-sm">
-          We couldn&apos;t process your payment. If any amount was debited from your bank account or UPI wallet, it will be
-          automatically refunded within 24-48 business hours.
+          We couldn&apos;t process your payment. If any amount was debited from your bank account or UPI wallet, it will
+          be automatically refunded within 24-48 business hours.
         </p>
-        <Suspense fallback={<div className="skeleton my-6 h-16" />}>
+        <Suspense fallback={<div className="my-6 h-16 skeleton" />}>
           <Reason searchParams={searchParams} />
         </Suspense>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
             href="/booking/payment"
-            className="gradient-btn flex-1 rounded-2xl py-3.5 text-xs font-black text-white shadow-lg shadow-rose-500/20"
+            className="flex-1 gradient-btn rounded-2xl py-3.5 text-xs font-black text-white shadow-lg shadow-rose-500/20"
           >
             Retry Payment &rarr;
           </Link>
-          <Link href="/" className="flex-1 rounded-2xl bg-slate-100 py-3.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200">
+          <Link
+            href="/"
+            className="flex-1 rounded-2xl bg-slate-100 py-3.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200"
+          >
             Back to Homepage
           </Link>
         </div>

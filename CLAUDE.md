@@ -13,35 +13,35 @@
 
 ### Reference prototype (`showBuzz_HTML/`)
 
-| Area | Location | Prototype brand | Notes |
-|---|---|---|---|
-| Public site | `showBuzz_HTML/*.html` (31 pages) | "ShowVerse" | Tailwind CDN, Swiper, FontAwesome, Plus Jakarta Sans. Data in `assets/js/data.js`, state in `assets/js/store.js` (localStorage). |
+| Area          | Location                                 | Prototype brand   | Notes                                                                                                                                                               |
+| ------------- | ---------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Public site   | `showBuzz_HTML/*.html` (31 pages)        | "ShowVerse"       | Tailwind CDN, Swiper, FontAwesome, Plus Jakarta Sans. Data in `assets/js/data.js`, state in `assets/js/store.js` (localStorage).                                    |
 | Admin console | `showBuzz_HTML/admin/*.html` (~55 pages) | "ShowPilot Admin" | Tailwind CDN, Lucide, Chart.js, Quill, SortableJS. Data seeded from `admin/assets/js/storage.js` + `admin/data/*.json`; fake async API in `admin/assets/js/api.js`. |
 
 Treat the prototype as read-only reference. Do not edit it while building the Next.js app. The prototype brand names (ShowVerse / ShowPilot) are placeholders: the product name is **ShowBuzz** everywhere in new code.
 
 ## 2. Tech Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Language | TypeScript (strict) | 7.0.x |
-| Runtime | Node.js | 24 LTS (minimum); move to 26 once it enters LTS (late Oct 2026) |
-| Framework | Next.js (App Router, Turbopack) | 16.4.x |
-| UI library | React / React DOM | 19.3.x |
-| Backend | Next.js Route Handlers (`app/api/**/route.ts`) + Server Actions where appropriate | — |
-| Database | MongoDB (Atlas, replica set required for transactions) | 8.x server; `mongodb` driver 7.7.x (via Mongoose) |
-| ODM | Mongoose | 9.11.x |
-| Validation | Zod | 4.6.x |
-| Auth | JWT (`jose`, HS256) in httpOnly cookies; `bcryptjs` for admin passwords | jose 6.2.x, bcryptjs 3.0.x |
-| Styling | Tailwind CSS v4 (CSS-first config, `@tailwindcss/postcss`) | 4.3.x |
-| Client state | Zustand | 5.0.x |
-| Forms | React Hook Form + `@hookform/resolvers` (Zod) | 7.89.x / 5.9.x |
-| Testing | Vitest, Testing Library, Playwright, mongodb-memory-server | 5.0.x / 16.3.x / 1.64.x / 11.3.x |
-| Lint / format | ESLint (flat config) + `eslint-config-next`, Prettier + `prettier-plugin-tailwindcss` | 10.12.x / 16.4.x, 3.9.x / 0.8.x |
-| Package manager | npm | 12.x |
-| Hosting / CI | Vercel (preview per PR, production on `main`) | — |
+| Layer           | Technology                                                                            | Version                                                         |
+| --------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Language        | TypeScript (strict)                                                                   | 7.0.x                                                           |
+| Runtime         | Node.js                                                                               | 24 LTS (minimum); move to 26 once it enters LTS (late Oct 2026) |
+| Framework       | Next.js (App Router, Turbopack)                                                       | 16.4.x                                                          |
+| UI library      | React / React DOM                                                                     | 19.3.x                                                          |
+| Backend         | Next.js Route Handlers (`app/api/**/route.ts`) + Server Actions where appropriate     | —                                                               |
+| Database        | MongoDB (Atlas, replica set required for transactions)                                | 8.x server; `mongodb` driver 7.7.x (via Mongoose)               |
+| ODM             | Mongoose                                                                              | 9.11.x                                                          |
+| Validation      | Zod                                                                                   | 4.6.x                                                           |
+| Auth            | JWT (`jose`, HS256) in httpOnly cookies; `bcryptjs` for admin passwords               | jose 6.2.x, bcryptjs 3.0.x                                      |
+| Styling         | Tailwind CSS v4 (CSS-first config, `@tailwindcss/postcss`)                            | 4.3.x                                                           |
+| Client state    | Zustand                                                                               | 5.0.x                                                           |
+| Forms           | React Hook Form + `@hookform/resolvers` (Zod)                                         | 7.89.x / 5.9.x                                                  |
+| Testing         | Vitest, Testing Library, Playwright, mongodb-memory-server                            | 5.0.x / 16.3.x / 1.64.x / 11.3.x                                |
+| Lint / format   | ESLint (flat config) + `eslint-config-next`, Prettier + `prettier-plugin-tailwindcss` | 10.12.x / 16.4.x, 3.9.x / 0.8.x                                 |
+| Package manager | npm                                                                                   | 12.x                                                            |
+| Hosting / CI    | Vercel (preview per PR, production on `main`)                                         | —                                                               |
 
-**State management decision:** Zustand is the client-state library. Redux Toolkit (2.13.x) is *not* used; do not add it unless explicitly agreed. Server data is fetched in Server Components; Zustand holds only client/UI state (selected city, seat selection, cart, auth snapshot, UI toggles).
+**State management decision:** Zustand is the client-state library. Redux Toolkit (2.13.x) is _not_ used; do not add it unless explicitly agreed. Server data is fetched in Server Components; Zustand holds only client/UI state (selected city, seat selection, cart, auth snapshot, UI toggles).
 
 **Package manager decision:** npm. Commit only `package-lock.json`. Do not mix in `yarn.lock` (if the team switches to Yarn 4.x, replace npm everywhere in one change).
 
@@ -58,6 +58,7 @@ Treat the prototype as read-only reference. Do not edit it while building the Ne
 - `lucide-react`: icon set for **both** public and admin (replaces FontAwesome and Lucide CDN from the prototype).
 
 Candidate libraries for prototype features (ask before installing):
+
 - `swiper` (14.x): public hero/carousels.
 - `chart.js` + `react-chartjs-2`: admin dashboard/analytics charts.
 - `@dnd-kit/core`: drag-and-drop ordering (banners, seat layout designer).
@@ -149,6 +150,7 @@ showBuzz/
 ```
 
 **Where things go**
+
 - New public page → `src/app/(public)/<route>/page.tsx`; its components → `src/components/public/<feature>/`.
 - New admin page → `src/app/admin/(console)/<resource>/...`; its components → `src/components/admin/<feature>/`.
 - New API endpoint → `src/app/api/v1/{auth|public|admin|webhooks}/<resource>/route.ts`. Keep handlers thin: parse with Zod → call a service → return the response envelope.
@@ -159,18 +161,18 @@ showBuzz/
 
 ### Prototype → Next.js route map
 
-| Prototype file | Next.js route |
-|---|---|
-| `index.html` | `/` |
-| `movies.html`, `movie-details.html` | `/movies`, `/movies/[slug]` |
-| `cinemas.html` | `/cinemas?movie=<slug>&date=<yyyy-mm-dd>` |
-| `seat-selection.html` | `/booking/[showId]/seats` |
-| `food.html`, `checkout.html`, `payment.html` | `/booking/food`, `/booking/checkout`, `/booking/payment` |
-| `booking-success.html`, `booking-failure.html` | `/booking/success?id=`, `/booking/failure` |
-| `events.html` / `plays.html` / `sports.html` / `activities.html` (+ `*-details.html`) | `/events`, `/plays`, `/sports`, `/activities` (+ `/[slug]`) |
-| `stream.html`, `offers.html`, `gift-cards.html` | `/stream`, `/offers`, `/gift-cards` |
-| `profile.html`, `bookings.html` | `/account/profile`, `/account/bookings` |
-| `admin/login.html`, `admin/forgot-password.html` | `/admin/login`, `/admin/forgot-password` |
+| Prototype file                                                                         | Next.js route                                                                         |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `index.html`                                                                           | `/`                                                                                   |
+| `movies.html`, `movie-details.html`                                                    | `/movies`, `/movies/[slug]`                                                           |
+| `cinemas.html`                                                                         | `/cinemas?movie=<slug>&date=<yyyy-mm-dd>`                                             |
+| `seat-selection.html`                                                                  | `/booking/[showId]/seats`                                                             |
+| `food.html`, `checkout.html`, `payment.html`                                           | `/booking/food`, `/booking/checkout`, `/booking/payment`                              |
+| `booking-success.html`, `booking-failure.html`                                         | `/booking/success?id=`, `/booking/failure`                                            |
+| `events.html` / `plays.html` / `sports.html` / `activities.html` (+ `*-details.html`)  | `/events`, `/plays`, `/sports`, `/activities` (+ `/[slug]`)                           |
+| `stream.html`, `offers.html`, `gift-cards.html`                                        | `/stream`, `/offers`, `/gift-cards`                                                   |
+| `profile.html`, `bookings.html`                                                        | `/account/profile`, `/account/bookings`                                               |
+| `admin/login.html`, `admin/forgot-password.html`                                       | `/admin/login`, `/admin/forgot-password`                                              |
 | `admin/<resource>.html`, `admin/<resource>-form.html`, `admin/<resource>-details.html` | `/admin/<resource>`, `/admin/<resource>/new` & `/[id]/edit`, `/admin/<resource>/[id]` |
 
 ## 5. Commands
@@ -269,7 +271,7 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 - **Types:** strict mode, `noUncheckedIndexedAccess`; no `any` (use `unknown` + narrowing / Zod parsing). Next 16 `params`, `searchParams`, `cookies()` and `headers()` are async: always `await` them.
 - **Components:** Server Components by default; small client islands. Props typed with explicit interfaces. Use `next/image` (with `images.remotePatterns` in `next.config.ts`) and `next/link`.
 - **Styling:** Tailwind utility classes; extract repeated patterns into components, not `@apply` soup. No inline `style` except dynamic values (e.g. seat grid positions).
-- **Comments:** explain *why*, not *what*. No commented-out code.
+- **Comments:** explain _why_, not _what_. No commented-out code.
 - **Functions:** small and single-purpose; early returns.
 
 ## 9. Testing Guidelines
@@ -293,6 +295,7 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 ## 11. Rules for Claude
 
 **Do**
+
 - Read relevant files before editing; match existing style.
 - When building a page, open the matching prototype file in `showBuzz_HTML/` first and reproduce its layout, content and interactions with real data.
 - Make the smallest change that solves the problem.
@@ -302,6 +305,7 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 - Update docs, types, schemas and tests alongside code changes.
 
 **Don't**
+
 - Don't refactor unrelated code or rename things without being asked.
 - Don't modify: `showBuzz_HTML/` (reference only), `package-lock.json` by hand, `.env*` files, generated `.next/` output.
 - Don't install packages, change config, or alter CI/Vercel settings without confirmation.

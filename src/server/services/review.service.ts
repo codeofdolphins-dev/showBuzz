@@ -14,11 +14,7 @@ export async function listMovieReviews(movieId: string): Promise<MovieReview[]> 
   return [...(submitted.get(movieId) ?? []), ...movie.reviews];
 }
 
-export async function addMovieReview(
-  input: CreateMovieReviewInput,
-  author: string,
-  now: Date,
-): Promise<MovieReview> {
+export async function addMovieReview(input: CreateMovieReviewInput, author: string, now: Date): Promise<MovieReview> {
   const { movieId, rating, text } = createMovieReviewSchema.parse(input);
   const movie = await getMovieById(movieId);
   if (!movie) throw new AppError("NOT_FOUND", "Movie not found.", 404);

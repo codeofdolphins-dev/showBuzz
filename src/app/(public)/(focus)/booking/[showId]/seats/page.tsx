@@ -30,9 +30,9 @@ export default function SeatSelectionPage(props: PageProps<"/booking/[showId]/se
       <Suspense
         fallback={
           <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-10">
-            <div className="skeleton h-12" />
-            <div className="skeleton h-56" />
-            <div className="skeleton h-72" />
+            <div className="h-12 skeleton" />
+            <div className="h-56 skeleton" />
+            <div className="h-72 skeleton" />
           </div>
         }
       >

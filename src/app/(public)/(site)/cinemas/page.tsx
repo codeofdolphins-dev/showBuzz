@@ -30,11 +30,14 @@ async function Showtimes({ searchParams }: Pick<PageProps<"/cinemas">, "searchPa
   const params = await searchParams;
   await connection();
   const now = new Date();
-  const query = querySchema.parse({ movie: first(params.movie), date: first(params.date), cinema: first(params.cinema) });
+  const query = querySchema.parse({
+    movie: first(params.movie),
+    date: first(params.date),
+    cinema: first(params.cinema),
+  });
 
   const movies = await listMovies();
-  const movie =
-    (query.movie && (await getMovieBySlug(query.movie))) || movies.find((m) => m.status === "now-showing");
+  const movie = (query.movie && (await getMovieBySlug(query.movie))) || movies.find((m) => m.status === "now-showing");
   if (!movie) {
     return (
       <EmptyState
@@ -42,7 +45,10 @@ async function Showtimes({ searchParams }: Pick<PageProps<"/cinemas">, "searchPa
         title="No movies are showing right now"
         description="Showtimes appear here as soon as new releases open for booking."
         action={
-          <Link href="/movies" className="gradient-btn tap-active inline-block rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md">
+          <Link
+            href="/movies"
+            className="inline-block tap-active gradient-btn rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md"
+          >
             Browse Upcoming Movies &rarr;
           </Link>
         }
@@ -78,9 +84,13 @@ async function Showtimes({ searchParams }: Pick<PageProps<"/cinemas">, "searchPa
                 <span className="rounded bg-slate-100 px-1.5 text-[9px] font-extrabold text-slate-700 sm:text-[10px]">
                   {movie.certificate}
                 </span>
-                <span className="text-[11px] font-semibold text-slate-500 sm:text-xs">{movie.languages.join(", ")}</span>
+                <span className="text-[11px] font-semibold text-slate-500 sm:text-xs">
+                  {movie.languages.join(", ")}
+                </span>
               </div>
-              <h1 className="mt-0.5 text-base font-black tracking-tight text-slate-900 sm:mt-1 sm:text-2xl">{movie.title}</h1>
+              <h1 className="mt-0.5 text-base font-black tracking-tight text-slate-900 sm:mt-1 sm:text-2xl">
+                {movie.title}
+              </h1>
               <p className="mt-0.5 text-[10px] text-slate-500 sm:text-xs">
                 {movie.genres.join(" • ")} • {formatDuration(movie.durationMinutes)}
               </p>
@@ -107,15 +117,19 @@ async function Showtimes({ searchParams }: Pick<PageProps<"/cinemas">, "searchPa
                   scroll={false}
                   aria-current={active ? "date" : undefined}
                   className={cn(
-                    "tap-active flex min-w-[58px] flex-col items-center justify-center rounded-2xl border px-2.5 py-2 transition-all sm:min-w-[70px] sm:px-3 sm:py-2.5",
+                    "flex min-w-[58px] tap-active flex-col items-center justify-center rounded-2xl border px-2.5 py-2 transition-all sm:min-w-[70px] sm:px-3 sm:py-2.5",
                     active
                       ? "border-rose-500 bg-rose-500 font-black text-white shadow-md shadow-rose-500/20"
                       : "border-slate-200/80 bg-slate-50 text-slate-700 hover:bg-slate-100",
                   )}
                 >
-                  <span className="text-[9px] font-bold tracking-wider uppercase opacity-80 sm:text-[10px]">{day.dayLabel}</span>
+                  <span className="text-[9px] font-bold tracking-wider uppercase opacity-80 sm:text-[10px]">
+                    {day.dayLabel}
+                  </span>
                   <span className="text-sm font-black sm:my-0.5 sm:text-base">{day.dayOfMonth}</span>
-                  <span className="text-[8px] font-bold tracking-wider uppercase opacity-80 sm:text-[9px]">{day.monthLabel}</span>
+                  <span className="text-[8px] font-bold tracking-wider uppercase opacity-80 sm:text-[9px]">
+                    {day.monthLabel}
+                  </span>
                 </Link>
               );
             })}
@@ -128,14 +142,19 @@ async function Showtimes({ searchParams }: Pick<PageProps<"/cinemas">, "searchPa
           showtimes={showtimes}
           cinemaFilter={
             query.cinema
-              ? { slug: query.cinema, allHref: `/cinemas?${new URLSearchParams({ movie: movie.slug, date: selectedDate })}` }
+              ? {
+                  slug: query.cinema,
+                  allHref: `/cinemas?${new URLSearchParams({ movie: movie.slug, date: selectedDate })}`,
+                }
               : undefined
           }
         />
       ) : (
         <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-xs">
           <h3 className="text-base font-bold text-slate-900">Bookings open soon</h3>
-          <p className="mt-1 text-xs text-slate-500">Showtimes for {movie.title} will be announced closer to release.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Showtimes for {movie.title} will be announced closer to release.
+          </p>
         </div>
       )}
     </>
@@ -148,9 +167,9 @@ export default function CinemasPage({ searchParams }: PageProps<"/cinemas">) {
       <Suspense
         fallback={
           <div className="space-y-4">
-            <div className="skeleton h-48" />
-            <div className="skeleton h-40" />
-            <div className="skeleton h-40" />
+            <div className="h-48 skeleton" />
+            <div className="h-40 skeleton" />
+            <div className="h-40 skeleton" />
           </div>
         }
       >

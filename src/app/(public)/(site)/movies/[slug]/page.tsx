@@ -110,9 +110,9 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
               <TrailerButton
                 title={movie.title}
                 url={movie.trailerUrl}
-                className="tap-active absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-black/40 text-white backdrop-blur-xs"
+                className="absolute inset-0 flex tap-active flex-col items-center justify-center gap-1.5 bg-black/40 text-white backdrop-blur-xs"
               >
-                <span className="gradient-btn flex h-10 w-10 items-center justify-center rounded-full shadow-lg sm:h-12 sm:w-12">
+                <span className="flex h-10 w-10 gradient-btn items-center justify-center rounded-full shadow-lg sm:h-12 sm:w-12">
                   <Play className="ml-0.5 h-4 w-4 fill-current sm:h-5 sm:w-5" />
                 </span>
                 <span className="text-[10px] font-bold tracking-wide uppercase sm:text-xs">Play Trailer</span>
@@ -124,7 +124,9 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
                 <span className="rounded-full border border-rose-500/40 bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider text-rose-300 uppercase">
                   {nowShowing ? "Now Showing" : "Upcoming"}
                 </span>
-                <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white">{movie.certificate}</span>
+                <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-bold text-white">
+                  {movie.certificate}
+                </span>
                 <span className="flex items-center gap-1 text-xs font-semibold text-slate-300">
                   <Clock className="h-3 w-3" /> {formatDuration(movie.durationMinutes)}
                 </span>
@@ -183,17 +185,17 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
               <div className="mt-5 hidden items-center gap-3 md:flex">
                 <BookCta
                   movie={movie}
-                  className="gradient-btn tap-active flex items-center gap-2 rounded-2xl px-7 py-3 text-xs font-black text-white shadow-xl shadow-rose-500/30 transition-transform hover:scale-105 sm:text-sm"
+                  className="flex tap-active gradient-btn items-center gap-2 rounded-2xl px-7 py-3 text-xs font-black text-white shadow-xl shadow-rose-500/30 transition-transform hover:scale-105 sm:text-sm"
                 />
                 <WishlistButton
                   id={movie.id}
-                  className="tap-active h-10 w-10 rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  className="h-10 w-10 tap-active rounded-2xl border border-white/20 bg-white/10 text-white hover:bg-white/20"
                   activeClassName="text-rose-500"
                   iconClassName="h-4 w-4"
                 />
                 <ShareButton
                   title={movie.title}
-                  className="tap-active flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
+                  className="flex h-10 w-10 tap-active items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
                 />
               </div>
             </div>
@@ -218,7 +220,13 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
                 {movie.cast.map((c) => (
                   <div key={`${c.name}-${c.role}`} className="group text-center">
                     <div className="mx-auto mb-1.5 h-16 w-16 overflow-hidden rounded-full border-2 border-slate-100 shadow-md transition-transform group-hover:scale-105 sm:h-20 sm:w-20">
-                      <Image src={c.image} alt={c.name} width={160} height={160} className="h-full w-full object-cover" />
+                      <Image
+                        src={c.image}
+                        alt={c.name}
+                        width={160}
+                        height={160}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
                     <h5 className="truncate text-xs font-bold text-slate-900">{c.name}</h5>
                     <p className="truncate text-[10px] text-slate-400">{c.role}</p>
@@ -230,7 +238,10 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
                   <h4 className="mt-5 mb-2 text-sm font-extrabold text-slate-900">Crew</h4>
                   <div className="flex flex-wrap gap-2">
                     {movie.crew.map((c) => (
-                      <span key={`${c.name}-${c.role}`} className="rounded-xl bg-slate-50 px-3 py-1.5 text-[11px] text-slate-600">
+                      <span
+                        key={`${c.name}-${c.role}`}
+                        className="rounded-xl bg-slate-50 px-3 py-1.5 text-[11px] text-slate-600"
+                      >
                         <strong className="text-slate-800">{c.name}</strong> &bull; {c.role}
                       </span>
                     ))}
@@ -252,7 +263,7 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
                   className="tap-active rounded-xl border border-rose-500 px-3 py-1.5 text-xs font-bold text-rose-600"
                 />
               </div>
-              <Suspense fallback={<div className="skeleton h-24" />}>
+              <Suspense fallback={<div className="h-24 skeleton" />}>
                 <Reviews movieId={movie.id} />
               </Suspense>
             </div>
@@ -294,7 +305,7 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
         )}
         <BookCta
           movie={movie}
-          className="gradient-btn tap-active flex items-center gap-1.5 rounded-xl px-6 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/20"
+          className="flex tap-active gradient-btn items-center gap-1.5 rounded-xl px-6 py-2.5 text-xs font-black text-white shadow-lg shadow-rose-500/20"
         />
       </div>
     </main>

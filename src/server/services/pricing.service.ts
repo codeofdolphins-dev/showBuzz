@@ -14,8 +14,7 @@ import { getShowDetails } from "./show.service";
 
 /** All prices are computed here; anything the client shows is display-only. */
 
-const GIFT_CARD_IMAGE =
-  "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80";
+const GIFT_CARD_IMAGE = "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80";
 
 export function percentOf(amountPaise: number, bps: number): number {
   return Math.round((amountPaise * bps) / 10_000);
@@ -182,7 +181,9 @@ export async function quoteOrder(draft: OrderDraft, now: Date, options: QuoteOpt
   const food = priceFood(draft.food);
   const foodPaise = food.reduce((sum, f) => sum + f.totalPaise, 0);
 
-  const convenienceFeePaise = tickets.feesApply ? percentOf(tickets.ticketsPaise, PRICING_DEFAULTS.convenienceFeeBps) : 0;
+  const convenienceFeePaise = tickets.feesApply
+    ? percentOf(tickets.ticketsPaise, PRICING_DEFAULTS.convenienceFeeBps)
+    : 0;
   const gstPaise = percentOf(convenienceFeePaise, PRICING_DEFAULTS.gstBps);
 
   let discountPaise = 0;

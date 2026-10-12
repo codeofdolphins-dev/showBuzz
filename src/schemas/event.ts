@@ -1,12 +1,5 @@
 import { z } from "zod";
-import {
-  idSchema,
-  imageUrlSchema,
-  isoDateTimeSchema,
-  paiseSchema,
-  slugSchema,
-  wallClockTimeSchema,
-} from "./common";
+import { idSchema, imageUrlSchema, isoDateTimeSchema, paiseSchema, slugSchema, wallClockTimeSchema } from "./common";
 
 /** One `events` collection holds every non-movie listing; `kind` decides the public section. */
 export const eventKindSchema = z.enum(["event", "play", "sport", "activity"]);

@@ -44,7 +44,7 @@ export function Modal({
   return createPortal(
     <div
       className={cn(
-        "animate-fade-in fixed inset-0 z-[1000] flex justify-center bg-slate-900/60 p-0 backdrop-blur-sm sm:items-center sm:p-4",
+        "fixed inset-0 z-[1000] flex animate-fade-in justify-center bg-slate-900/60 p-0 backdrop-blur-sm sm:items-center sm:p-4",
         sheetOnMobile ? "items-end" : "items-center p-4",
       )}
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -70,7 +70,7 @@ export function Modal({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="tap-active flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-700"
+              className="flex h-8 w-8 shrink-0 tap-active items-center justify-center rounded-full bg-slate-100 text-slate-400 hover:text-slate-700"
             >
               <X className="h-4 w-4" />
             </button>

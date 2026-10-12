@@ -15,9 +15,24 @@ const STATS = [
 ];
 
 const FEATURES = [
-  { icon: Megaphone, tone: "bg-rose-50 text-rose-600", title: "Targeted Marketing Boost", text: "Reach cinema goers and music fans in your city via push notifications, email blasts and banner spotlighting." },
-  { icon: QrCode, tone: "bg-blue-50 text-blue-600", title: "High-Speed QR Gate Access", text: "Scan tickets at entry gates in under 0.5 seconds using our free Organiser scanner." },
-  { icon: ChartPie, tone: "bg-purple-50 text-purple-600", title: "Real-Time Ticket Analytics", text: "Live dashboards tracking sales velocity, attendee demographics, discount codes, and revenue." },
+  {
+    icon: Megaphone,
+    tone: "bg-rose-50 text-rose-600",
+    title: "Targeted Marketing Boost",
+    text: "Reach cinema goers and music fans in your city via push notifications, email blasts and banner spotlighting.",
+  },
+  {
+    icon: QrCode,
+    tone: "bg-blue-50 text-blue-600",
+    title: "High-Speed QR Gate Access",
+    text: "Scan tickets at entry gates in under 0.5 seconds using our free Organiser scanner.",
+  },
+  {
+    icon: ChartPie,
+    tone: "bg-purple-50 text-purple-600",
+    title: "Real-Time Ticket Analytics",
+    text: "Live dashboards tracking sales velocity, attendee demographics, discount codes, and revenue.",
+  },
 ];
 
 export default function ListYourShowPage() {
@@ -28,7 +43,9 @@ export default function ListYourShowPage() {
           <span className="rounded-full border border-rose-500/40 bg-rose-500/20 px-3 py-1 text-xs font-extrabold tracking-wider text-rose-300 uppercase">
             Partner Platform for Organisers & Creators
           </span>
-          <h1 className="text-3xl leading-tight font-black tracking-tight sm:text-5xl">List Your Show & Sell Out Every Seat</h1>
+          <h1 className="text-3xl leading-tight font-black tracking-tight sm:text-5xl">
+            List Your Show & Sell Out Every Seat
+          </h1>
           <p className="mx-auto max-w-2xl text-xs leading-relaxed text-slate-300 sm:text-sm">
             From independent acoustic gigs to 50,000+ stadium EDM festivals. Tap into India&apos;s fastest-growing
             entertainment community with powerful ticketing tools.
@@ -36,7 +53,7 @@ export default function ListYourShowPage() {
           <div className="pt-4">
             <a
               href="#register"
-              className="gradient-btn inline-flex items-center gap-2 rounded-2xl px-8 py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/30 transition-transform hover:scale-105"
+              className="inline-flex gradient-btn items-center gap-2 rounded-2xl px-8 py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/30 transition-transform hover:scale-105"
             >
               Get Started in 5 Minutes <ArrowDown className="h-3.5 w-3.5" />
             </a>

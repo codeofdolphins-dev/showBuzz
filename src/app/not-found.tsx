@@ -5,7 +5,7 @@ import { BrandLogo } from "@/components/public/layout/BrandLogo";
 export default function NotFound() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
-      <header className="glass-header px-4 py-4 sm:px-6 lg:px-8 xl:px-12">
+      <header className="px-4 py-4 glass-header sm:px-6 lg:px-8 xl:px-12">
         <BrandLogo size="sm" />
       </header>
       <main className="flex w-full flex-1 flex-col items-center justify-center px-4 py-16 text-center sm:px-6">

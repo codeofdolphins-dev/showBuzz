@@ -17,7 +17,7 @@ export default function BookingsPage() {
   return (
     <main className="w-full flex-1 px-3 py-4 sm:px-6 sm:py-8 lg:px-8 xl:px-12">
       <AccountGate>
-        <Suspense fallback={<div className="skeleton h-64" />}>
+        <Suspense fallback={<div className="h-64 skeleton" />}>
           <Bookings />
         </Suspense>
       </AccountGate>

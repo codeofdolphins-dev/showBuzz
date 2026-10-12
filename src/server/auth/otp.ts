@@ -44,7 +44,13 @@ export async function requestOtp(input: OtpRequestInput, now: Date) {
 
   const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
   const requestId = randomUUID();
-  pending.set(requestId, { identifier, name, codeHash: hash(code), expiresAt: now.getTime() + OTP_TTL_MS, attempts: 0 });
+  pending.set(requestId, {
+    identifier,
+    name,
+    codeHash: hash(code),
+    expiresAt: now.getTime() + OTP_TTL_MS,
+    attempts: 0,
+  });
 
   return { requestId, destination: identifier, devCode: code };
 }

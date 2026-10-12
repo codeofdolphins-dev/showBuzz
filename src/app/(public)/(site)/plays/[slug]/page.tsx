@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { ListingDetails } from "@/components/public/event/ListingDetails";
 import { getEventBySlug, listEvents } from "@/server/services/catalog.service";
 
-
 export async function generateStaticParams() {
   return (await listEvents("play")).map((l) => ({ slug: l.slug }));
 }

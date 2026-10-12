@@ -28,7 +28,7 @@ export function Toaster() {
             key={t.id}
             role="status"
             className={cn(
-              "animate-fade-in pointer-events-auto flex items-start gap-3 rounded-2xl border bg-white p-3.5 text-slate-800 shadow-2xl sm:p-4",
+              "pointer-events-auto flex animate-fade-in items-start gap-3 rounded-2xl border bg-white p-3.5 text-slate-800 shadow-2xl sm:p-4",
               tone.className,
             )}
           >

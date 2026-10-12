@@ -44,7 +44,9 @@ export default async function EventDetailsPage({ params }: PageProps<"/events/[s
                 <span className="rounded-full bg-rose-500 px-3 py-1 text-xs font-extrabold tracking-wider text-white uppercase">
                   {event.category}
                 </span>
-                <span className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-white">{event.ageLimit ?? "All Ages"}</span>
+                <span className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-bold text-white">
+                  {event.ageLimit ?? "All Ages"}
+                </span>
                 {event.durationLabel && (
                   <span className="flex items-center gap-1 text-xs font-semibold text-slate-300">
                     <Clock className="h-3 w-3" /> {event.durationLabel}
@@ -61,7 +63,7 @@ export default async function EventDetailsPage({ params }: PageProps<"/events/[s
               <div className="flex items-center gap-3 pt-2">
                 <a
                   href="#ticket-tiers"
-                  className="gradient-btn flex items-center gap-2 rounded-2xl px-8 py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/30 transition-transform hover:scale-105"
+                  className="flex gradient-btn items-center gap-2 rounded-2xl px-8 py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/30 transition-transform hover:scale-105"
                 >
                   <Ticket className="h-4 w-4" /> Select Passes from {tierPriceRange(event).split(" - ")[0]}
                 </a>
@@ -91,7 +93,13 @@ export default async function EventDetailsPage({ params }: PageProps<"/events/[s
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {event.artists.map((a) => (
                     <div key={a.name} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-                      <Image src={a.image} alt={a.name} width={48} height={48} className="h-12 w-12 rounded-full border border-slate-200 object-cover" />
+                      <Image
+                        src={a.image}
+                        alt={a.name}
+                        width={48}
+                        height={48}
+                        className="h-12 w-12 rounded-full border border-slate-200 object-cover"
+                      />
                       <div className="min-w-0">
                         <h5 className="truncate text-xs font-bold text-slate-900">{a.name}</h5>
                         <p className="truncate text-[11px] text-slate-400">{a.role}</p>
@@ -129,7 +137,9 @@ export default async function EventDetailsPage({ params }: PageProps<"/events/[s
 
           <div id="ticket-tiers" className="scroll-mt-24 lg:col-span-1">
             <div className="sticky top-24 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xl sm:p-7">
-              <h3 className="mb-4 border-b border-slate-100 pb-3 text-base font-extrabold text-slate-900">Select Ticket Passes</h3>
+              <h3 className="mb-4 border-b border-slate-100 pb-3 text-base font-extrabold text-slate-900">
+                Select Ticket Passes
+              </h3>
               <TierPicker eventId={event.id} tiers={event.ticketTiers} accent="rose" layout="stack" />
             </div>
           </div>

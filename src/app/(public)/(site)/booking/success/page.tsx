@@ -19,7 +19,11 @@ function calendarUrl(b: BookingView) {
   if (!b.startsAt) return undefined;
   const start = new Date(b.startsAt);
   const end = new Date(start.getTime() + 3 * 60 * 60_000);
-  const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const stamp = (d: Date) =>
+    d
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}/, "");
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: `${b.title} at ${b.venueName}`,
@@ -42,7 +46,10 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
         title="We couldn't find this booking"
         description="The link may be incomplete or the booking has expired. All your confirmed tickets are listed under My Bookings."
         action={
-          <Link href="/account/bookings" className="gradient-btn tap-active inline-block rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md">
+          <Link
+            href="/account/bookings"
+            className="inline-block tap-active gradient-btn rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md"
+          >
             Go to My Bookings &rarr;
           </Link>
         }
@@ -57,7 +64,9 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
       <div className="mb-6 text-center sm:mb-8">
         <span
           className={`mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full shadow-lg sm:h-20 sm:w-20 ${
-            cancelled ? "bg-slate-100 text-slate-500" : "animate-bounce bg-emerald-100 text-emerald-600 shadow-emerald-500/20"
+            cancelled
+              ? "bg-slate-100 text-slate-500"
+              : "animate-bounce bg-emerald-100 text-emerald-600 shadow-emerald-500/20"
           }`}
         >
           <Check className="h-8 w-8" />
@@ -91,7 +100,9 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
             </div>
           </div>
           <div className="text-right">
-            <span className="block text-[9px] font-bold tracking-wider uppercase opacity-80 sm:text-[10px]">Booking ID</span>
+            <span className="block text-[9px] font-bold tracking-wider uppercase opacity-80 sm:text-[10px]">
+              Booking ID
+            </span>
             <span className="font-mono text-sm font-black sm:text-lg">{booking.code}</span>
           </div>
         </div>
@@ -112,12 +123,18 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   {booking.certificate && (
-                    <span className="rounded bg-slate-100 px-1.5 text-[9px] font-extrabold text-slate-700">{booking.certificate}</span>
+                    <span className="rounded bg-slate-100 px-1.5 text-[9px] font-extrabold text-slate-700">
+                      {booking.certificate}
+                    </span>
                   )}
                   {booking.format && (
-                    <span className="rounded bg-rose-50 px-1.5 text-[9px] font-extrabold text-rose-600 uppercase">{booking.format}</span>
+                    <span className="rounded bg-rose-50 px-1.5 text-[9px] font-extrabold text-rose-600 uppercase">
+                      {booking.format}
+                    </span>
                   )}
-                  {booking.language && <span className="text-[11px] font-medium text-slate-500">{booking.language}</span>}
+                  {booking.language && (
+                    <span className="text-[11px] font-medium text-slate-500">{booking.language}</span>
+                  )}
                 </div>
                 <h2 className="text-lg leading-tight font-black text-slate-900 sm:text-2xl">{booking.title}</h2>
                 <p className="flex items-center gap-1 pt-0.5 text-xs font-semibold text-slate-600">
@@ -141,7 +158,9 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
 
           <div className="grid grid-cols-2 gap-3 border-b border-slate-100 py-4 text-xs sm:grid-cols-4 sm:gap-4 sm:py-6">
             <div>
-              <span className="block text-[11px] font-medium text-slate-400">{booking.kind === "movie" ? "Screen" : "Pass"}</span>
+              <span className="block text-[11px] font-medium text-slate-400">
+                {booking.kind === "movie" ? "Screen" : "Pass"}
+              </span>
               <span className="font-bold text-slate-900">{booking.screenName ?? booking.ticketLabel}</span>
             </div>
             <div>
@@ -163,7 +182,9 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
           {booking.food.length > 0 && (
             <div className="border-b border-slate-100 py-3 text-xs">
               <span className="mb-0.5 block text-[11px] font-medium text-slate-400">Pre-Ordered Concessions:</span>
-              <p className="font-bold text-slate-800">{booking.food.map((f) => `${f.quantity}x ${f.name}`).join(", ")}</p>
+              <p className="font-bold text-slate-800">
+                {booking.food.map((f) => `${f.quantity}x ${f.name}`).join(", ")}
+              </p>
             </div>
           )}
         </div>
@@ -177,7 +198,7 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
 export default function BookingSuccessPage({ searchParams }: PageProps<"/booking/success">) {
   return (
     <main className="w-full flex-1 px-4 py-6 sm:px-6 sm:py-10 lg:px-8 xl:px-12">
-      <Suspense fallback={<div className="skeleton mx-auto h-96 max-w-4xl" />}>
+      <Suspense fallback={<div className="mx-auto h-96 max-w-4xl skeleton" />}>
         <Ticketpass searchParams={searchParams} />
       </Suspense>
     </main>

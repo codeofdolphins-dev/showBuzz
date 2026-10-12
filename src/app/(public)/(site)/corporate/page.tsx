@@ -8,9 +8,24 @@ export const metadata: Metadata = {
 };
 
 const SERVICES = [
-  { icon: Film, tone: "bg-blue-50 text-blue-600", title: "Private Screen Buyouts", text: "Book an entire IMAX, 4DX or Insignia auditorium for employee family day or client appreciation night." },
-  { icon: Gift, tone: "bg-purple-50 text-purple-600", title: "Employee Rewards & Vouchers", text: "Custom branded digital vouchers with bulk tier pricing discounts for festivals, Diwali gifts & milestones." },
-  { icon: Crown, tone: "bg-emerald-50 text-emerald-600", title: "VIP Festival Hospitality", text: "Exclusive access to Eden Gardens T20 corporate lounges, gourmet dining, and front-row concert pits." },
+  {
+    icon: Film,
+    tone: "bg-blue-50 text-blue-600",
+    title: "Private Screen Buyouts",
+    text: "Book an entire IMAX, 4DX or Insignia auditorium for employee family day or client appreciation night.",
+  },
+  {
+    icon: Gift,
+    tone: "bg-purple-50 text-purple-600",
+    title: "Employee Rewards & Vouchers",
+    text: "Custom branded digital vouchers with bulk tier pricing discounts for festivals, Diwali gifts & milestones.",
+  },
+  {
+    icon: Crown,
+    tone: "bg-emerald-50 text-emerald-600",
+    title: "VIP Festival Hospitality",
+    text: "Exclusive access to Eden Gardens T20 corporate lounges, gourmet dining, and front-row concert pits.",
+  },
 ];
 
 export default function CorporatePage() {
@@ -21,9 +36,12 @@ export default function CorporatePage() {
           <span className="rounded-full border border-blue-400/30 bg-blue-500/20 px-3.5 py-1 text-xs font-extrabold tracking-wider text-blue-300 uppercase">
             Enterprise & Business Solutions
           </span>
-          <h1 className="text-3xl leading-tight font-black tracking-tight sm:text-5xl">Corporate Entertainment & Bulk Bookings</h1>
+          <h1 className="text-3xl leading-tight font-black tracking-tight sm:text-5xl">
+            Corporate Entertainment & Bulk Bookings
+          </h1>
           <p className="mx-auto max-w-xl text-xs leading-relaxed text-slate-300 sm:text-sm">
-            Reward your teams with private cinema hall screenings, luxury concert box passes, and brandable digital voucher codes.
+            Reward your teams with private cinema hall screenings, luxury concert box passes, and brandable digital
+            voucher codes.
           </p>
         </div>
       </section>
@@ -46,7 +64,9 @@ export default function CorporatePage() {
         <div className="space-y-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-lg sm:p-10">
           <div className="border-b border-slate-100 pb-4 text-center">
             <h3 className="text-xl font-black text-slate-900">Corporate Enquiry Form</h3>
-            <p className="mt-1 text-xs text-slate-500">Get customized quotations and volume discounts for your organization.</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Get customized quotations and volume discounts for your organization.
+            </p>
           </div>
           <CorporateEnquiryForm />
         </div>
