@@ -1,21 +1,35 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { UserRound } from "lucide-react";
+import type { CustomerSnapshot } from "@/schemas/user";
 import { useAuthStore } from "@/stores/auth";
 import { useStoresHydrated } from "@/stores/hydration";
 import { useUiStore } from "@/stores/ui";
 
+interface AccountGateProps {
+  children: ReactNode;
+  /** The customer the server verified for this request (requireCustomerPage). */
+  customer?: CustomerSnapshot;
+}
+
 /**
- * UI-only gate until customer sessions exist. The real boundary will be proxy.ts plus
- * server-side session checks on every account route and action.
+ * Client-side gate for the account pages (removed in batch 1.6, when the auth store is fed from the
+ * server). The real checks are proxy.ts and requireCustomerPage(). When the server has already verified
+ * the customer but this tab's store is empty (e.g. a new tab), the store is filled from that snapshot.
  */
-export function AccountGate({ children }: { children: ReactNode }) {
+export function AccountGate({ children, customer }: AccountGateProps) {
   const hydrated = useStoresHydrated();
   const user = useAuthStore((s) => s.user);
+  const signIn = useAuthStore((s) => s.signIn);
   const openAuthModal = useUiStore((s) => s.openAuthModal);
+  const seeding = hydrated && !user && !!customer;
 
-  if (!hydrated) return <div className="skeleton h-64" />;
+  useEffect(() => {
+    if (seeding && customer) signIn(customer);
+  }, [seeding, customer, signIn]);
+
+  if (!hydrated || seeding) return <div className="skeleton h-64" />;
   if (user) return <>{children}</>;
 
   return (

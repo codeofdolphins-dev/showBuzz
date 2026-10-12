@@ -1,9 +1,0 @@
-allowBuilds:
-  esbuild: set this to true or false
-  mongodb-memory-server: set this to true or false
-  unrs-resolver: set this to true or false
-minimumReleaseAgeExclude:
-  - "@vitest/coverage-v8@5.0.4"
-  - "@vitest/mocker@5.0.4"
-  - "@vitest/spy@5.0.4"
-  - vitest@5.0.4
