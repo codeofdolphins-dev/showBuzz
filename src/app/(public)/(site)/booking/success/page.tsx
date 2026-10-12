@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { CalendarCheck, Check, MapPin, Ticket } from "lucide-react";
+import { CalendarCheck, Check, MapPin, Ticket, TicketX } from "lucide-react";
 import { TicketActions } from "@/components/public/booking/TicketActions";
 import { TicketCode } from "@/components/public/booking/TicketCode";
+import { EmptyState } from "@/components/public/common/EmptyState";
 import { formatINR } from "@/lib/money";
 import { PAYMENT_METHOD_LABELS } from "@/lib/payment";
 import { bookingCodeSchema } from "@/schemas/booking";
@@ -34,7 +35,20 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
   await connection();
   const code = bookingCodeSchema.safeParse(Array.isArray(id) ? id[0] : id);
   const booking = code.success ? await getBooking(code.data, new Date()) : undefined;
-  if (!booking) notFound();
+  if (!booking) {
+    return (
+      <EmptyState
+        icon={TicketX}
+        title="We couldn't find this booking"
+        description="The link may be incomplete or the booking has expired. All your confirmed tickets are listed under My Bookings."
+        action={
+          <Link href="/account/bookings" className="gradient-btn tap-active inline-block rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md">
+            Go to My Bookings &rarr;
+          </Link>
+        }
+      />
+    );
+  }
 
   const cancelled = booking.status === "cancelled";
 
