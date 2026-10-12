@@ -6,16 +6,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, LoaderCircle, Mail, Phone, ShieldCheck, X } from "lucide-react";
 import { requestOtpAction, verifyOtpAction } from "@/app/(public)/_actions/auth";
 import { Modal } from "@/components/ui/Modal";
+import { AUTH } from "@/config/constants";
 import { cn } from "@/lib/cn";
 import { otpRequestSchema, type OtpRequestInput } from "@/schemas/auth";
 import { useAuthStore } from "@/stores/auth";
 import { toast, useUiStore } from "@/stores/ui";
 import { BrandMark, BrandWordmark } from "./BrandLogo";
 
-const CODE_LENGTH = 6;
+const CODE_LENGTH = AUTH.otpLength;
 
 interface PendingRequest {
-  requestId: string;
+  challengeId: string;
   destination: string;
   devCode?: string;
 }
@@ -33,7 +34,8 @@ export function AuthModal() {
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
 
   const form = useForm<OtpRequestInput>({
-    resolver: zodResolver(otpRequestSchema),
+    // raw: validate here, but submit what was typed; the server parses it into { channel, phone | email }.
+    resolver: zodResolver(otpRequestSchema, undefined, { raw: true }),
     defaultValues: { identifier: "", name: undefined },
   });
   const identifier = useWatch({ control: form.control, name: "identifier" }) ?? "";
@@ -47,10 +49,10 @@ export function AuthModal() {
   };
 
   // Move focus to the first OTP box once a code has been sent.
-  const requestId = pending?.requestId;
+  const challengeId = pending?.challengeId;
   useEffect(() => {
-    if (requestId) boxes.current[0]?.focus();
-  }, [requestId]);
+    if (challengeId) boxes.current[0]?.focus();
+  }, [challengeId]);
 
   const sendCode = form.handleSubmit((values) => {
     startTransition(async () => {
@@ -74,7 +76,7 @@ export function AuthModal() {
       return;
     }
     startTransition(async () => {
-      const result = await verifyOtpAction({ requestId: pending.requestId, code });
+      const result = await verifyOtpAction({ challengeId: pending.challengeId, code });
       if (!result.success) {
         setOtpError(result.error.message);
         if (result.error.code === "OTP_EXPIRED" || result.error.code === "RATE_LIMITED") setPending(null);

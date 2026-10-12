@@ -4,11 +4,20 @@ import { toFailure } from "./errors";
 
 /**
  * Server Actions return this envelope instead of throwing, so client islands can show
- * field errors and messages without an error boundary. Uses the same error mapping as apiHandler.
+ * field errors and messages without an error boundary. Uses the same error mapping as apiHandler;
+ * `details` is the AppError's client-safe data (e.g. remainingAttempts, retryAfterSec).
  */
 export type ActionResult<T> =
   | { success: true; data: T }
-  | { success: false; error: { code: string; message: string; fieldErrors?: Record<string, string[]> } };
+  | {
+      success: false;
+      error: {
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+        fieldErrors?: Record<string, string[]>;
+      };
+    };
 
 export async function runAction<T>(fn: () => Promise<T> | T): Promise<ActionResult<T>> {
   try {
@@ -16,7 +25,10 @@ export async function runAction<T>(fn: () => Promise<T> | T): Promise<ActionResu
   } catch (err) {
     const failure = toFailure(err);
     if (failure.unexpected) log.error("Unhandled server action error", { err });
-    const { code, message, fieldErrors } = failure;
-    return { success: false, error: fieldErrors ? { code, message, fieldErrors } : { code, message } };
+    const { code, message, details, fieldErrors } = failure;
+    return {
+      success: false,
+      error: { code, message, ...(details ? { details } : {}), ...(fieldErrors ? { fieldErrors } : {}) },
+    };
   }
 }

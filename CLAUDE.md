@@ -223,7 +223,7 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 - Env vars are parsed with Zod in two files; never read `process.env` anywhere else:
   - `src/config/env.ts` (`import "server-only"`): server variables, validated when first imported, so a missing or malformed variable fails boot and `next build` (the error names the variable, never its value). Exports `env`, `isProduction`, `isDemoMode`. Add a variable here (and to `.env.example`) when the code that needs it lands.
   - `src/config/public-env.ts`: `NEXT_PUBLIC_*` only, safe for client components (`publicEnv.NEXT_PUBLIC_APP_URL`, `publicEnv.appOrigin`). `NEXT_PUBLIC_APP_URL` is required in production and defaults to `http://localhost:3000` otherwise.
-- Validated today: `MONGODB_URI`, `MONGODB_DB`, `NEXT_PUBLIC_APP_URL` (+ Vercel's own `VERCEL_URL` / `VERCEL_BRANCH_URL`, used to accept preview deployment origins). CI's build step passes placeholder values; tests set their own (see §12).
+- Validated today: `MONGODB_URI`, `MONGODB_DB`, `OTP_HASH_SECRET` (≥32 chars), `OTP_PROVIDER` (optional: `none` default | `dev`, not allowed in production), `NEXT_PUBLIC_APP_URL` (+ Vercel's own `VERCEL_URL` / `VERCEL_BRANCH_URL`, used to accept preview deployment origins). `next build` validates them too, so any build environment needs real or placeholder values; tests set their own (see §12).
 - Required variables (full list, also in `.env.example`):
   - `MONGODB_URI`: MongoDB Atlas connection string (replica set; needed for transactions).
   - `MONGODB_DB`: database name (e.g. `showbuzz_dev`, `showbuzz_prod`).
@@ -232,7 +232,8 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
   - `QR_SIGNING_SECRET`: HMAC-SHA256 key for signing ticket QR payloads.
   - `NEXT_PUBLIC_APP_URL`: canonical site URL (used for cookies, links, SEO).
   - `PAYMENT_KEY_ID`, `PAYMENT_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`: payment gateway credentials (gateway TBD: Razorpay or Cashfree).
-  - `OTP_PROVIDER_*`: SMS/email OTP provider credentials (provider TBD).
+  - `OTP_HASH_SECRET`: HMAC key for OTP codes at rest.
+  - `OTP_PROVIDER` + `OTP_PROVIDER_*`: SMS/email OTP delivery (provider TBD; until then `none` logs the code, see §12).
   - `MEDIA_STORAGE_*`: image/media storage credentials (provider TBD).
 - Only variables prefixed `NEXT_PUBLIC_` reach the browser. Never put secrets in them.
 - **Never** commit secrets or print them in logs. Never edit `.env*` files unless asked.
@@ -267,6 +268,11 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
   - `src/proxy.ts` does a fast token check and redirects unauthenticated users (`/admin/**` → `/admin/login`, `/account/**` → sign-in). This is **not** the security boundary: every admin route handler and Server Action re-verifies the token and checks permissions server-side.
   - **RBAC:** roles from the prototype matrix: Super Admin, Cinema Manager, Event Manager, Finance, Support. Permissions are `resource:action` strings (e.g. `movies:write`, `refunds:approve`) checked with `requirePermission()` in `src/server/auth/rbac.ts`. Roles are editable data (`/admin/roles`), not hard-coded checks.
 - **Domain model (MongoDB collections):** `users` (customers), `staff`, `roles`, `cities`, `languages`, `genres`, `movies`, `events` (one collection with `kind: concert | comedy | play | sport | activity | stream ...`), `venues` (cinemas, stadiums, grounds), `screens`, `seatLayouts`, `shows`, `seatHolds`, `bookings`, `payments`, `refunds`, `organisers`, `settlements`, `showSubmissions` (list-your-show), `offers`, `coupons`, `giftCards`, `foodItems`, `banners`, `reviews`, `notifications`, `pages`, `seoMeta`, `mediaAssets`, `activityLogs`, `settings` (single document), `leads` (corporate/contact).
+  - Built so far (models in `src/server/models/`, Zod in `src/schemas/user.ts`):
+    - `users`: customers. `phone` (E.164 `+91XXXXXXXXXX`) and/or `email` (lowercase), each with a unique partial index (only documents that have the field), at least one required unless `status: "deleted"`. `status` active | blocked | deleted. `sessions[]` holds one entry per signed-in device (`sid`, refresh-token hashes, expiry, user agent, IP /24 or /48 prefix only). `toJSON`/`toObject` drop `sessions` and every `*Hash` field; `user.toCustomerSnapshot()` → `{ id, name, email?, phone?, joinedAt }` is the only user shape sent to the browser.
+    - `otpChallenges`: one OTP each (`channel` sms | email, normalised `identifier`, `purpose` sign_in | change_contact, `userId` for contact changes, `pendingName`, `codeHash` (HMAC, never the code), `attempts`/`maxAttempts`, `consumedAt`, `ipPrefix`). TTL on `expiresAt`; index `{ identifier, purpose, createdAt: -1 }`.
+    - `rateLimits`: fixed-window counters (`key` = SHA-256 of the limiter key, `windowStart`, `count`), unique `{ key, windowStart }`, TTL on `expiresAt`.
+  - Identifiers are normalised by `toE164IndianPhone()` / `makeEmailSchema()` in `src/schemas/common.ts` (used by sign-in, profile, checkout contact and lead forms) and parsed by `contactIdentifierSchema` into `{ channel: "sms", phone } | { channel: "email", email }`. Auth limits live in `AUTH` in `src/config/constants.ts`. Store IPs only as `ipPrefix()` from `src/server/http/request.ts`.
 - **Booking & seat-locking rules:**
   - Selecting seats creates documents in `seatHolds` with a unique index on `{ showId, seatId }` and a TTL index on `expiresAt` (hold = `bookingTimeoutMinutes`, default 10). The unique index is what prevents double-booking; never check-then-insert.
   - Confirming payment converts holds into a booking inside a MongoDB transaction. Payment success is trusted only from a verified gateway webhook/signature, never from the client.
@@ -328,7 +334,7 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 - Don't modify: `showBuzz_HTML/` (reference only), `package-lock.json` by hand, `.env*` files, generated `.next/` output.
 - Don't install packages, change config, or alter CI/Vercel settings without confirmation.
 - Don't delete files or run destructive commands (`rm -rf`, `db.dropDatabase()`, `deleteMany({})`, `git reset --hard`) without confirmation.
-- Don't expose secrets or user data; never log tokens, OTPs, passwords or card data.
+- Don't expose secrets or user data; never log tokens, OTPs, passwords or card data. (One agreed, temporary exception: `LogOtpSender` logs sign-in codes while no OTP provider exists; see §12.)
 - Don't port prototype shortcuts to production: demo OTP `1234`, demo admin `admin@showpilot.test / Admin@123`, localStorage as a database, client-side payment "success", card storage in the browser.
 - Don't use `localStorage` for anything security-relevant; it is fine only for UI preferences (e.g. last city).
 
@@ -356,7 +362,8 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 - **Line endings:** `.gitattributes` forces LF (Prettier's default) even with `core.autocrlf=true` on Windows. Formatting is Prettier (`printWidth` 120, Tailwind class sorting incl. `cn()`/`clsx()`); don't hand-format.
 - **Integration tests** get `MONGODB_URI`/`MONGODB_DB` from the in-memory replica set (`tests/integration/setup.ts`), which refuses any non-local URI, so `.env.local` is never used by tests. Test files run one at a time and share one server: clean up what you create.
 - **`AGENTS.md`** is (re)generated by `next dev`; commit it or it keeps reappearing.
-- **Phase 1 stand-ins (public UI on seed data):** catalogue in `src/server/data/seed-catalog.ts`; bookings, reviews, leads and OTP requests are kept in memory by their services. Payment is simulated and OTP codes are shown on screen, both only when `NODE_ENV !== "production"` (`isDemoMode` in `src/config/env.ts`). Account pages use a client-side gate (`AccountGate`) until sessions + `proxy.ts` land.
+- **Phase 1 stand-ins (public UI on seed data):** catalogue in `src/server/data/seed-catalog.ts`; bookings, reviews and leads are kept in memory by their services. Payment is simulated only when `NODE_ENV !== "production"` (`isDemoMode` in `src/config/env.ts`).
+- **OTP sign-in is on MongoDB** (`src/server/auth/otp.ts`: `otpChallenges`, rate limits, atomic attempts and single use, find-or-create user). No SMS/email provider yet: with `OTP_PROVIDER=none` (default) `LogOtpSender` writes each code to the server log (Vercel logs) in every environment, and outside production the code is also returned as `devCode` for on-screen display. This is a temporary, agreed exception to "never log OTPs"; remove it when a provider is added (`src/server/auth/otp-delivery.ts`). The verify action still returns a customer snapshot to the client store until sessions land (batch 1.3). Account pages use a client-side gate (`AccountGate`) until sessions + `proxy.ts` land.
 
 ## 13. Useful References
 

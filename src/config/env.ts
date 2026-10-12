@@ -7,24 +7,39 @@ import { z } from "zod";
  * the only place that reads process.env. Variables from CLAUDE.md §6 that no code uses yet (JWT_*,
  * QR_SIGNING_SECRET, PAYMENT_*, ...) are added here when the code that needs them lands.
  */
-const serverEnvSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  MONGODB_URI: z
-    .string()
-    .regex(/^mongodb(\+srv)?:\/\/\S+$/, "must be a mongodb:// or mongodb+srv:// connection string"),
-  MONGODB_DB: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]{1,63}$/, "must be a database name (letters, digits, _ and -, max 63 characters)"),
-  /** Set by Vercel: the deployment and branch hostnames, accepted as same-origin on preview deployments. */
-  VERCEL_URL: z.string().optional(),
-  VERCEL_BRANCH_URL: z.string().optional(),
-});
+const serverEnvSchema = z
+  .object({
+    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    MONGODB_URI: z
+      .string()
+      .regex(/^mongodb(\+srv)?:\/\/\S+$/, "must be a mongodb:// or mongodb+srv:// connection string"),
+    MONGODB_DB: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,63}$/, "must be a database name (letters, digits, _ and -, max 63 characters)"),
+    /** HMAC key for OTP codes at rest (codes are never stored in plain text). */
+    OTP_HASH_SECRET: z.string().min(32, "must be at least 32 characters"),
+    /**
+     * How sign-in codes reach the customer. No SMS/email provider is chosen yet:
+     * - "none" (default): the code is written to the server log (and shown on screen outside production);
+     * - "dev": shown on screen only, never logged; not allowed in production.
+     */
+    OTP_PROVIDER: z.enum(["none", "dev"]).default("none"),
+    /** Set by Vercel: the deployment and branch hostnames, accepted as same-origin on preview deployments. */
+    VERCEL_URL: z.string().optional(),
+    VERCEL_BRANCH_URL: z.string().optional(),
+  })
+  .refine((e) => !(e.NODE_ENV === "production" && e.OTP_PROVIDER === "dev"), {
+    message: '"dev" is not allowed in production',
+    path: ["OTP_PROVIDER"],
+  });
 
 function parseServerEnv() {
   const result = serverEnvSchema.safeParse({
     NODE_ENV: process.env.NODE_ENV,
     MONGODB_URI: process.env.MONGODB_URI,
     MONGODB_DB: process.env.MONGODB_DB,
+    OTP_HASH_SECRET: process.env.OTP_HASH_SECRET,
+    OTP_PROVIDER: process.env.OTP_PROVIDER,
     VERCEL_URL: process.env.VERCEL_URL,
     VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
   });

@@ -1,11 +1,14 @@
 import { z } from "zod";
-import { indianPhoneSchema, personNameSchema } from "./common";
+import { indianPhoneSchema, personNameSchema, toE164IndianPhone } from "./common";
 
-const optionalPhone = z
-  .string()
-  .trim()
-  .transform((v) => v.replace(/[\s-]/g, ""))
-  .pipe(z.union([z.literal(""), z.string().regex(/^(\+91)?[6-9]\d{9}$/, "Enter a valid mobile number")]));
+/** Empty, or a valid mobile number normalised to E.164. */
+const optionalPhone = z.string().transform((value, ctx) => {
+  if (value.trim() === "") return "";
+  const phone = toE164IndianPhone(value);
+  if (phone) return phone;
+  ctx.addIssue({ code: "custom", message: "Enter a valid mobile number" });
+  return z.NEVER;
+});
 
 export const supportTopics = [
   "Ticket Not Received on WhatsApp/Email",

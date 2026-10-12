@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "@/server/http/app-error";
-import { assertSameOrigin, getClientIp } from "@/server/http/request";
+import { assertSameOrigin, getClientIp, ipPrefix } from "@/server/http/request";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -68,5 +68,22 @@ describe("assertSameOrigin", () => {
     const fresh = await import("@/server/http/request");
 
     expect(() => fresh.assertSameOrigin(request({ origin: "https://showbuzz-abc123.vercel.app" }))).not.toThrow();
+  });
+});
+
+describe("ipPrefix", () => {
+  it.each([
+    ["IPv4 to /24", "203.0.113.77", "203.0.113.0/24"],
+    ["IPv4-mapped IPv6 as IPv4", "::ffff:198.51.100.9", "198.51.100.0/24"],
+    ["full IPv6 to /48", "2001:0db8:abcd:0012:0000:0000:0000:0001", "2001:db8:abcd::/48"],
+    ["compressed IPv6", "2001:db8:abcd:12::1", "2001:db8:abcd::/48"],
+    ["IPv6 with :: inside the prefix", "2001:db8::1", "2001:db8:0::/48"],
+    ["loopback IPv6", "::1", "0:0:0::/48"],
+  ])("reduces %s", (_label, ip, expected) => {
+    expect(ipPrefix(ip)).toBe(expected);
+  });
+
+  it.each(["unknown", "", "999.1.1.1", "not-an-ip"])("returns undefined for %s", (ip) => {
+    expect(ipPrefix(ip)).toBeUndefined();
   });
 });
