@@ -95,6 +95,11 @@ export function FoodSelector({ items }: { items: FoodItem[] }) {
 
       <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3 xl:grid-cols-4">
         <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:col-span-2 xl:col-span-3 xl:grid-cols-4">
+          {visible.length === 0 && (
+            <p className="col-span-full rounded-3xl border border-slate-200/80 bg-white p-8 text-center text-xs text-slate-500 shadow-xs">
+              Nothing matches these filters. Try another category or turn off Veg Only.
+            </p>
+          )}
           {visible.map((food) => {
             const qty = qtyOf(food.id);
             return (
@@ -154,13 +159,16 @@ export function FoodSelector({ items }: { items: FoodItem[] }) {
           <div className="sticky top-24 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
             <h3 className="flex items-center justify-between border-b border-slate-100 pb-3 text-sm font-extrabold text-slate-900 sm:text-base">
               <span>Order Summary</span>
-              <span className="text-xs font-medium text-slate-400">{quote.ticketCount} Tickets</span>
+              <span className="text-xs font-medium text-slate-400">
+                {quote.ticketCount} {quote.ticketCount === 1 ? "Ticket" : "Tickets"}
+              </span>
             </h3>
             <div className="flex items-center gap-3 border-b border-slate-100 py-3">
               <Image src={quote.poster} alt="" width={40} height={56} className="h-14 w-10 rounded-lg object-cover shadow-sm" />
               <div className="min-w-0 flex-1">
                 <h4 className="truncate text-xs font-bold text-slate-900">{quote.title}</h4>
                 <p className="text-[11px] font-semibold text-slate-500">Seats: {quote.seatLabels.join(", ")}</p>
+                <p className="text-[11px] font-bold text-slate-700">Tickets: {formatINR(quote.amounts.ticketsPaise)}</p>
               </div>
             </div>
             <div className="min-h-[60px] space-y-1 py-3">
@@ -191,6 +199,12 @@ export function FoodSelector({ items }: { items: FoodItem[] }) {
             >
               Proceed to Checkout &rarr;
             </button>
+            <Link
+              href="/booking/checkout"
+              className="mt-2 block text-center text-xs font-bold text-slate-400 transition-colors hover:text-slate-600"
+            >
+              Skip Snacks
+            </Link>
           </div>
         </aside>
       </div>
