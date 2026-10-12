@@ -69,7 +69,7 @@
 
 ## Phase 0: Foundation
 
-- [ ] **0.0** UI conversion sign-off: audit converted pages against the prototype, all checks green, commit.
+- [x] **0.0** UI conversion sign-off: audit converted pages against the prototype, all checks green, commit.
 - [ ] **0.1** Tooling & test harness: Prettier, Vitest (unit + integration projects), Testing Library, mongodb-memory-server, `server-only` stub, CI workflow, smoke tests for existing utils.
 - [ ] **0.2** Server core: env split (server/public), `.env.example`, Mongoose connection, `apiHandler` + response envelope, extended `AppError`, redacting logger, request helpers (IP, origin check), rate limiter, health route, baseline security headers.
 
