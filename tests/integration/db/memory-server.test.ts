@@ -1,26 +1,33 @@
-import { MongoClient } from "mongodb";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type mongoose from "mongoose";
+import { connect, disconnect } from "@/server/db/connect";
 
-// mongodb-memory-server ships the driver; batch 0.2 moves this to the app's Mongoose connection.
 describe("in-memory MongoDB", () => {
-  let client: MongoClient;
+  let db: NonNullable<mongoose.Connection["db"]>;
+  let client: ReturnType<mongoose.Connection["getClient"]>;
 
   beforeAll(async () => {
-    client = await MongoClient.connect(process.env.MONGODB_URI ?? "");
+    const { connection } = await connect();
+    if (!connection.db) throw new Error("No database handle");
+    db = connection.db;
+    client = connection.getClient();
   });
 
   afterAll(async () => {
-    await client?.close();
+    await disconnect();
   });
 
   it("answers a ping as a replica set", async () => {
-    const admin = client.db().admin();
+    const admin = db.admin();
     expect(await admin.ping()).toMatchObject({ ok: 1 });
     expect((await admin.command({ hello: 1 })).setName).toBeTruthy();
   });
 
+  it("uses the test database, never the one from .env files", () => {
+    expect(db.databaseName).toBe("showbuzz_test");
+  });
+
   it("commits a transaction", async () => {
-    const db = client.db(process.env.MONGODB_DB);
     const items = db.collection<{ name: string }>("smoke");
     const session = client.startSession();
     try {

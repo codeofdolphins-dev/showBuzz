@@ -15,6 +15,12 @@ export default defineConfig({
     ],
   },
   test: {
+    // Placeholders so modules that read env.ts load in unit tests. ".invalid" never resolves, so an
+    // accidental connect() fails fast; integration tests override these with the in-memory server.
+    env: {
+      MONGODB_URI: "mongodb://unit-tests.invalid:27017",
+      MONGODB_DB: "showbuzz_unit",
+    },
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
@@ -27,6 +33,7 @@ export default defineConfig({
           name: "unit",
           include: ["tests/unit/**/*.test.ts"],
           environment: "node",
+          setupFiles: ["tests/setup/next-request.ts"],
         },
       },
       {
@@ -45,7 +52,7 @@ export default defineConfig({
           include: ["tests/integration/**/*.test.ts"],
           environment: "node",
           globalSetup: ["tests/integration/global-setup.ts"],
-          setupFiles: ["tests/integration/setup.ts"],
+          setupFiles: ["tests/integration/setup.ts", "tests/setup/next-request.ts"],
           // One shared replica set: run files one at a time so tests can't trip over each other's data.
           fileParallelism: false,
           testTimeout: 20_000,

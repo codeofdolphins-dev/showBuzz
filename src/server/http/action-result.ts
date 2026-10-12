@@ -1,10 +1,10 @@
 import "server-only";
-import { ZodError, z } from "zod";
-import { AppError } from "./app-error";
+import { log } from "@/server/log";
+import { toFailure } from "./errors";
 
 /**
  * Server Actions return this envelope instead of throwing, so client islands can show
- * field errors and messages without an error boundary. Mirrors the REST response envelope.
+ * field errors and messages without an error boundary. Uses the same error mapping as apiHandler.
  */
 export type ActionResult<T> =
   | { success: true; data: T }
@@ -14,22 +14,9 @@ export async function runAction<T>(fn: () => Promise<T> | T): Promise<ActionResu
   try {
     return { success: true, data: await fn() };
   } catch (err) {
-    if (err instanceof ZodError) {
-      const flat = z.flattenError(err);
-      const fieldErrors = flat.fieldErrors as Record<string, string[]>;
-      return {
-        success: false,
-        error: {
-          code: "VALIDATION_FAILED",
-          message: flat.formErrors[0] ?? Object.values(fieldErrors).flat()[0] ?? "Invalid input",
-          fieldErrors,
-        },
-      };
-    }
-    if (err instanceof AppError) {
-      return { success: false, error: { code: err.code, message: err.message } };
-    }
-    console.error("Unhandled server action error", err);
-    return { success: false, error: { code: "INTERNAL", message: "Something went wrong. Please try again." } };
+    const failure = toFailure(err);
+    if (failure.unexpected) log.error("Unhandled server action error", { err });
+    const { code, message, fieldErrors } = failure;
+    return { success: false, error: fieldErrors ? { code, message, fieldErrors } : { code, message } };
   }
 }

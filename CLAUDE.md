@@ -126,7 +126,9 @@ showBuzz/
 │   │   ├── models/                   # Mongoose models, one per file (Movie.ts, Show.ts, Booking.ts ...)
 │   │   ├── services/                 # Business logic (booking.service.ts, pricing.service.ts, seat-hold.service.ts)
 │   │   ├── auth/                     # jwt.ts, session.ts, password.ts, rbac.ts
-│   │   └── http/                     # apiHandler wrapper, AppError, response helpers
+│   │   ├── http/                     # apiHandler wrapper, AppError, response helpers, request helpers
+│   │   ├── security/                 # rate-limit.ts (and later: CSRF/abuse helpers)
+│   │   └── log.ts                    # Structured JSON logger with redaction
 │   ├── stores/                       # Zustand stores (city, booking-cart, auth, ui)
 │   ├── hooks/                        # Client hooks
 │   ├── lib/                          # Framework-agnostic utils (money.ts, dates.ts, slug.ts, cn.ts)
@@ -208,6 +210,7 @@ npm run test:e2e             # playwright test (not set up yet)
 # Database
 npm run db:seed              # tsx scripts/seed.ts   (ports prototype data into MongoDB)
 npm run db:create-admin      # tsx scripts/create-admin.ts
+npm run db:sync-indexes      # build/drop indexes to match the models (run before deploying index changes)
 ```
 
 There are no migrations (MongoDB). Schema changes are handled in Mongoose models; data backfills go in `scripts/` as one-off, idempotent scripts.
@@ -217,8 +220,11 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 ## 6. Environment & Configuration
 
 - Copy `.env.example` to `.env.local` for local development. On Vercel, set the same variables per environment (Development / Preview / Production).
-- All env vars are parsed by `src/config/env.ts` (Zod). Import `env` from there; never read `process.env` directly elsewhere.
-- Required variables:
+- Env vars are parsed with Zod in two files; never read `process.env` anywhere else:
+  - `src/config/env.ts` (`import "server-only"`): server variables, validated when first imported, so a missing or malformed variable fails boot and `next build` (the error names the variable, never its value). Exports `env`, `isProduction`, `isDemoMode`. Add a variable here (and to `.env.example`) when the code that needs it lands.
+  - `src/config/public-env.ts`: `NEXT_PUBLIC_*` only, safe for client components (`publicEnv.NEXT_PUBLIC_APP_URL`, `publicEnv.appOrigin`). `NEXT_PUBLIC_APP_URL` is required in production and defaults to `http://localhost:3000` otherwise.
+- Validated today: `MONGODB_URI`, `MONGODB_DB`, `NEXT_PUBLIC_APP_URL` (+ Vercel's own `VERCEL_URL` / `VERCEL_BRANCH_URL`, used to accept preview deployment origins). CI's build step passes placeholder values; tests set their own (see §12).
+- Required variables (full list, also in `.env.example`):
   - `MONGODB_URI`: MongoDB Atlas connection string (replica set; needed for transactions).
   - `MONGODB_DB`: database name (e.g. `showbuzz_dev`, `showbuzz_prod`).
   - `JWT_ACCESS_SECRET`: ≥32-byte secret for access tokens.
@@ -230,6 +236,18 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
   - `MEDIA_STORAGE_*`: image/media storage credentials (provider TBD).
 - Only variables prefixed `NEXT_PUBLIC_` reach the browser. Never put secrets in them.
 - **Never** commit secrets or print them in logs. Never edit `.env*` files unless asked.
+
+### Server core (where things live)
+
+- `src/server/db/connect.ts`: `connect()` returns the shared Mongoose connection (cached on `globalThis._mongoose`; `bufferCommands` off, `serverSelectionTimeoutMS` 5 s, `maxPoolSize` 10, `autoIndex` only outside production), plus `disconnect()` and `pingDatabase()`.
+- `src/server/models/`: one model per file using `models.X ?? model("X", schema, "collectionName")`; register every model in `models/index.ts` so `npm run db:sync-indexes` builds its indexes (production runs with `autoIndex` off: run it before deploying index changes).
+- `src/server/http/api-handler.ts`: wrap every route handler in `apiHandler({ body?, query?, params?, cacheControl? }, handler)`. It parses inputs with Zod, maps errors to the envelope (`errors.ts`: ZodError → 422 with `details.fieldErrors`, `AppError` → its status, anything else → 500 with a generic message, logged), sets `x-request-id`, sets `Cache-Control: no-store` unless `cacheControl` is given, and calls `connection()` first so the handler never runs during `next build` prerendering. Build responses with `ok()` / `fail()` from `responses.ts`.
+- `src/server/http/action-result.ts`: `runAction()` for Server Actions, same codes and messages via `toFailure()`.
+- `src/server/http/request.ts`: `getClientIp(headers)` and `assertSameOrigin(request)`; call the latter first in every state-changing route handler (Server Actions have Next's own origin check).
+- `src/server/log.ts`: `log.info/warn/error/debug(msg, fields)` writes JSON lines with secrets redacted and emails/phones masked. Use it instead of `console.*` on the server.
+- `src/server/security/rate-limit.ts`: `consumeRateLimit(key, { limit, windowSec })` → `{ allowed, remaining, retryAfterSec }`. Fixed window in the `rateLimits` collection (hashed keys, TTL). When denying, throw `AppError("RATE_LIMITED", msg, 429, { retryAfterSec })`; `apiHandler` adds `Retry-After`.
+- `GET /api/v1/health` → `{ status, db }`, 503 when the database is down.
+- Security headers (nosniff, Referrer-Policy, X-Frame-Options DENY, Permissions-Policy, HSTS outside dev) are set in `next.config.ts`; CSP is batch 8.2. Keep `geolocation=(self)` (city picker) and don't restrict autoplay/fullscreen (YouTube trailers).
 
 ## 7. Architecture Notes
 
@@ -333,7 +351,8 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 - **Installed vs target versions:** the repo currently has TypeScript 5.x and ESLint 9 (§2 lists the targets); `@types/node` is on 24 (Vitest 5 requires ≥22). Vitest 5 runs on Vite 8, so `vite` and `@testing-library/dom` are explicit dev dependencies. Tailwind runs through the `@tailwindcss/turbopack` loader in `next.config.ts`, not `@tailwindcss/postcss`.
 - **Cache Components is on** (`cacheComponents` + `partialPrefetching`). Anything reading `searchParams`, `cookies()`, `headers()` or the current time must sit inside `<Suspense>` (call `connection()` before `new Date()`). Client libraries that read the clock while rendering (e.g. Swiper) must mount after hydration (`useMounted`). `next build` enforces this.
 - **Route types:** `PageProps<"/route">` types come from `next typegen`; `npm run typecheck` runs it first.
-- **`server-only`** is resolved by Next's internal alias (no npm package installed). Vitest aliases it to `tests/stubs/server-only.ts`; plain Node scripts (`tsx`) need the same alias.
+- **`server-only`** is resolved by Next's internal alias (no npm package installed). Vitest aliases it to `tests/stubs/server-only.ts`; scripts run through `tsx --tsconfig tsconfig.scripts.json`, which maps it to the same stub.
+- **`connection()` outside Next** throws ("called outside a request scope"). Tests that call route handlers directly get a no-op stub from `tests/setup/next-request.ts` (unit and integration projects).
 - **Line endings:** `.gitattributes` forces LF (Prettier's default) even with `core.autocrlf=true` on Windows. Formatting is Prettier (`printWidth` 120, Tailwind class sorting incl. `cn()`/`clsx()`); don't hand-format.
 - **Integration tests** get `MONGODB_URI`/`MONGODB_DB` from the in-memory replica set (`tests/integration/setup.ts`), which refuses any non-local URI, so `.env.local` is never used by tests. Test files run one at a time and share one server: clean up what you create.
 - **`AGENTS.md`** is (re)generated by `next dev`; commit it or it keeps reappearing.

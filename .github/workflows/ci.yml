@@ -37,3 +37,8 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+        env:
+          # Placeholders only: env.ts validates at build time, but nothing connects to the database.
+          MONGODB_URI: mongodb://127.0.0.1:27017
+          MONGODB_DB: showbuzz_ci
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
