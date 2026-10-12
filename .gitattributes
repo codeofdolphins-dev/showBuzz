@@ -1,0 +1,7 @@
+# LF everywhere, regardless of core.autocrlf, so Prettier and CI agree on line endings.
+* text=auto eol=lf
+*.ico binary
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff2 binary
