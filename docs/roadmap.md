@@ -75,7 +75,7 @@
 
 ## Phase 1: Public authentication (customer OTP)
 
-- [ ] **1.1** Customer data layer: `User` + `OtpChallenge` models, identifier normalisation (E.164 / lowercase email), schemas, indexes.
+- [x] **1.1** Customer data layer: `User` + `OtpChallenge` models, identifier normalisation (E.164 / lowercase email), schemas, indexes.
 - [ ] **1.2** OTP service on MongoDB: delivery provider interface, request/verify, cooldowns, attempts, rate limits, masked destinations.
 - [ ] **1.3** Tokens & sessions: jose helpers, session service (create, rotate with reuse detection, revoke), cookie helpers.
 - [ ] **1.4** Auth API + Server Actions: OTP request/verify, refresh (POST + GET bounce), logout, me. OpenAPI doc.

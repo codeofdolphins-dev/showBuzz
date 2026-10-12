@@ -6,13 +6,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight, LoaderCircle, Mail, Phone, ShieldCheck, X } from "lucide-react";
 import { requestOtpAction, verifyOtpAction } from "@/app/(public)/_actions/auth";
 import { Modal } from "@/components/ui/Modal";
+import { AUTH } from "@/config/constants";
 import { cn } from "@/lib/cn";
 import { otpRequestSchema, type OtpRequestInput } from "@/schemas/auth";
 import { useAuthStore } from "@/stores/auth";
 import { toast, useUiStore } from "@/stores/ui";
 import { BrandMark, BrandWordmark } from "./BrandLogo";
 
-const CODE_LENGTH = 6;
+const CODE_LENGTH = AUTH.otpLength;
 
 interface PendingRequest {
   requestId: string;
@@ -33,7 +34,8 @@ export function AuthModal() {
   const boxes = useRef<(HTMLInputElement | null)[]>([]);
 
   const form = useForm<OtpRequestInput>({
-    resolver: zodResolver(otpRequestSchema),
+    // raw: validate here, but submit what was typed; the server parses it into { channel, phone | email }.
+    resolver: zodResolver(otpRequestSchema, undefined, { raw: true }),
     defaultValues: { identifier: "", name: undefined },
   });
   const identifier = useWatch({ control: form.control, name: "identifier" }) ?? "";

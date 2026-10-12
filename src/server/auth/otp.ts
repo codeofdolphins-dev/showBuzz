@@ -1,7 +1,15 @@
 import "server-only";
 import { createHash, randomInt, randomUUID, timingSafeEqual } from "node:crypto";
+import { AUTH, DEFAULT_CUSTOMER_NAME } from "@/config/constants";
 import { isDemoMode } from "@/config/env";
-import { otpRequestSchema, otpVerifySchema, type OtpRequestInput, type OtpVerifyInput } from "@/schemas/auth";
+import {
+  otpRequestSchema,
+  otpVerifySchema,
+  type ContactIdentifier,
+  type OtpRequestInput,
+  type OtpVerifyInput,
+} from "@/schemas/auth";
+import type { CustomerSnapshot } from "@/schemas/user";
 import { AppError } from "@/server/http/app-error";
 
 /**
@@ -11,11 +19,8 @@ import { AppError } from "@/server/http/app-error";
  * There is no fixed demo code. Session cookies (jose JWTs) arrive with the backend phase.
  */
 
-const OTP_TTL_MS = 5 * 60_000;
-const MAX_ATTEMPTS = 5;
-
 interface PendingOtp {
-  identifier: string;
+  contact: ContactIdentifier;
   name?: string;
   codeHash: Buffer;
   expiresAt: number;
@@ -27,13 +32,6 @@ const pending = (globalStore.__showbuzzOtps ??= new Map<string, PendingOtp>());
 
 const hash = (code: string) => createHash("sha256").update(code).digest();
 
-export interface CustomerSnapshot {
-  name: string;
-  email?: string;
-  phone?: string;
-  joinedAt: string;
-}
-
 export async function requestOtp(input: OtpRequestInput, now: Date) {
   if (!isDemoMode) {
     throw new AppError("NOT_CONFIGURED", "Sign-in is not available yet. Please try again later.", 503);
@@ -42,17 +40,20 @@ export async function requestOtp(input: OtpRequestInput, now: Date) {
 
   for (const [id, otp] of pending) if (otp.expiresAt < now.getTime()) pending.delete(id);
 
-  const code = randomInt(0, 1_000_000).toString().padStart(6, "0");
+  const code = randomInt(0, 10 ** AUTH.otpLength)
+    .toString()
+    .padStart(AUTH.otpLength, "0");
   const requestId = randomUUID();
   pending.set(requestId, {
-    identifier,
+    contact: identifier,
     name,
     codeHash: hash(code),
-    expiresAt: now.getTime() + OTP_TTL_MS,
+    expiresAt: now.getTime() + AUTH.otpTtlSec * 1000,
     attempts: 0,
   });
 
-  return { requestId, destination: identifier, devCode: code };
+  const destination = identifier.channel === "sms" ? identifier.phone : identifier.email;
+  return { requestId, destination, devCode: code };
 }
 
 export async function verifyOtp(input: OtpVerifyInput, now: Date): Promise<CustomerSnapshot> {
@@ -64,7 +65,7 @@ export async function verifyOtp(input: OtpVerifyInput, now: Date): Promise<Custo
   }
 
   otp.attempts += 1;
-  if (otp.attempts > MAX_ATTEMPTS) {
+  if (otp.attempts > AUTH.otpMaxAttempts) {
     pending.delete(requestId);
     throw new AppError("RATE_LIMITED", "Too many attempts. Please request a new code.", 429);
   }
@@ -73,11 +74,12 @@ export async function verifyOtp(input: OtpVerifyInput, now: Date): Promise<Custo
   }
 
   pending.delete(requestId);
-  const isEmail = otp.identifier.includes("@");
+  const { contact } = otp;
   return {
-    name: otp.name ?? "ShowBuzz Member",
-    email: isEmail ? otp.identifier : undefined,
-    phone: isEmail ? undefined : otp.identifier,
+    // Placeholder until batch 1.2 stores customers: the real id comes from the users collection.
+    id: randomUUID(),
+    name: otp.name ?? DEFAULT_CUSTOMER_NAME,
+    ...(contact.channel === "email" ? { email: contact.email } : { phone: contact.phone }),
     joinedAt: now.toISOString(),
   };
 }

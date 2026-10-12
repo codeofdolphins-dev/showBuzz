@@ -25,6 +25,25 @@ export const CANCELLATION_CUTOFF_MINUTES = 20;
 
 export const SEAT_HOLD_MINUTES = 10;
 
+/** Customer sign-in (docs/roadmap.md "Decisions already taken"). */
+export const AUTH = {
+  otpLength: 6,
+  // Short enough that a code read over someone's shoulder is soon useless, long enough for slow SMS.
+  otpTtlSec: 5 * 60,
+  // With 6 digits, 5 guesses per code give a 1-in-200,000 chance; rate limits cap how many codes.
+  otpMaxAttempts: 5,
+  // Stops "resend" from being used to flood a phone or inbox; matches the UI's resend timer.
+  otpResendCooldownSec: 30,
+  // Access tokens can't be revoked, so they stay short; refresh tokens are revocable per session.
+  accessTokenTtlSec: 15 * 60,
+  refreshTokenTtlSec: 7 * 24 * 60 * 60,
+  // One entry per signed-in device; the oldest session is evicted beyond this.
+  maxSessionsPerUser: 10,
+} as const;
+
+/** Display name for accounts created from the sign-in tab, where no name is asked for. */
+export const DEFAULT_CUSTOMER_NAME = "ShowBuzz Member";
+
 export const GIFT_CARD_LIMITS = { minPaise: 25_000, maxPaise: 1_000_000 } as const;
 export const GIFT_CARD_PRESETS_PAISE = [50_000, 100_000, 200_000, 500_000] as const;
 
