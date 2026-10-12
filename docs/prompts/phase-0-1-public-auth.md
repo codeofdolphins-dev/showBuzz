@@ -9,8 +9,7 @@ so review the plan, answer its questions, then say "go".
 **Before 1.2 / 1.3:** add `OTP_HASH_SECRET`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` to `.env.local`
 (generate each with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`).
 
-Suggested branches: `chore/foundation-tooling` (0.1), `chore/foundation-server-core` (0.2),
-`feature/auth-customer-otp` (1.1–1.9, one commit or PR per batch).
+All work happens directly on `main` (no batch branches); one commit per batch.
 
 ---
 

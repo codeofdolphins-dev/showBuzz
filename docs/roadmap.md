@@ -40,7 +40,7 @@
 - [ ] New/changed behaviour covered by tests, including the failure paths.
 - [ ] No `any`, no commented-out code, no stray `console.log`.
 - [ ] Docs updated (see rule 9).
-- [ ] Conventional Commit(s) on the batch branch, e.g. `feat(auth): ...`. Never commit to `main`, never push unless asked.
+- [ ] Conventional Commit(s) on `main` (no batch branches), e.g. `feat(auth): ...`. Never push unless asked.
 - [ ] Final report: what changed, how it was verified (commands + results), decisions made, follow-ups.
 
 ## Decisions already taken (don't re-litigate)

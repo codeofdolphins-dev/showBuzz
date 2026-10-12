@@ -310,11 +310,10 @@ Always run **lint, typecheck, and tests** before declaring a task complete.
 
 ## 10. Git & Workflow
 
-- **Branches:** `feature/<scope>-<short-desc>`, `fix/...`, `chore/...`.
+- **Branches:** work directly on `main` (decided 2026-10-12, build phase). Don't create feature/fix/chore branches, even if a batch prompt suggests one.
 - **Commits:** Conventional Commits, e.g. `feat(booking): add seat hold TTL`, `fix(admin): correct settlement commission`.
-- Every PR gets a Vercel preview deployment; `main` deploys to production.
+- `main` deploys to production on Vercel, so every commit there must pass lint, typecheck, tests and build first.
 - Make small, focused commits. Do not push or force-push unless asked.
-- Never commit directly to `main`.
 
 ## 11. Rules for Claude
 
