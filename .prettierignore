@@ -1,0 +1,10 @@
+.next
+node_modules
+package-lock.json
+showBuzz_HTML
+coverage
+public
+# Generated files
+AGENTS.md
+next-env.d.ts
+*.tsbuildinfo
