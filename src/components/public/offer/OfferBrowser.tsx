@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Clock, Copy, Crown, CreditCard, Popcorn, Smartphone, Tags, type LucideIcon } from "lucide-react";
+import { EmptyState } from "@/components/public/common/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/cn";
 import { formatDateShort } from "@/lib/dates";
@@ -53,6 +54,10 @@ export function OfferBrowser({ offers }: { offers: Coupon[] }) {
           </button>
         ))}
       </div>
+
+      {visible.length === 0 && (
+        <EmptyState icon={Tags} title="No offers here right now" description="New deals drop every week. Check the other categories meanwhile." />
+      )}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {visible.map((o) => {

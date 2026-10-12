@@ -3,8 +3,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { Clapperboard } from "lucide-react";
 import { z } from "zod";
 import { ShowtimeBrowser } from "@/components/public/cinema/ShowtimeBrowser";
+import { EmptyState } from "@/components/public/common/EmptyState";
 import { cn } from "@/lib/cn";
 import { formatDuration, istDateKey, isDateKey, upcomingDays } from "@/lib/dates";
 import { slugSchema } from "@/schemas/common";
@@ -33,7 +35,20 @@ async function Showtimes({ searchParams }: Pick<PageProps<"/cinemas">, "searchPa
   const movies = await listMovies();
   const movie =
     (query.movie && (await getMovieBySlug(query.movie))) || movies.find((m) => m.status === "now-showing");
-  if (!movie) return null;
+  if (!movie) {
+    return (
+      <EmptyState
+        icon={Clapperboard}
+        title="No movies are showing right now"
+        description="Showtimes appear here as soon as new releases open for booking."
+        action={
+          <Link href="/movies" className="gradient-btn tap-active inline-block rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md">
+            Browse Upcoming Movies &rarr;
+          </Link>
+        }
+      />
+    );
+  }
 
   const dateKeys = bookableDateKeys(now);
   const selectedDate = query.date && dateKeys.includes(query.date) ? query.date : istDateKey(now);
@@ -109,7 +124,14 @@ async function Showtimes({ searchParams }: Pick<PageProps<"/cinemas">, "searchPa
       </div>
 
       {movie.status === "now-showing" ? (
-        <ShowtimeBrowser showtimes={showtimes} cinemaSlug={query.cinema} />
+        <ShowtimeBrowser
+          showtimes={showtimes}
+          cinemaFilter={
+            query.cinema
+              ? { slug: query.cinema, allHref: `/cinemas?${new URLSearchParams({ movie: movie.slug, date: selectedDate })}` }
+              : undefined
+          }
+        />
       ) : (
         <div className="rounded-3xl border border-slate-200/80 bg-white p-8 text-center shadow-xs">
           <h3 className="text-base font-bold text-slate-900">Bookings open soon</h3>

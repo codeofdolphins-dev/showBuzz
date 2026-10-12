@@ -39,11 +39,12 @@ const AVAILABILITY_STYLES: Record<Show["availability"], string> = {
 
 interface ShowtimeBrowserProps {
   showtimes: CinemaShowtimes[];
-  /** When set, only this cinema is listed (e.g. linked from "Popular Cinemas"). */
-  cinemaSlug?: string;
+  /** When set, only this cinema is listed (e.g. linked from "Popular Cinemas"); `allHref` lifts the filter. */
+  cinemaFilter?: { slug: string; allHref: string };
 }
 
-export function ShowtimeBrowser({ showtimes, cinemaSlug }: ShowtimeBrowserProps) {
+export function ShowtimeBrowser({ showtimes, cinemaFilter }: ShowtimeBrowserProps) {
+  const cinemaSlug = cinemaFilter?.slug;
   const cityId = useCityStore((s) => s.city.id);
   const cityName = useCityStore((s) => s.city.name);
   const [format, setFormat] = useState("all");
@@ -75,8 +76,20 @@ export function ShowtimeBrowser({ showtimes, cinemaSlug }: ShowtimeBrowserProps)
   const selectClass =
     "rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:border-rose-500 focus:outline-none";
 
+  const viewAllLink = cinemaFilter && (
+    <Link
+      href={cinemaFilter.allHref}
+      replace
+      scroll={false}
+      className="tap-active inline-block rounded-xl bg-blue-50 px-3.5 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-100"
+    >
+      View all cinemas in {cityName} &rarr;
+    </Link>
+  );
+
   return (
     <>
+      {cinemaFilter && listed.length > 0 && <div className="mb-3 flex justify-end">{viewAllLink}</div>}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-xs sm:p-4">
         <div className="flex flex-wrap items-center gap-2">
           <select value={format} onChange={(e) => setFormat(e.target.value)} aria-label="Format" className={selectClass}>
@@ -129,6 +142,7 @@ export function ShowtimeBrowser({ showtimes, cinemaSlug }: ShowtimeBrowserProps)
           icon={Building}
           title={cinemaSlug ? "This cinema isn't showing this movie" : `No cinemas found in ${cityName}`}
           description="Try another date, clear your search, or switch city from the location picker."
+          action={viewAllLink}
         />
       ) : (
         <div className="space-y-4 sm:space-y-6">

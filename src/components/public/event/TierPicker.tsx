@@ -28,15 +28,18 @@ interface TierPickerProps {
 export function TierPicker({ eventId, tiers, accent, layout, seatMapShowId }: TierPickerProps) {
   const router = useRouter();
   const startTickets = useBookingCart((s) => s.startTickets);
-  const [tierIndex, setTierIndex] = useState(0);
+  // Start on the first tier that can still be booked; if every tier is gone, the first one shows as sold out.
+  const [tierIndex, setTierIndex] = useState(() => Math.max(0, tiers.findIndex((t) => t.available > 0)));
   const [qty, setQty] = useState(1);
   const a = ACCENTS[accent];
   const tier = tiers[tierIndex] ?? tiers[0];
   if (!tier) return null;
 
+  const soldOut = tier.available === 0;
   const maxQty = Math.min(MAX_TICKETS_PER_ORDER, tier.available);
 
   const proceed = () => {
+    if (soldOut) return;
     if (seatMapShowId) {
       router.push(`/booking/${seatMapShowId}/seats?stand=${tierIndex}`);
       return;
@@ -67,7 +70,11 @@ export function TierPicker({ eventId, tiers, accent, layout, seatMapShowId }: Ti
               <div>
                 <h4 className="text-xs font-black text-slate-900 sm:text-sm">{t.name}</h4>
                 <p className="mt-0.5 text-[11px] text-slate-500">{t.description}</p>
-                {t.available <= 20 && <p className="mt-1 text-[10px] font-bold text-amber-600">Only {t.available} left</p>}
+                {t.available === 0 ? (
+                  <p className="mt-1 text-[10px] font-bold text-rose-600">Sold out</p>
+                ) : (
+                  t.available <= 20 && <p className="mt-1 text-[10px] font-bold text-amber-600">Only {t.available} left</p>
+                )}
               </div>
               <span className={cn("font-black", layout === "grid" ? cn("mt-2 block text-lg", a.price) : "text-sm text-slate-900")}>
                 {formatINR(t.pricePaise)}
@@ -77,7 +84,7 @@ export function TierPicker({ eventId, tiers, accent, layout, seatMapShowId }: Ti
         ))}
       </div>
 
-      {!seatMapShowId && (
+      {!seatMapShowId && !soldOut && (
         <div className="flex items-center justify-between border-t border-slate-100 pt-3">
           <span className="text-xs font-bold text-slate-700">Quantity of Passes:</span>
           <div className="flex items-center gap-3 rounded-xl bg-slate-100 p-1">
@@ -114,12 +121,15 @@ export function TierPicker({ eventId, tiers, accent, layout, seatMapShowId }: Ti
         <button
           type="button"
           onClick={proceed}
+          disabled={soldOut}
           className={cn(
-            "tap-active flex w-full items-center justify-center gap-2 rounded-2xl px-8 py-3.5 text-xs font-black text-white shadow-lg sm:w-auto",
+            "tap-active flex w-full items-center justify-center gap-2 rounded-2xl px-8 py-3.5 text-xs font-black text-white shadow-lg disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto",
             a.button,
           )}
         >
-          {seatMapShowId ? (
+          {soldOut ? (
+            "Sold Out"
+          ) : seatMapShowId ? (
             <>
               <Armchair className="h-4 w-4" /> Select Stadium Seats
             </>
