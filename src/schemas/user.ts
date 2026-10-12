@@ -1,14 +1,11 @@
 import { z } from "zod";
 import { AUTH } from "@/config/constants";
 import { contactIdentifierSchema } from "./auth";
-import { E164_INDIAN_PHONE, personNameSchema } from "./common";
+import { E164_INDIAN_PHONE, objectIdSchema, personNameSchema } from "./common";
 
 export const userStatusSchema = z.enum(["active", "blocked", "deleted"]);
 export const otpChannelSchema = z.enum(["sms", "email"]);
 export const otpPurposeSchema = z.enum(["sign_in", "change_contact"]);
-
-/** 24-hex MongoDB ObjectId string. */
-export const objectIdSchema = z.string().regex(/^[0-9a-f]{24}$/, "Invalid id");
 
 /** What the browser may know about the signed-in customer. Never includes sessions or hashes. */
 export const customerSnapshotSchema = z.object({

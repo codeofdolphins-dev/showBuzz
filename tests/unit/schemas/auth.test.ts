@@ -67,14 +67,14 @@ describe("contactIdentifierSchema", () => {
 });
 
 describe("otpVerifySchema", () => {
-  const requestId = "0b5e2f0c-6c1a-4a9e-9f7b-2d3c4e5f6a7b";
+  const challengeId = "652f1c0e8b3f4a2d9c1e7b55";
 
   it("accepts a 6-digit code", () => {
-    expect(otpVerifySchema.safeParse({ requestId, code: "012345" }).success).toBe(true);
+    expect(otpVerifySchema.safeParse({ challengeId, code: "012345" }).success).toBe(true);
   });
 
   it.each(["12345", "1234567", "12a456"])("rejects %s", (code) => {
-    expect(otpVerifySchema.safeParse({ requestId, code }).error?.issues[0]?.message).toBe("Enter the 6-digit code");
+    expect(otpVerifySchema.safeParse({ challengeId, code }).error?.issues[0]?.message).toBe("Enter the 6-digit code");
   });
 });
 

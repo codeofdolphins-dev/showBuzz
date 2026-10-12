@@ -20,6 +20,7 @@ export default defineConfig({
     env: {
       MONGODB_URI: "mongodb://unit-tests.invalid:27017",
       MONGODB_DB: "showbuzz_unit",
+      OTP_HASH_SECRET: "test-only-otp-hash-secret-0123456789abcdef",
     },
     coverage: {
       provider: "v8",

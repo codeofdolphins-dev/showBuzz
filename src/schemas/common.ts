@@ -13,6 +13,8 @@ export const slugSchema = z
   .max(120)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 export const paiseSchema = z.int().nonnegative();
+/** 24-hex MongoDB ObjectId string. */
+export const objectIdSchema = z.string().regex(/^[0-9a-f]{24}$/, "Invalid id");
 export const imageUrlSchema = z.url({ protocol: /^https$/ });
 export const isoDateTimeSchema = z.iso.datetime({ offset: true });
 export const isoDateSchema = z.iso.date();

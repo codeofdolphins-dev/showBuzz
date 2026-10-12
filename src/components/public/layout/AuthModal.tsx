@@ -16,7 +16,7 @@ import { BrandMark, BrandWordmark } from "./BrandLogo";
 const CODE_LENGTH = AUTH.otpLength;
 
 interface PendingRequest {
-  requestId: string;
+  challengeId: string;
   destination: string;
   devCode?: string;
 }
@@ -49,10 +49,10 @@ export function AuthModal() {
   };
 
   // Move focus to the first OTP box once a code has been sent.
-  const requestId = pending?.requestId;
+  const challengeId = pending?.challengeId;
   useEffect(() => {
-    if (requestId) boxes.current[0]?.focus();
-  }, [requestId]);
+    if (challengeId) boxes.current[0]?.focus();
+  }, [challengeId]);
 
   const sendCode = form.handleSubmit((values) => {
     startTransition(async () => {
@@ -76,7 +76,7 @@ export function AuthModal() {
       return;
     }
     startTransition(async () => {
-      const result = await verifyOtpAction({ requestId: pending.requestId, code });
+      const result = await verifyOtpAction({ challengeId: pending.challengeId, code });
       if (!result.success) {
         setOtpError(result.error.message);
         if (result.error.code === "OTP_EXPIRED" || result.error.code === "RATE_LIMITED") setPending(null);

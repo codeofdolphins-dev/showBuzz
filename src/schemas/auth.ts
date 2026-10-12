@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AUTH } from "@/config/constants";
-import { makeEmailSchema, makeIndianPhoneSchema, personNameSchema, toE164IndianPhone } from "./common";
+import { makeEmailSchema, makeIndianPhoneSchema, objectIdSchema, personNameSchema, toE164IndianPhone } from "./common";
 
 const IDENTIFIER_INVALID = "Enter a valid 10-digit mobile number or email";
 const identifierEmailSchema = makeEmailSchema(IDENTIFIER_INVALID);
@@ -31,7 +31,7 @@ export const otpRequestSchema = z.object({
 });
 
 export const otpVerifySchema = z.object({
-  requestId: z.uuid(),
+  challengeId: objectIdSchema,
   code: z.string().regex(new RegExp(`^\\d{${AUTH.otpLength}}$`), `Enter the ${AUTH.otpLength}-digit code`),
 });
 
