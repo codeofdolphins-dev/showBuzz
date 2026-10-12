@@ -6,7 +6,7 @@ import { connect } from "@/server/db/connect";
 import { AppError } from "@/server/http/app-error";
 import { ipPrefix } from "@/server/http/request";
 import { log } from "@/server/log";
-import { User, type UserSession } from "@/server/models/User";
+import { User, type UserDocument, type UserSession } from "@/server/models/User";
 import type { AuthRequestContext } from "./context";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./jwt";
 
@@ -166,8 +166,24 @@ async function graceOrRevoke(userId: string, sid: string, presentedHash: string,
   throw sessionEnded();
 }
 
+/**
+ * The active user who still has live session `sid` (it hasn't been revoked, evicted or expired), or
+ * null. Access tokens can't be revoked, so callers check this before trusting one.
+ */
+export async function findSessionUser(userId: string, sid: string, now: Date): Promise<UserDocument | null> {
+  if (!isObjectId(userId)) return null;
+  await connect();
+  const user = await User.findOne({
+    _id: userId,
+    status: "active",
+    sessions: { $elemMatch: { sid, expiresAt: { $gt: now } } },
+  });
+  return user;
+}
+
 /** The user's live session `sid`, or undefined when the user, the session or the account isn't usable. */
 async function activeSession(userId: string, sid: string, now: Date): Promise<UserSession | undefined> {
+  if (!isObjectId(userId)) return undefined;
   const user = await User.findById(userId, { status: 1, sessions: 1 });
   if (!user || user.status !== "active") return undefined;
   return user.sessions.find((s) => s.sid === sid && s.expiresAt > now);
@@ -189,6 +205,10 @@ async function issueTokens(userId: string, sid: string, jti: string, now: Date):
     refreshToken: refresh.token,
     refreshExpiresAt: refresh.expiresAt,
   };
+}
+
+function isObjectId(value: string): boolean {
+  return /^[0-9a-f]{24}$/.test(value);
 }
 
 function sha256(value: string): string {

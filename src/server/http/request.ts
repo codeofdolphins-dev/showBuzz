@@ -10,7 +10,7 @@ const IP_PATTERN = /^[0-9A-Fa-f:.]{2,45}$/;
  * Client IP for rate limiting. On Vercel `x-forwarded-for` is set by the platform (its first hop
  * is the client); `x-real-ip` is the fallback. Anything that doesn't look like an IP is ignored.
  */
-export function getClientIp(headers: Headers): string {
+export function getClientIp(headers: Pick<Headers, "get">): string {
   const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   if (forwarded && IP_PATTERN.test(forwarded)) return forwarded;
   const realIp = headers.get("x-real-ip")?.trim();
@@ -70,5 +70,28 @@ export function assertSameOrigin(request: Request): void {
   const origin = originOf(request.headers.get("origin")) ?? originOf(request.headers.get("referer"));
   if (!origin || !allowedOrigins().has(origin)) {
     throw new AppError("FORBIDDEN", "This request is not allowed.", 403);
+  }
+}
+
+/**
+ * Reads cookies from the Cookie header. Building a NextRequest from the Request would consume its
+ * body, so route handlers that also parse JSON use this instead. Fits CookieStore's read side.
+ */
+export function readRequestCookies(request: Request): { get(name: string): { value: string } | undefined } {
+  const jar = new Map<string, string>();
+  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 1) continue;
+    const name = part.slice(0, eq).trim();
+    if (!jar.has(name)) jar.set(name, safeDecode(part.slice(eq + 1).trim()));
+  }
+  return { get: (name) => (jar.has(name) ? { value: jar.get(name) ?? "" } : undefined) };
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
   }
 }

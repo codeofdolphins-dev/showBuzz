@@ -1,10 +1,10 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { connection } from "next/server";
+import { type NextResponse, connection } from "next/server";
 import type { z } from "zod";
 import { log } from "@/server/log";
 import { AppError } from "./app-error";
-import { retryAfterSeconds, toFailure } from "./errors";
+import { type Failure, retryAfterSeconds, toFailure } from "./errors";
 import { fail } from "./responses";
 
 type Schema = z.ZodType | undefined;
@@ -19,6 +19,8 @@ export interface ApiHandlerOptions<B extends Schema, Q extends Schema, P extends
    * `no-store` and the handler only runs for a real request (never while `next build` prerenders).
    */
   cacheControl?: string;
+  /** Adjusts the error response before it is sent, e.g. to clear session cookies on a 401. */
+  onFailure?: (response: NextResponse, failure: Failure) => void;
 }
 
 export interface ApiContext<B extends Schema, Q extends Schema, P extends Schema> {
@@ -75,9 +77,11 @@ export function apiHandler<B extends Schema = undefined, Q extends Schema = unde
         });
       }
       const details = failure.fieldErrors ? { ...failure.details, fieldErrors: failure.fieldErrors } : failure.details;
-      response = fail({ status: failure.status, code: failure.code, message: failure.message, details });
+      const failed = fail({ status: failure.status, code: failure.code, message: failure.message, details });
+      options.onFailure?.(failed, failure);
       const retryAfter = retryAfterSeconds(failure.details);
-      if (retryAfter !== undefined) response.headers.set("Retry-After", String(retryAfter));
+      if (retryAfter !== undefined) failed.headers.set("Retry-After", String(retryAfter));
+      response = failed;
     }
 
     response.headers.set("x-request-id", requestId);

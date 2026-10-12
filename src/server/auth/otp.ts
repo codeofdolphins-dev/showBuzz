@@ -47,7 +47,8 @@ const LIMITS = {
 
 const SIGN_IN_FAILED = "We couldn't sign you in. Please contact support.";
 
-export async function requestOtp(input: OtpRequestInput, ctx: AuthRequestContext): Promise<OtpRequestResult> {
+/** `input` is validated here (raw JSON from a route, or typed input from a Server Action). */
+export async function requestOtp(input: OtpRequestInput | unknown, ctx: AuthRequestContext): Promise<OtpRequestResult> {
   const { identifier: contact, name } = otpRequestSchema.parse(input);
   const identifier = identifierValue(contact);
   const purpose = "sign_in" as const;
@@ -102,7 +103,7 @@ export async function requestOtp(input: OtpRequestInput, ctx: AuthRequestContext
 }
 
 /** Checks the code and returns the signed-in customer, creating the account on first sign-in. */
-export async function verifyOtp(input: OtpVerifyInput, ctx: AuthRequestContext): Promise<UserDocument> {
+export async function verifyOtp(input: OtpVerifyInput | unknown, ctx: AuthRequestContext): Promise<UserDocument> {
   const { challengeId, code } = otpVerifySchema.parse(input);
   const { now } = ctx;
 

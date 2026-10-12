@@ -61,5 +61,6 @@ function attributes(path: string, maxAge: number): SessionCookieAttributes {
 }
 
 function secondsUntil(expiresAt: Date, now: Date): number {
-  return Math.max(0, Math.floor((expiresAt.getTime() - now.getTime()) / 1000));
+  // Token expiry is in whole seconds while now has milliseconds: round up so maxAge matches the lifetime.
+  return Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / 1000));
 }

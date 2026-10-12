@@ -82,8 +82,8 @@ export function AuthModal() {
         if (result.error.code === "OTP_EXPIRED" || result.error.code === "RATE_LIMITED") setPending(null);
         return;
       }
-      signIn(result.data);
-      toast(`Welcome to ShowBuzz, ${result.data.name}!`, "success");
+      signIn(result.data.user);
+      toast(`Welcome to ShowBuzz, ${result.data.user.name}!`, "success");
       close();
     });
   };

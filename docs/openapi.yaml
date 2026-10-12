@@ -1,0 +1,326 @@
+openapi: 3.1.0
+info:
+  title: ShowBuzz API
+  version: 0.1.0
+  description: |
+    REST API under /api/v1. Every response uses the envelope from CLAUDE.md §7:
+    `{ success: true, data, meta? }` or `{ success: false, error: { code, message, details? } }`.
+    Responses carry `x-request-id` and `Cache-Control: no-store` unless stated otherwise.
+    State-changing endpoints require a same-origin `Origin` (or `Referer`) header (403 otherwise).
+servers:
+  - url: /api/v1
+
+tags:
+  - name: Customer auth
+    description: Phone/email one-time-code sign-in and cookie sessions.
+  - name: System
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Liveness and database reachability
+      responses:
+        "200":
+          description: Database reachable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthEnvelope" }
+        "503":
+          description: Database unreachable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HealthEnvelope" }
+
+  /auth/customer/otp/request:
+    post:
+      tags: [Customer auth]
+      summary: Send a sign-in code
+      description: |
+        Same response whether or not an account exists. Rate limits: 20/hour per IP,
+        1 per 30 s and 5/hour per phone or email. `devCode` is only returned outside production.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier]
+              properties:
+                identifier:
+                  type: string
+                  description: Indian mobile number (any common format) or email address.
+                  examples: ["98765 43210", "aarav@example.com"]
+                name:
+                  type: string
+                  minLength: 2
+                  maxLength: 80
+                  description: Used if verification creates the account.
+      responses:
+        "200":
+          description: Code sent.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - properties:
+                      data: { $ref: "#/components/schemas/OtpChallenge" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/customer/otp/verify:
+    post:
+      tags: [Customer auth]
+      summary: Verify a code and start a session
+      description: |
+        Creates the account on first sign-in. Sets the access and refresh cookies.
+        Rate limit: 30 attempts per 10 min per IP; 5 attempts per code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeId, code]
+              properties:
+                challengeId: { type: string, pattern: "^[0-9a-f]{24}$" }
+                code: { type: string, pattern: "^\\d{6}$" }
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/SessionCookies" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionEnvelope" }
+        "401":
+          description: Wrong code (`OTP_INVALID`, with `details.remainingAttempts`) or account unavailable (`UNAUTHENTICATED`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "410":
+          description: Code expired, replaced by a newer one, or already used (`OTP_EXPIRED`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /auth/refresh:
+    post:
+      tags: [Customer auth]
+      summary: Rotate the session (client-side refresh)
+      description: |
+        Uses the refresh cookie (path /api/v1/auth). Rotates both cookies. Replaying an old refresh
+        token more than 10 s after rotation revokes the session.
+      security:
+        - refreshCookie: []
+      responses:
+        "200":
+          description: Session renewed.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/SessionCookies" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionEnvelope" }
+        "401":
+          description: Missing, expired, revoked or reused refresh token. Both cookies are cleared.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    get:
+      tags: [Customer auth]
+      summary: Rotate the session during a page navigation
+      description: Used by proxy.ts. Always answers with a 303 to a local path.
+      security:
+        - refreshCookie: []
+      parameters:
+        - name: next
+          in: query
+          required: false
+          description: Local path to return to. Anything that isn't a single-slash relative path becomes "/".
+          schema: { type: string, maxLength: 512 }
+      responses:
+        "303":
+          description: |
+            Success: redirect to `next` with fresh cookies.
+            Failure: cookies cleared and redirect to `/?auth=signin&next=<path>`.
+          headers:
+            Location: { schema: { type: string } }
+            Set-Cookie: { $ref: "#/components/headers/SessionCookies" }
+
+  /auth/logout:
+    post:
+      tags: [Customer auth]
+      summary: Sign out this device
+      description: Revokes the current session if a valid token is present and clears both cookies. Idempotent.
+      responses:
+        "200":
+          description: Signed out (also when already signed out).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          signedOut: { type: boolean, const: true }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /auth/me:
+    get:
+      tags: [Customer auth]
+      summary: The signed-in customer
+      description: Requires a valid access cookie whose session is still active. Cookies are not cleared on 401.
+      security:
+        - accessCookie: []
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
+components:
+  securitySchemes:
+    accessCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-sb_at
+      description: Access JWT (15 min). Named `sb_at` outside production.
+    refreshCookie:
+      type: apiKey
+      in: cookie
+      name: __Secure-sb_rt
+      description: Refresh JWT (7 days, sliding), sent only to /api/v1/auth. Named `sb_rt` outside production.
+
+  headers:
+    SessionCookies:
+      description: |
+        `__Host-sb_at` (Path=/; Max-Age=900) and `__Secure-sb_rt` (Path=/api/v1/auth; Max-Age=604800),
+        both HttpOnly; Secure; SameSite=Lax. Cleared with Max-Age=0.
+      schema: { type: string }
+
+  responses:
+    Forbidden:
+      description: Cross-origin request (`FORBIDDEN`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Unauthenticated:
+      description: Not signed in or session ended (`UNAUTHENTICATED`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ValidationFailed:
+      description: Invalid input (`VALIDATION_FAILED`, with `details.fieldErrors`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    RateLimited:
+      description: Too many requests (`RATE_LIMITED`, with `details.retryAfterSec`).
+      headers:
+        Retry-After:
+          description: Seconds until the limit resets.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, const: true }
+        data: {}
+        meta:
+          type: object
+          description: Lists only.
+          properties:
+            page: { type: integer }
+            limit: { type: integer }
+            total: { type: integer }
+
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { $ref: "#/components/schemas/ErrorCode" }
+            message:
+              type: string
+              description: Safe to show to the customer.
+            details:
+              type: object
+              description: Client-safe extras, e.g. `fieldErrors`, `retryAfterSec`, `remainingAttempts`.
+              additionalProperties: true
+
+    ErrorCode:
+      type: string
+      enum:
+        - NOT_FOUND
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CONFLICT
+        - SEAT_UNAVAILABLE
+        - COUPON_INVALID
+        - BOOKING_NOT_CANCELLABLE
+        - OTP_INVALID
+        - OTP_EXPIRED
+        - RATE_LIMITED
+        - NOT_CONFIGURED
+        - INTERNAL
+
+    CustomerSnapshot:
+      type: object
+      required: [id, name, joinedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, pattern: "^\\+91[6-9]\\d{9}$", description: E.164 }
+        joinedAt: { type: string, format: date-time }
+
+    OtpChallenge:
+      type: object
+      required: [challengeId, destination, expiresInSec, resendAfterSec]
+      properties:
+        challengeId: { type: string }
+        destination: { type: string, description: 'Masked, e.g. "98******10" or "a***@example.com".' }
+        expiresInSec: { type: integer, examples: [300] }
+        resendAfterSec: { type: integer, examples: [30] }
+        devCode: { type: string, description: Outside production only. }
+
+    SessionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - properties:
+            data:
+              type: object
+              required: [user, accessExpiresAt]
+              properties:
+                user: { $ref: "#/components/schemas/CustomerSnapshot" }
+                accessExpiresAt: { type: string, format: date-time }
+
+    HealthEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - properties:
+            data:
+              type: object
+              properties:
+                status: { type: string, enum: [ok, degraded] }
+                db: { type: string, enum: [up, down] }
