@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AccountGate } from "@/components/public/account/AccountGate";
 import { ProfileDashboard } from "@/components/public/account/ProfileDashboard";
 import { requireCustomerPage } from "@/server/auth/current-customer";
 import { listEvents, listMovies } from "@/server/services/catalog.service";
@@ -17,11 +16,7 @@ async function SignedInProfile() {
     listEvents("sport"),
     listEvents("activity"),
   ]);
-  return (
-    <AccountGate customer={customer}>
-      <ProfileDashboard movies={movies} events={eventGroups.flat()} />
-    </AccountGate>
-  );
+  return <ProfileDashboard user={customer} movies={movies} events={eventGroups.flat()} />;
 }
 
 export default function ProfilePage() {

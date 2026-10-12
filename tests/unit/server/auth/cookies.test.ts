@@ -50,6 +50,10 @@ describe("session cookies", () => {
         value: "refresh.jwt",
         attributes: { httpOnly: true, secure: false, sameSite: "lax", path: "/api/v1/auth", maxAge: 604_800 },
       },
+      sb_has_session: {
+        value: "1",
+        attributes: { httpOnly: true, secure: false, sameSite: "lax", path: "/", maxAge: 604_800 },
+      },
     });
   });
 
@@ -67,20 +71,25 @@ describe("session cookies", () => {
       maxAge: 900,
     });
     expect(jar.get("__Secure-sb_rt")?.attributes).toMatchObject({ secure: true, path: "/api/v1/auth" });
+    expect(jar.get("__Host-sb_has_session")?.attributes).toMatchObject({ secure: true, path: "/" });
   });
 
   it("reads the tokens back and clears both cookies on their own paths", async () => {
-    const { setSessionCookies, clearSessionCookies, readAccessToken, readRefreshToken } = await loadCookies(false);
+    const { setSessionCookies, clearSessionCookies, readAccessToken, readRefreshToken, hasSessionHint } =
+      await loadCookies(false);
     const { jar, store } = recordingStore();
     setSessionCookies(store, tokens, now);
 
     expect(readAccessToken(store)).toBe("access.jwt");
     expect(readRefreshToken(store)).toBe("refresh.jwt");
+    expect(hasSessionHint(store)).toBe(true);
 
     clearSessionCookies(store);
     expect(jar.get("sb_at")).toMatchObject({ value: "", attributes: { path: "/", maxAge: 0 } });
     expect(jar.get("sb_rt")).toMatchObject({ value: "", attributes: { path: "/api/v1/auth", maxAge: 0 } });
+    expect(jar.get("sb_has_session")).toMatchObject({ value: "", attributes: { path: "/", maxAge: 0 } });
     expect(readAccessToken(store)).toBeUndefined();
+    expect(hasSessionHint(store)).toBe(false);
   });
 
   it("writes real Set-Cookie headers on a NextResponse", async () => {

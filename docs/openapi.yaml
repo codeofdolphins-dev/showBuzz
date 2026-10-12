@@ -205,7 +205,8 @@ components:
     SessionCookies:
       description: |
         `__Host-sb_at` (Path=/; Max-Age=900) and `__Secure-sb_rt` (Path=/api/v1/auth; Max-Age=604800),
-        both HttpOnly; Secure; SameSite=Lax. Cleared with Max-Age=0.
+        plus `__Host-sb_has_session=1` (Path=/; Max-Age=604800, no secret: tells pages a session exists so the
+        client can refresh silently). All HttpOnly; Secure; SameSite=Lax. Cleared with Max-Age=0.
       schema: { type: string }
 
   responses:

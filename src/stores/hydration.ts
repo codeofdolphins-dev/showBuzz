@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { useAuthStore } from "./auth";
 import { useBookingCart } from "./booking-cart";
 import { useCityStore } from "./city";
 import { useWishlistStore } from "./wishlist";
@@ -24,7 +23,6 @@ export async function rehydratePersistedStores() {
   started = true;
   await Promise.all([
     useCityStore.persist.rehydrate(),
-    useAuthStore.persist.rehydrate(),
     useWishlistStore.persist.rehydrate(),
     useBookingCart.persist.rehydrate(),
   ]);

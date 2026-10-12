@@ -1,6 +1,11 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { ACCESS_COOKIE } from "@/server/auth/cookies";
-import { getCurrentCustomer, requireCustomer, requireCustomerPage } from "@/server/auth/current-customer";
+import { ACCESS_COOKIE, SESSION_HINT_COOKIE } from "@/server/auth/cookies";
+import {
+  getCurrentCustomer,
+  getCurrentSession,
+  requireCustomer,
+  requireCustomerPage,
+} from "@/server/auth/current-customer";
 import { createSession, revokeSession } from "@/server/auth/session";
 import { connect, disconnect } from "@/server/db/connect";
 import { AppError } from "@/server/http/app-error";
@@ -54,6 +59,26 @@ describe("getCurrentCustomer", () => {
   it("returns null for a blocked user", async () => {
     await User.updateOne({ _id: user._id }, { $set: { status: "blocked" } });
     expect(await getCurrentCustomer()).toBeNull();
+  });
+});
+
+describe("getCurrentSession", () => {
+  it("returns the customer and access expiry for a live session", async () => {
+    const session = await getCurrentSession();
+    expect(session.mightRefresh).toBe(false);
+    expect(session.customer?.user).toEqual(user.toCustomerSnapshot());
+    expect(Date.parse(session.customer?.accessExpiresAt ?? "")).toBeGreaterThan(Date.now());
+  });
+
+  it("suggests a silent refresh when only the session hint cookie is present", async () => {
+    jar.clear();
+    jar.set(SESSION_HINT_COOKIE, "1");
+    expect(await getCurrentSession()).toEqual({ customer: null, mightRefresh: true });
+  });
+
+  it("treats a visitor without cookies as signed out, with no refresh", async () => {
+    jar.clear();
+    expect(await getCurrentSession()).toEqual({ customer: null, mightRefresh: false });
   });
 });
 

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { Ticket, X } from "lucide-react";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useAuthStore } from "@/stores/auth";
-import { toast, useUiStore } from "@/stores/ui";
+import { useUiStore } from "@/stores/ui";
 import { BrandMark, BrandWordmark } from "./BrandLogo";
 import { DRAWER_EXPLORE, DRAWER_SERVICES, type NavItem } from "./nav";
 
@@ -26,7 +27,8 @@ function DrawerLink({ item, onClose }: { item: NavItem; onClose: () => void }) {
 
 export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
   const user = useAuthStore((s) => s.user);
-  const signOut = useAuthStore((s) => s.signOut);
+  const authStatus = useAuthStore((s) => s.status);
+  const signOut = useSignOut();
   const openAuthModal = useUiStore((s) => s.openAuthModal);
 
   if (!open) return null;
@@ -67,7 +69,9 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
         </div>
 
         <div className="border-t border-slate-100 pt-4">
-          {user ? (
+          {authStatus === "unknown" ? (
+            <div aria-hidden className="skeleton h-11 w-full rounded-xl" />
+          ) : user ? (
             <>
               <div className="mb-3 flex items-center gap-3 rounded-xl bg-slate-50 p-2">
                 <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-500 font-bold text-white">
@@ -88,9 +92,8 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
               <button
                 type="button"
                 onClick={() => {
-                  signOut();
                   onClose();
-                  toast("Signed out successfully.", "info");
+                  void signOut();
                 }}
                 className="tap-active flex w-full items-center justify-center gap-2 rounded-xl bg-rose-50 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100"
               >

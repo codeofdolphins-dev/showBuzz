@@ -80,7 +80,7 @@
 - [x] **1.3** Tokens & sessions: jose helpers, session service (create, rotate with reuse detection, revoke), cookie helpers.
 - [x] **1.4** Auth API + Server Actions: OTP request/verify, refresh (POST + GET bounce), logout, me. OpenAPI doc.
 - [x] **1.5** Route protection: `getCurrentCustomer` / `requireCustomer`, `proxy.ts` for `/account/**`, safe `next` redirects.
-- [ ] **1.6** Client integration: server-fed auth store, AuthModal on real API (resend timer, deep-link open), keep-alive refresh, sign-out, remove `AccountGate`.
+- [x] **1.6** Client integration: server-fed auth store, AuthModal on real API (resend timer, deep-link open), keep-alive refresh, sign-out, remove `AccountGate`.
 - [ ] **1.7** Profile & account management: DB-backed profile, verified email/phone change, active sessions, sign out everywhere, account deletion.
 - [ ] **1.8** Identity in existing features: bookings/reviews/checkout bound to the signed-in user, ownership checks.
 - [ ] **1.9** Hardening: Playwright E2E for sign-in, security review (OWASP ASVS auth/session), `docs/auth.md`, CLAUDE.md cleanup.

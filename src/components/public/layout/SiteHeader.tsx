@@ -18,6 +18,7 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { useAuthStore } from "@/stores/auth";
 import { useCityStore } from "@/stores/city";
 import { toast, useUiStore } from "@/stores/ui";
@@ -36,7 +37,8 @@ export function SiteHeader({ searchIndex }: SiteHeaderProps) {
   const pathname = usePathname();
   const city = useCityStore((s) => s.city);
   const user = useAuthStore((s) => s.user);
-  const signOut = useAuthStore((s) => s.signOut);
+  const authStatus = useAuthStore((s) => s.status);
+  const signOut = useSignOut();
   const wishlistCount = useWishlistStore((s) => s.ids.length);
   const openCityModal = useUiStore((s) => s.openCityModal);
   const openAuthModal = useUiStore((s) => s.openAuthModal);
@@ -78,9 +80,8 @@ export function SiteHeader({ searchIndex }: SiteHeaderProps) {
   };
 
   const handleSignOut = () => {
-    signOut();
     setUserMenuOpen(false);
-    toast("Signed out successfully.", "info");
+    void signOut();
   };
 
   return (
@@ -197,7 +198,13 @@ export function SiteHeader({ searchIndex }: SiteHeaderProps) {
                 )}
               </Link>
 
-              {user ? (
+              {authStatus === "unknown" ? (
+                // Session not known yet: hold the space without implying either state.
+                <span
+                  aria-hidden
+                  className="skeleton h-9 w-20 rounded-xl sm:h-10 sm:w-28"
+                />
+              ) : user ? (
                 <div ref={userMenuRef} className="relative">
                   <button
                     type="button"
@@ -246,7 +253,7 @@ export function SiteHeader({ searchIndex }: SiteHeaderProps) {
               ) : (
                 <button
                   type="button"
-                  onClick={openAuthModal}
+                  onClick={() => openAuthModal()}
                   className="gradient-btn tap-active flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white shadow-md sm:px-5 sm:py-2.5 sm:text-sm"
                 >
                   <User className="h-3.5 w-3.5" />

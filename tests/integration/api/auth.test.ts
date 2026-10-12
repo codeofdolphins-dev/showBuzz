@@ -99,6 +99,8 @@ describe("POST /api/v1/auth/customer/otp/*", () => {
     expect(cookies.sb_rt?.attrs).toEqual(
       expect.arrayContaining(["path=/api/v1/auth", "max-age=604800", "httponly", "samesite=lax"]),
     );
+    expect(cookies.sb_has_session).toMatchObject({ value: "1" });
+    expect(cookies.sb_has_session?.attrs).toEqual(expect.arrayContaining(["path=/", "max-age=604800", "httponly"]));
     expect(await sessionCount()).toBe(1);
   });
 
@@ -179,6 +181,7 @@ describe("/api/v1/auth/refresh", () => {
     expect(replay.status).toBe(401);
     expect(setCookies(replay).sb_rt?.attrs).toContain("max-age=0");
     expect(setCookies(replay).sb_at?.attrs).toContain("max-age=0");
+    expect(setCookies(replay).sb_has_session?.attrs).toContain("max-age=0");
     expect(await sessionCount()).toBe(0);
   });
 
@@ -249,6 +252,7 @@ describe("/api/v1/auth/logout and /me", () => {
     expect(first.status).toBe(200);
     expect(setCookies(first).sb_at?.attrs).toContain("max-age=0");
     expect(setCookies(first).sb_rt?.attrs).toEqual(expect.arrayContaining(["path=/api/v1/auth", "max-age=0"]));
+    expect(setCookies(first).sb_has_session?.attrs).toContain("max-age=0");
     expect(await sessionCount()).toBe(0);
 
     const second = await logoutRoute(request("POST", "/api/v1/auth/logout"));

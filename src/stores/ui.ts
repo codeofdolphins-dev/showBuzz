@@ -14,10 +14,12 @@ export interface Toast {
 interface UiState {
   cityModalOpen: boolean;
   authModalOpen: boolean;
+  /** Where to go after signing in, when the modal was opened for a protected page (?auth=signin&next=). */
+  authNext: string | null;
   toasts: Toast[];
   openCityModal: () => void;
   closeCityModal: () => void;
-  openAuthModal: () => void;
+  openAuthModal: (next?: string) => void;
   closeAuthModal: () => void;
   pushToast: (toast: Omit<Toast, "id">) => void;
   dismissToast: (id: number) => void;
@@ -28,11 +30,12 @@ let nextToastId = 1;
 export const useUiStore = create<UiState>()((set) => ({
   cityModalOpen: false,
   authModalOpen: false,
+  authNext: null,
   toasts: [],
   openCityModal: () => set({ cityModalOpen: true }),
   closeCityModal: () => set({ cityModalOpen: false }),
-  openAuthModal: () => set({ authModalOpen: true }),
-  closeAuthModal: () => set({ authModalOpen: false }),
+  openAuthModal: (next) => set({ authModalOpen: true, authNext: next ?? null }),
+  closeAuthModal: () => set({ authModalOpen: false, authNext: null }),
   pushToast: (toast) => {
     const id = nextToastId++;
     set((s) => ({ toasts: [...s.toasts, { ...toast, id }] }));

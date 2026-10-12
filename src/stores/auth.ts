@@ -1,35 +1,29 @@
 "use client";
 
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import type { CustomerSnapshot } from "@/schemas/user";
 
-export interface CustomerProfile {
-  name: string;
-  email?: string;
-  phone?: string;
-  joinedAt: string;
-}
+/** "unknown" until the server's answer (or a silent refresh) arrives; the header shows a placeholder. */
+export type AuthStatus = "unknown" | "authenticated" | "anonymous";
 
 interface AuthState {
-  user: CustomerProfile | null;
-  signIn: (user: CustomerProfile) => void;
-  updateProfile: (patch: Partial<Omit<CustomerProfile, "joinedAt">>) => void;
-  signOut: () => void;
+  status: AuthStatus;
+  user: CustomerSnapshot | null;
+  /** ISO time the current access token expires; drives the keep-alive refresh. */
+  accessExpiresAt: string | null;
+  setSession: (user: CustomerSnapshot, accessExpiresAt: string) => void;
+  clearSession: () => void;
 }
 
 /**
- * Display snapshot of the signed-in customer. It grants no access: once sessions exist this is
- * filled from GET /api/v1/auth/me and httpOnly cookies carry the real credentials.
- * sessionStorage keeps the snapshot out of long-lived storage.
+ * Display snapshot of the signed-in customer. It grants nothing: the httpOnly session cookies are the
+ * credentials, and the server re-checks them on every request. Filled from the server on page load
+ * (SessionInitializer), then by sign-in, refresh and sign-out. Not persisted.
  */
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      signIn: (user) => set({ user }),
-      updateProfile: (patch) => set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
-      signOut: () => set({ user: null }),
-    }),
-    { name: "showbuzz-auth", storage: createJSONStorage(() => sessionStorage), skipHydration: true },
-  ),
-);
+export const useAuthStore = create<AuthState>()((set) => ({
+  status: "unknown",
+  user: null,
+  accessExpiresAt: null,
+  setSession: (user, accessExpiresAt) => set({ status: "authenticated", user, accessExpiresAt }),
+  clearSession: () => set({ status: "anonymous", user: null, accessExpiresAt: null }),
+}));

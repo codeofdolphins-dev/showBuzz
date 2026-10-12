@@ -9,6 +9,12 @@ import { isProduction } from "@/config/env";
 
 export const ACCESS_COOKIE = isProduction ? "__Host-sb_at" : "sb_at";
 export const REFRESH_COOKIE = isProduction ? "__Secure-sb_rt" : "sb_rt";
+/**
+ * "This browser has a session" (value "1", no secret). Lives as long as the refresh cookie but is sent to
+ * every page, so the server can tell an expired access token (worth a silent refresh) from a visitor who
+ * never signed in, without the client having to try a refresh on every page load.
+ */
+export const SESSION_HINT_COOKIE = isProduction ? "__Host-sb_has_session" : "sb_has_session";
 
 const ACCESS_PATH = "/";
 const REFRESH_PATH = "/api/v1/auth";
@@ -40,16 +46,23 @@ export interface CookieTokens {
 export function setSessionCookies(store: CookieStore, tokens: CookieTokens, now = new Date()): void {
   store.set(ACCESS_COOKIE, tokens.accessToken, attributes(ACCESS_PATH, secondsUntil(tokens.accessExpiresAt, now)));
   store.set(REFRESH_COOKIE, tokens.refreshToken, attributes(REFRESH_PATH, secondsUntil(tokens.refreshExpiresAt, now)));
+  store.set(SESSION_HINT_COOKIE, "1", attributes(ACCESS_PATH, secondsUntil(tokens.refreshExpiresAt, now)));
 }
 
-/** Expires both cookies. `cookies().delete(name)` can't do this: it only clears path "/". */
+/** Expires all session cookies. `cookies().delete(name)` can't do this: it only clears path "/". */
 export function clearSessionCookies(store: CookieStore): void {
   store.set(ACCESS_COOKIE, "", attributes(ACCESS_PATH, 0));
   store.set(REFRESH_COOKIE, "", attributes(REFRESH_PATH, 0));
+  store.set(SESSION_HINT_COOKIE, "", attributes(ACCESS_PATH, 0));
 }
 
 export function readAccessToken(store: Pick<CookieStore, "get">): string | undefined {
   return store.get(ACCESS_COOKIE)?.value || undefined;
+}
+
+/** True when the browser says it holds a session (see SESSION_HINT_COOKIE). */
+export function hasSessionHint(store: Pick<CookieStore, "get">): boolean {
+  return store.get(SESSION_HINT_COOKIE)?.value === "1";
 }
 
 export function readRefreshToken(store: Pick<CookieStore, "get">): string | undefined {
