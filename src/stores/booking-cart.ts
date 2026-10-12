@@ -28,6 +28,8 @@ export const useBookingCart = create<BookingCartState>()(
       startTickets: (tickets) => set({ tickets, food: [], couponCode: undefined }),
       setFoodQuantity: (foodItemId, quantity) =>
         set((s) => {
+          // Unchanged quantities keep the same array so the order quote isn't re-requested.
+          if ((s.food.find((f) => f.foodItemId === foodItemId)?.quantity ?? 0) === quantity) return s;
           const others = s.food.filter((f) => f.foodItemId !== foodItemId);
           return { food: quantity > 0 ? [...others, { foodItemId, quantity }] : others };
         }),
