@@ -9,6 +9,11 @@ import { serialisationOptions } from "./transforms";
 export interface UserSession {
   sid: string;
   refreshTokenHash: string;
+  /**
+   * `jti` of the current refresh token. With the issue time (rotatedAt ?? createdAt) it lets the server
+   * re-sign that exact token for a tab that lost a refresh race, without ever storing the token.
+   */
+  refreshJti: string;
   /** The token rotated out last, tolerated briefly to absorb multi-tab refresh races. */
   previousRefreshTokenHash?: string;
   rotatedAt?: Date;
@@ -47,6 +52,7 @@ const sessionSchema = new Schema<UserSession>(
   {
     sid: { type: String, required: true },
     refreshTokenHash: { type: String, required: true },
+    refreshJti: { type: String, required: true },
     previousRefreshTokenHash: String,
     rotatedAt: Date,
     createdAt: { type: Date, required: true },

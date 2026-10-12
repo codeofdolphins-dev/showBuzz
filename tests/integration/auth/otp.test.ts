@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { Types } from "mongoose";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { requestOtp, verifyOtp, type AuthRequestContext } from "@/server/auth/otp";
+import type { AuthRequestContext } from "@/server/auth/context";
+import { requestOtp, verifyOtp } from "@/server/auth/otp";
 import { connect, disconnect } from "@/server/db/connect";
 import { AppError } from "@/server/http/app-error";
 import { OtpChallenge } from "@/server/models/OtpChallenge";

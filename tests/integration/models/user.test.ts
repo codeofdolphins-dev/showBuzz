@@ -5,6 +5,7 @@ import { User } from "@/server/models/User";
 const session = {
   sid: "0b5e2f0c-6c1a-4a9e-9f7b-2d3c4e5f6a7b",
   refreshTokenHash: "f".repeat(64),
+  refreshJti: "jti-1",
   previousRefreshTokenHash: "e".repeat(64),
   createdAt: new Date(),
   lastUsedAt: new Date(),

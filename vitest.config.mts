@@ -21,6 +21,8 @@ export default defineConfig({
       MONGODB_URI: "mongodb://unit-tests.invalid:27017",
       MONGODB_DB: "showbuzz_unit",
       OTP_HASH_SECRET: "test-only-otp-hash-secret-0123456789abcdef",
+      JWT_ACCESS_SECRET: "test-only-jwt-access-secret-0123456789abcdef",
+      JWT_REFRESH_SECRET: "test-only-jwt-refresh-secret-0123456789abcdef",
     },
     coverage: {
       provider: "v8",

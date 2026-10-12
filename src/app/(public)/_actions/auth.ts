@@ -2,7 +2,8 @@
 
 import { headers } from "next/headers";
 import type { OtpRequestInput, OtpVerifyInput } from "@/schemas/auth";
-import { requestOtp, verifyOtp, type AuthRequestContext } from "@/server/auth/otp";
+import type { AuthRequestContext } from "@/server/auth/context";
+import { requestOtp, verifyOtp } from "@/server/auth/otp";
 import { runAction } from "@/server/http/action-result";
 import { getClientIp } from "@/server/http/request";
 

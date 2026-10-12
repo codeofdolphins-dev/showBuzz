@@ -9,7 +9,7 @@ so review the plan, answer its questions, then say "go".
 **Before 1.2 / 1.3:** add `OTP_HASH_SECRET`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` to `.env.local`
 (generate each with `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`).
 
-All work happens directly on `main` (no batch branches); one commit per batch.
+All work happens directly on `main` (no batch branches). Claude leaves each batch uncommitted with a suggested commit message; the user commits.
 
 ---
 

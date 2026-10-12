@@ -40,7 +40,7 @@
 - [ ] New/changed behaviour covered by tests, including the failure paths.
 - [ ] No `any`, no commented-out code, no stray `console.log`.
 - [ ] Docs updated (see rule 9).
-- [ ] Conventional Commit(s) on `main` (no batch branches), e.g. `feat(auth): ...`. Never push unless asked.
+- [ ] Changes left uncommitted on `main` with a suggested Conventional Commit message, e.g. `feat(auth): ...`. Claude never commits or pushes; the user does.
 - [ ] Final report: what changed, how it was verified (commands + results), decisions made, follow-ups.
 
 ## Decisions already taken (don't re-litigate)
@@ -77,7 +77,7 @@
 
 - [x] **1.1** Customer data layer: `User` + `OtpChallenge` models, identifier normalisation (E.164 / lowercase email), schemas, indexes.
 - [x] **1.2** OTP service on MongoDB: delivery provider interface, request/verify, cooldowns, attempts, rate limits, masked destinations.
-- [ ] **1.3** Tokens & sessions: jose helpers, session service (create, rotate with reuse detection, revoke), cookie helpers.
+- [x] **1.3** Tokens & sessions: jose helpers, session service (create, rotate with reuse detection, revoke), cookie helpers.
 - [ ] **1.4** Auth API + Server Actions: OTP request/verify, refresh (POST + GET bounce), logout, me. OpenAPI doc.
 - [ ] **1.5** Route protection: `getCurrentCustomer` / `requireCustomer`, `proxy.ts` for `/account/**`, safe `next` redirects.
 - [ ] **1.6** Client integration: server-fed auth store, AuthModal on real API (resend timer, deep-link open), keep-alive refresh, sign-out, remove `AccountGate`.

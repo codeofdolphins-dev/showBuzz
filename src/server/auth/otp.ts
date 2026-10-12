@@ -17,6 +17,7 @@ import { maskEmail } from "@/server/log";
 import { OtpChallenge } from "@/server/models/OtpChallenge";
 import { User, type UserDocument } from "@/server/models/User";
 import { consumeRateLimit, type RateLimitOptions } from "@/server/security/rate-limit";
+import type { AuthRequestContext } from "./context";
 import { getOtpSender } from "./otp-delivery";
 
 /**
@@ -24,13 +25,6 @@ import { getOtpSender } from "./otp-delivery";
  * are one flow: verifying an unknown phone/email creates the account, and requesting a code looks the
  * same whether or not an account exists, so the endpoint can't be used to discover customers.
  */
-
-export interface AuthRequestContext {
-  /** From getClientIp(); "unknown" skips per-IP limits (local development has no forwarded IP). */
-  ip: string;
-  userAgent?: string;
-  now: Date;
-}
 
 export interface OtpRequestResult {
   challengeId: string;
