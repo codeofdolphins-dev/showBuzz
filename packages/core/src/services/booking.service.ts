@@ -2,6 +2,7 @@ import "server-only";
 import { randomInt } from "node:crypto";
 import { connect } from "@showbuzz/db/connect";
 import { Booking, type BookingAttrs, toBookingRecord } from "@showbuzz/db/models/Booking";
+import { GiftCard } from "@showbuzz/db/models/GiftCard";
 import { Payment } from "@showbuzz/db/models/Payment";
 import { Refund } from "@showbuzz/db/models/Refund";
 import { SeatHold } from "@showbuzz/db/models/SeatHold";
@@ -13,18 +14,22 @@ import type { BookingRecord, BookingStatus, BookingView } from "@showbuzz/schema
 import type { CustomerSnapshot } from "@showbuzz/schemas/user";
 import { AppError } from "../http/app-error";
 import { getPaymentGateway, type SimulatedOutcome } from "../payments/gateway";
-import { quoteOrder } from "./pricing.service";
+import { generateGiftCardCode, getIssuedGiftCards, giftCardExpiry } from "./gift-card.service";
+import { priceOrder } from "./pricing.service";
 import { getSettings } from "./settings.service";
 import { findPassShow, getShowDetails } from "./show.service";
 
 /**
  * Orders, payment confirmation and cancellation (MongoDB).
  *
- * placeOrder:     re-prices on the server, links this browser's seat holds (or reserves tier passes with one
- *                 conditional $inc), creates a `pending_payment` booking and a gateway payment.
+ * placeOrder:     re-prices on the server (coupon, gift card), links this browser's seat holds (or reserves tier
+ *                 passes with one conditional $inc), creates a `pending_payment` booking and a gateway payment for
+ *                 the part a gift card doesn't cover.
  * confirmPayment: asks the gateway (never the client) whether the payment succeeded, then in one transaction
- *                 confirms the booking, turns holds into sold seats (or counts passes sold) and marks the payment.
- * cancelBooking:  until the Settings cutoff; one transaction frees the inventory and records the Refund.
+ *                 confirms the booking, turns holds into sold seats (or counts passes sold), spends the gift card
+ *                 share (conditional $inc), issues a purchased gift card and marks the payment.
+ * cancelBooking:  until the Settings cutoff; one transaction frees the inventory, returns the gift card share and
+ *                 records the Refund.
  *
  * Every state change is conditional on the current status, so repeating a call (double click, retry, two tabs)
  * changes nothing the second time. Another customer's booking answers exactly like a missing one (NOT_FOUND).
@@ -134,9 +139,10 @@ async function insertWithUniqueCode(
 export async function placeOrder(
   input: PlaceOrderInput,
   customer: CustomerSnapshot,
-  holderKey: string | undefined,
+  context: { holderKey?: string; ip: string },
   now: Date,
 ): Promise<{ code: string; holdExpiresAt: string }> {
+  const { holderKey, ip } = context;
   const order = placeOrderSchema.parse(input);
   await connect();
   const settings = await getSettings();
@@ -146,7 +152,11 @@ export async function placeOrder(
   for (const booking of open)
     await closeOrder(booking, "expired", "Replaced by a newer order.", { releaseSeats: false });
 
-  const quote = await quoteOrder(order, now, { strictCoupon: true, holderKey });
+  const { quote, giftCardId } = await priceOrder(order, now, {
+    strictCoupon: true,
+    holderKey,
+    giftCardContext: { userId: customer.id, ip },
+  });
   const { tickets } = order;
   const bookingId = new Types.ObjectId();
   let holdExpiresAt = new Date(now.getTime() + settings.seatHoldMinutes * 60_000);
@@ -224,6 +234,7 @@ export async function placeOrder(
       food: quote.food,
       amounts: quote.amounts,
       couponCode: quote.coupon?.code,
+      ...(giftCardId ? { giftCardId } : {}),
       paymentMethod: order.paymentMethod,
       contact: {
         name: order.contact.name,
@@ -238,10 +249,13 @@ export async function placeOrder(
     throw err;
   }
 
+  // Only the part not covered by a gift card goes through the gateway.
+  const payablePaise = quote.amounts.payablePaise;
+  if (payablePaise === 0) return { code, holdExpiresAt: holdExpiresAt.toISOString() };
   const gateway = getPaymentGateway();
   const { providerRef } = await gateway.createPayment({
     bookingCode: code,
-    amountPaise: quote.amounts.totalPaise,
+    amountPaise: payablePaise,
     method: order.paymentMethod,
   });
   await Payment.create({
@@ -249,7 +263,7 @@ export async function placeOrder(
     userId: customer.id,
     provider: gateway.provider,
     providerRef,
-    amountPaise: quote.amounts.totalPaise,
+    amountPaise: payablePaise,
     method: order.paymentMethod,
     status: "created",
   });
@@ -258,11 +272,25 @@ export async function placeOrder(
 
 export type PaymentResult = { status: "confirmed"; code: string } | { status: "failed"; code: string; reason: string };
 
-class SeatsLostError extends Error {}
+/** Thrown inside the confirm transaction to abort it; the reason is shown to the customer. */
+class ConfirmAborted extends Error {
+  constructor(
+    readonly kind: "seats_lost" | "gift_card_spent",
+    readonly reason: string,
+  ) {
+    super(kind);
+  }
+}
+
+/** What the gateway charges for this order (older bookings have no gift card fields). */
+function payableOf(booking: LeanBooking): number {
+  return booking.amounts.payablePaise ?? booking.amounts.totalPaise - (booking.amounts.giftCardPaise ?? 0);
+}
 
 /**
  * Confirms the order's payment with the gateway and, if it succeeded, issues the ticket in one transaction.
- * Idempotent: a confirmed order is returned as is. `simulate` is only read by the simulated gateway.
+ * A gift card's share is deducted here (conditional on enough balance), and a gift card purchase creates its
+ * card here. Idempotent: a confirmed order is returned as is. `simulate` is only read by the simulated gateway.
  */
 export async function confirmPayment(
   code: string,
@@ -282,30 +310,35 @@ export async function confirmPayment(
     return { status: "failed", code, reason: HOLD_EXPIRED_MESSAGE };
   }
 
-  const payment = await Payment.findOne({ bookingId: booking._id, status: "created" }).sort({ createdAt: -1 }).lean();
-  if (!payment) {
-    const reason = "The payment could not be started. Please try again.";
-    await closeOrder(booking, "payment_failed", reason, { releaseSeats: true });
-    return { status: "failed", code, reason };
-  }
-
   const gateway = getPaymentGateway();
-  const outcome = await gateway.confirmPayment({
-    providerRef: payment.providerRef,
-    amountPaise: payment.amountPaise,
-    simulate,
-  });
-  if (outcome.status === "failed") {
-    await Payment.updateOne(
-      { _id: payment._id, status: "created" },
-      { $set: { status: "failed", failureReason: outcome.reason } },
-    );
-    await closeOrder(booking, "payment_failed", outcome.reason, { releaseSeats: true });
-    return { status: "failed", code, reason: outcome.reason };
+  // A gift card covering the whole order means nothing goes through the gateway.
+  const payment =
+    payableOf(booking) > 0
+      ? await Payment.findOne({ bookingId: booking._id, status: "created" }).sort({ createdAt: -1 }).lean()
+      : null;
+  if (payableOf(booking) > 0) {
+    if (!payment) {
+      const reason = "The payment could not be started. Please try again.";
+      await closeOrder(booking, "payment_failed", reason, { releaseSeats: true });
+      return { status: "failed", code, reason };
+    }
+    const outcome = await gateway.confirmPayment({
+      providerRef: payment.providerRef,
+      amountPaise: payment.amountPaise,
+      simulate,
+    });
+    if (outcome.status === "failed") {
+      await Payment.updateOne(
+        { _id: payment._id, status: "created" },
+        { $set: { status: "failed", failureReason: outcome.reason } },
+      );
+      await closeOrder(booking, "payment_failed", outcome.reason, { releaseSeats: true });
+      return { status: "failed", code, reason: outcome.reason };
+    }
   }
 
   const mongoose = await connect();
-  const state: { result: "confirmed" | "seats_lost" | "not_pending" } = { result: "not_pending" };
+  const state: { result: "confirmed" | "not_pending" | ConfirmAborted } = { result: "not_pending" };
   try {
     await mongoose.connection.transaction(async (session) => {
       state.result = "not_pending";
@@ -322,7 +355,12 @@ export async function confirmPayment(
           { session },
         );
         // Aborts the whole transaction: the booking stays pending and nothing is marked sold.
-        if (sold.modifiedCount !== booking.seatIds.length) throw new SeatsLostError();
+        if (sold.modifiedCount !== booking.seatIds.length) {
+          throw new ConfirmAborted(
+            "seats_lost",
+            "Your seats were released before the payment completed. Any amount charged will be refunded.",
+          );
+        }
       }
       if (booking.showId && booking.tierId && booking.quantity) {
         await Show.updateOne(
@@ -331,40 +369,97 @@ export async function confirmPayment(
           { session },
         );
       }
-      await Payment.updateOne({ _id: payment._id }, { $set: { status: "succeeded", succeededAt: now } }, { session });
+      const giftCardPaise = booking.amounts.giftCardPaise ?? 0;
+      if (booking.giftCardId && giftCardPaise > 0) {
+        // One conditional update: it only applies while the card is usable and has enough balance, so two
+        // orders can never spend the same money.
+        const spent = await GiftCard.updateOne(
+          {
+            _id: booking.giftCardId,
+            status: "active",
+            expiresAt: { $gt: now },
+            balancePaise: { $gte: giftCardPaise },
+          },
+          {
+            $inc: { balancePaise: -giftCardPaise },
+            $push: { transactions: { type: "redeem", amountPaise: giftCardPaise, bookingId: booking._id, at: now } },
+          },
+          { session },
+        );
+        if (spent.modifiedCount !== 1) {
+          throw new ConfirmAborted(
+            "gift_card_spent",
+            "Your gift card balance changed before the payment completed, so it wasn't used. Any amount charged will be refunded.",
+          );
+        }
+        await GiftCard.updateOne(
+          { _id: booking.giftCardId, status: "active", balancePaise: 0 },
+          { $set: { status: "redeemed" } },
+          { session },
+        );
+      }
+      if (booking.kind === "gift-card" && booking.giftCard) {
+        await GiftCard.create(
+          [
+            {
+              code: generateGiftCardCode(),
+              designId: booking.giftCard.designId,
+              amountPaise: booking.giftCard.amountPaise,
+              balancePaise: booking.giftCard.amountPaise,
+              purchaserUserId: booking.userId,
+              purchaseBookingId: booking._id,
+              recipientName: booking.giftCard.recipientName,
+              recipientContact: booking.giftCard.recipientContact,
+              ...(booking.giftCard.message ? { message: booking.giftCard.message } : {}),
+              status: "active",
+              expiresAt: giftCardExpiry(now),
+              transactions: [
+                { type: "purchase", amountPaise: booking.giftCard.amountPaise, bookingId: booking._id, at: now },
+              ],
+            },
+          ],
+          { session },
+        );
+      }
+      if (payment) {
+        await Payment.updateOne({ _id: payment._id }, { $set: { status: "succeeded", succeededAt: now } }, { session });
+      }
       state.result = "confirmed";
     });
   } catch (err) {
-    if (!(err instanceof SeatsLostError)) throw err;
-    state.result = "seats_lost";
+    if (!(err instanceof ConfirmAborted)) throw err;
+    state.result = err;
   }
 
   if (state.result === "confirmed") return { status: "confirmed", code };
 
-  if (state.result === "seats_lost") {
-    // The gateway took the money but the seats were released meanwhile: fail the order and refund in full.
-    const reason = "Your seats were released before the payment completed. The full amount will be refunded.";
-    await Payment.updateOne({ _id: payment._id }, { $set: { status: "succeeded", succeededAt: now } });
+  if (state.result instanceof ConfirmAborted) {
+    // The order can't be completed after the gateway took the money: fail it and refund the gateway part in full.
+    const { reason, kind } = state.result;
     await closeOrder(booking, "payment_failed", reason, { releaseSeats: true });
-    const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: payment.amountPaise });
-    await Refund.updateOne(
-      { bookingId: booking._id },
-      {
-        $setOnInsert: {
-          paymentId: payment._id,
-          userId: booking.userId,
-          provider: gateway.provider,
-          providerRef: refund.providerRef,
-          amountPaise: payment.amountPaise,
-          feePaise: 0,
-          reason: "booking_failed",
-          status: refund.status,
-          ...(refund.status === "processed" ? { processedAt: now } : {}),
+    if (payment) {
+      await Payment.updateOne({ _id: payment._id }, { $set: { status: "succeeded", succeededAt: now } });
+      const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: payment.amountPaise });
+      await Refund.updateOne(
+        { bookingId: booking._id },
+        {
+          $setOnInsert: {
+            paymentId: payment._id,
+            userId: booking.userId,
+            provider: gateway.provider,
+            providerRef: refund.providerRef,
+            amountPaise: payment.amountPaise,
+            giftCardPaise: 0,
+            feePaise: 0,
+            reason: "booking_failed",
+            status: refund.status,
+            ...(refund.status === "processed" ? { processedAt: now } : {}),
+          },
         },
-      },
-      { upsert: true },
-    );
-    log.warn("booking.seats_lost_after_payment", { code });
+        { upsert: true },
+      );
+    }
+    log.warn("booking.confirm_aborted", { code, kind });
     return { status: "failed", code, reason };
   }
 
@@ -384,7 +479,19 @@ export async function getBooking(code: string, userId: string, now: Date): Promi
   const booking = await findOwned(code, userId);
   if (!booking || (booking.status !== "confirmed" && booking.status !== "cancelled")) return undefined;
   const { cancellationCutoffMinutes } = await getSettings();
-  return toView(booking, now, cancellationCutoffMinutes);
+  const [view] = await withIssuedGiftCards([booking], now, cancellationCutoffMinutes);
+  return view;
+}
+
+/** Views, with the card a gift card purchase issued attached (shown to its buyer instead of a QR). */
+async function withIssuedGiftCards(docs: LeanBooking[], now: Date, cutoffMinutes: number): Promise<BookingView[]> {
+  const purchases = docs.filter((b) => b.kind === "gift-card" && b.status === "confirmed").map((b) => b._id);
+  const issued = await getIssuedGiftCards(purchases, now);
+  return docs.map((b) => {
+    const view = toView(b, now, cutoffMinutes);
+    const card = issued.get(b._id.toString());
+    return card ? { ...view, issuedGiftCard: card } : view;
+  });
 }
 
 /** The signed-in customer's tickets (confirmed and cancelled), newest first. */
@@ -398,7 +505,7 @@ export async function listBookings(userId: string, now: Date): Promise<BookingVi
       .lean(),
     getSettings(),
   ]);
-  return docs.map((b) => toView(b, now, cancellationCutoffMinutes));
+  return withIssuedGiftCards(docs, now, cancellationCutoffMinutes);
 }
 
 export interface OrderOutcome {
@@ -422,7 +529,8 @@ export async function getOrderOutcome(code: string, userId: string): Promise<Ord
 
 /**
  * Cancels a confirmed booking before the Settings cutoff and refunds the amount paid minus the cancellation fee
- * (never negative). Cancelling an already-cancelled booking returns the same refund and changes nothing.
+ * (never negative): the gift card part goes back to the card, the rest through the gateway. Cancelling an
+ * already-cancelled booking returns the same refund and changes nothing.
  */
 export async function cancelBooking(code: string, userId: string, now: Date): Promise<{ refundPaise: number }> {
   const booking = await findOwned(code, userId);
@@ -438,10 +546,18 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
     );
   }
 
-  const payment = await Payment.findOne({ bookingId: booking._id, status: "succeeded" }).lean();
-  if (!payment) throw new AppError("INTERNAL", "We couldn't find the payment for this booking.", 500);
+  const gatewayPart = payableOf(booking);
+  const giftPart = booking.amounts.giftCardPaise ?? 0;
+  const payment =
+    gatewayPart > 0 ? await Payment.findOne({ bookingId: booking._id, status: "succeeded" }).lean() : null;
+  if (gatewayPart > 0 && !payment) {
+    throw new AppError("INTERNAL", "We couldn't find the payment for this booking.", 500);
+  }
 
-  const refundPaise = Math.max(0, booking.amounts.totalPaise - cancellationFeePaise);
+  // The fee comes out of the gateway part first, so the gift card gets back as much as possible (agreed 2026-10-13).
+  const gatewayRefundPaise = Math.max(0, gatewayPart - cancellationFeePaise);
+  const giftCardReturnPaise = Math.max(0, giftPart - Math.max(0, cancellationFeePaise - gatewayPart));
+  const refundPaise = gatewayRefundPaise + giftCardReturnPaise;
   const gateway = getPaymentGateway();
   const mongoose = await connect();
   const state = { cancelled: false };
@@ -461,19 +577,39 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
         { session },
       );
     }
+    if (booking.giftCardId && giftCardReturnPaise > 0) {
+      await GiftCard.updateOne(
+        { _id: booking.giftCardId },
+        {
+          $inc: { balancePaise: giftCardReturnPaise },
+          $push: {
+            transactions: { type: "refund", amountPaise: giftCardReturnPaise, bookingId: booking._id, at: now },
+          },
+        },
+        { session },
+      );
+      // A card emptied by this booking becomes usable again (an expired card keeps the money but stays expired).
+      await GiftCard.updateOne(
+        { _id: booking.giftCardId, status: "redeemed", balancePaise: { $gt: 0 } },
+        { $set: { status: "active" } },
+        { session },
+      );
+    }
     // Recorded before the gateway is called; the unique bookingId means a booking is only ever refunded once.
     await Refund.create(
       [
         {
           bookingId: booking._id,
-          paymentId: payment._id,
+          ...(payment ? { paymentId: payment._id } : {}),
           userId: booking.userId,
           provider: gateway.provider,
-          providerRef: "pending",
-          amountPaise: refundPaise,
+          providerRef: gatewayRefundPaise > 0 ? "pending" : "none",
+          amountPaise: gatewayRefundPaise,
+          giftCardPaise: giftCardReturnPaise,
           feePaise: booking.amounts.totalPaise - refundPaise,
           reason: "cancelled",
-          status: "processing",
+          status: gatewayRefundPaise > 0 ? "processing" : "processed",
+          ...(gatewayRefundPaise > 0 ? {} : { processedAt: now }),
         },
       ],
       { session },
@@ -486,7 +622,8 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
     return { refundPaise: fresh?.refundPaise ?? 0 };
   }
 
-  const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: refundPaise });
+  if (!payment || gatewayRefundPaise === 0) return { refundPaise };
+  const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: gatewayRefundPaise });
   await Refund.updateOne(
     { bookingId: booking._id },
     {

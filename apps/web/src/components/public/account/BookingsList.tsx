@@ -8,10 +8,11 @@ import { QrCode, TicketX } from "lucide-react";
 import { cancelBookingAction } from "@/app/(public)/_actions/booking";
 import { TicketCode } from "@/components/public/booking/TicketCode";
 import { EmptyState } from "@/components/public/common/EmptyState";
+import { IssuedGiftCard } from "@/components/public/gift-card/IssuedGiftCard";
 import { Modal } from "@showbuzz/ui/Modal";
 import { cn } from "@showbuzz/utils/cn";
 import { formatINR } from "@showbuzz/utils/money";
-import { PAYMENT_METHOD_LABELS } from "@showbuzz/utils/payment";
+import { PAYMENT_METHOD_LABELS, paymentLabel } from "@showbuzz/utils/payment";
 import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { toast } from "@/stores/ui";
 import type { BookingView } from "@showbuzz/schemas/types/booking";
@@ -22,6 +23,11 @@ interface BookingsListProps {
   cancellation: { feePaise: number; cutoffMinutes: number };
   /** Server-rendered QR SVGs for upcoming confirmed bookings, by booking code. */
   qrCodes: Record<string, string>;
+}
+
+/** Mirrors the server: the fee comes out of the gateway-paid part first, the gift card gets back the rest. */
+function giftCardReturn(b: BookingView, feePaise: number): number {
+  return Math.max(0, b.amounts.giftCardPaise - Math.max(0, feePaise - b.amounts.payablePaise));
 }
 
 export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListProps) {
@@ -121,7 +127,7 @@ export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListPr
                 <div className="text-left sm:text-right">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase">Paid Amount</span>
                   <span className="text-base font-black text-slate-900 sm:text-lg">{formatINR(b.amounts.totalPaise, { exact: true })}</span>
-                  <span className="block text-[10px] text-slate-400">{PAYMENT_METHOD_LABELS[b.paymentMethod]}</span>
+                  <span className="block text-[10px] text-slate-400">{paymentLabel(b.paymentMethod, b.amounts)}</span>
                 </div>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-2 pt-3">
@@ -163,6 +169,11 @@ export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListPr
                   )}
                 </div>
               </div>
+              {b.issuedGiftCard && (
+                <div className="mt-4 max-w-sm">
+                  <IssuedGiftCard card={b.issuedGiftCard} compact />
+                </div>
+              )}
               {openQr === b.code && qrCodes[b.code] && (
                 <div className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 p-4">
                   <div className="h-40 w-40 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
@@ -185,7 +196,11 @@ export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListPr
               <strong>
                 {formatINR(Math.max(0, confirming.amounts.totalPaise - cancellation.feePaise), { exact: true })}
               </strong>{" "}
-              back to {PAYMENT_METHOD_LABELS[confirming.paymentMethod]}. Cancellations close {cancellation.cutoffMinutes} minutes
+              back{" "}
+              {confirming.amounts.giftCardPaise > 0
+                ? `(${formatINR(giftCardReturn(confirming, cancellation.feePaise), { exact: true })} to your gift card, the rest to ${PAYMENT_METHOD_LABELS[confirming.paymentMethod]})`
+                : `to ${PAYMENT_METHOD_LABELS[confirming.paymentMethod]}`}
+              . Cancellations close {cancellation.cutoffMinutes} minutes
               before the show.
             </p>
             <div className="mt-5 flex gap-2">

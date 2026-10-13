@@ -4,6 +4,7 @@ import { City } from "./City";
 import { Coupon } from "./Coupon";
 import { Event } from "./Event";
 import { FoodItem } from "./FoodItem";
+import { GiftCard } from "./GiftCard";
 import { GiftCardDesign } from "./GiftCardDesign";
 import { Lead } from "./Lead";
 import { Movie } from "./Movie";
@@ -46,4 +47,5 @@ export const allModels = [
   Review,
   Lead,
   WishlistItem,
+  GiftCard,
 ];

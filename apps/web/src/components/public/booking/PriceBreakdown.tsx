@@ -23,6 +23,12 @@ export function PriceBreakdown({ quote }: { quote: OrderQuote }) {
           <span>-{formatINR(a.discountPaise, { exact: true })}</span>
         </div>
       )}
+      {a.giftCardPaise > 0 && (
+        <div className="flex justify-between font-bold text-purple-600">
+          <span>Gift card{quote.giftCard ? ` (••••${quote.giftCard.last4})` : ""}</span>
+          <span>-{formatINR(a.giftCardPaise, { exact: true })}</span>
+        </div>
+      )}
     </div>
   );
 }

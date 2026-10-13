@@ -18,11 +18,14 @@ interface BookingCartState {
   tickets: TicketSelection | null;
   food: FoodLine[];
   couponCode?: string;
+  /** Gift card to pay with; the server checks it on every quote and applies min(balance, total). */
+  giftCardCode?: string;
   contact?: ContactDetailsInput;
   hold?: CartSeatHold;
   startTickets: (tickets: TicketSelection, hold?: CartSeatHold) => void;
   setFoodQuantity: (foodItemId: string, quantity: number) => void;
   setCoupon: (code: string | undefined) => void;
+  setGiftCard: (code: string | undefined) => void;
   setContact: (contact: ContactDetailsInput) => void;
   clear: () => void;
 }
@@ -32,7 +35,7 @@ export const useBookingCart = create<BookingCartState>()(
     (set) => ({
       tickets: null,
       food: [],
-      startTickets: (tickets, hold) => set({ tickets, hold, food: [], couponCode: undefined }),
+      startTickets: (tickets, hold) => set({ tickets, hold, food: [], couponCode: undefined, giftCardCode: undefined }),
       setFoodQuantity: (foodItemId, quantity) =>
         set((s) => {
           // Unchanged quantities keep the same array so the order quote isn't re-requested.
@@ -41,8 +44,9 @@ export const useBookingCart = create<BookingCartState>()(
           return { food: quantity > 0 ? [...others, { foodItemId, quantity }] : others };
         }),
       setCoupon: (couponCode) => set({ couponCode }),
+      setGiftCard: (giftCardCode) => set({ giftCardCode }),
       setContact: (contact) => set({ contact }),
-      clear: () => set({ tickets: null, hold: undefined, food: [], couponCode: undefined }),
+      clear: () => set({ tickets: null, hold: undefined, food: [], couponCode: undefined, giftCardCode: undefined }),
     }),
     {
       name: "showbuzz-cart",

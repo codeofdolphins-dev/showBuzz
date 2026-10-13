@@ -4,6 +4,7 @@ import { ProfileDashboard } from "@/components/public/account/ProfileDashboard";
 import { requireCustomerPage, requireCustomerSession } from "@showbuzz/core/auth/current-customer";
 import { getAccountProfile } from "@showbuzz/core/services/account.service";
 import { listEvents, listMovies } from "@showbuzz/core/services/catalog.service";
+import { listPurchasedGiftCards } from "@showbuzz/core/services/gift-card.service";
 
 export const metadata: Metadata = { title: "My Profile", robots: { index: false } };
 
@@ -12,15 +13,17 @@ async function SignedInProfile() {
   await requireCustomerPage("/account/profile");
   // Same cached lookup: adds the session id so the device list can mark "this device".
   const { user, sid } = await requireCustomerSession();
-  const [profile, movies, ...eventGroups] = await Promise.all([
-    getAccountProfile(user.id, sid, new Date()),
+  const now = new Date();
+  const [profile, giftCards, movies, ...eventGroups] = await Promise.all([
+    getAccountProfile(user.id, sid, now),
+    listPurchasedGiftCards(user.id, now),
     listMovies(),
     listEvents("event"),
     listEvents("play"),
     listEvents("sport"),
     listEvents("activity"),
   ]);
-  return <ProfileDashboard profile={profile} movies={movies} events={eventGroups.flat()} />;
+  return <ProfileDashboard profile={profile} giftCards={giftCards} movies={movies} events={eventGroups.flat()} />;
 }
 
 export default function ProfilePage() {

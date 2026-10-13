@@ -16,7 +16,7 @@ async function SignedInBookings() {
   const qrCodes = Object.fromEntries(
     await Promise.all(
       bookings
-        .filter((b) => b.status === "confirmed" && b.phase === "upcoming")
+        .filter((b) => b.status === "confirmed" && b.phase === "upcoming" && b.kind !== "gift-card")
         .map(async (b) => [b.code, await renderTicketQrSvg(b)] as const),
     ),
   );

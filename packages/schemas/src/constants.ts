@@ -63,5 +63,9 @@ export const DEFAULT_CUSTOMER_NAME = "ShowBuzz Member";
 
 export const GIFT_CARD_LIMITS = { minPaise: 25_000, maxPaise: 1_000_000 } as const;
 export const GIFT_CARD_PRESETS_PAISE = [50_000, 100_000, 200_000, 500_000] as const;
+/** Gift cards are valid for 12 months from the confirmed purchase (agreed 2026-10-13; the designer says "1 year"). */
+export const GIFT_CARD_VALIDITY_DAYS = 365;
+/** Code lookups (apply or re-quote) per hour: guessing protection on top of 80-bit codes. */
+export const GIFT_CARD_LOOKUP_LIMITS = { perUser: 60, perIp: 200, windowSec: 60 * 60 } as const;
 
 export const SHOW_DATE_WINDOW_DAYS = 7;

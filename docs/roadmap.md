@@ -116,7 +116,7 @@ Prompt B (`docs/prompts/phase-2-public-backend.md`, 2026-10-13) built the bookin
 - [~] **3.5** Server-side confirmation, idempotent, holds → sold in a transaction, payment records. Webhooks + signature verification come with the real gateway.
 - [~] **3.6** Tickets: `bookingCode`, HMAC-signed QR (SVG on the success page and in My Bookings, `verifyTicketPayload()` for scan-qr) done in Prompt C. Confirmation email/SMS waits for a provider.
 - [x] **3.7** Cancellation & refunds (Settings cutoff and fee, transaction, `refunds` record, simulated gateway refund). Only `bookingCode` of 3.6 is done; QR is Prompt C.
-- [ ] **3.8** Gift cards: purchase, balance, redeem.
+- [x] **3.8** Gift cards (Prompt D, 2026-10-13): purchase creates the card in the confirm transaction, embedded ledger, redeem at checkout (rate-limited lookups, balance spent only on confirmation), refunds return the card share, profile "My Gift Cards". Delivery by email/SMS waits for a provider.
 
 ## Phase 4: Engagement
 

@@ -1,4 +1,5 @@
 import type { ContactDetails, PaymentMethod } from "../booking";
+import type { GiftCardSummary } from "./gift-card";
 
 export type BookingKind = "movie" | "sport" | "event" | "play" | "activity" | "gift-card";
 
@@ -8,7 +9,12 @@ export interface OrderAmounts {
   convenienceFeePaise: number;
   gstPaise: number;
   discountPaise: number;
+  /** Order total (after discount, before any gift card). */
   totalPaise: number;
+  /** Paid from a gift card balance (deducted only when the payment is confirmed). */
+  giftCardPaise: number;
+  /** What the payment gateway charges: total − gift card. 0 when a gift card covers everything. */
+  payablePaise: number;
 }
 
 export interface QuoteFoodLine {
@@ -40,6 +46,9 @@ export interface OrderQuote {
   amounts: OrderAmounts;
   coupon?: { code: string; title: string };
   couponError?: string;
+  /** The gift card applied to this quote (last 4 characters only). */
+  giftCard?: { last4: string; appliedPaise: number; balancePaise: number };
+  giftCardError?: string;
 }
 
 /**
@@ -79,6 +88,8 @@ export interface BookingRecord {
   refundPaise?: number;
   /** Customer-facing reason for payment_failed / expired. */
   failureReason?: string;
+  /** Gift card purchases: the card this booking issued (shown to its buyer). */
+  issuedGiftCard?: GiftCardSummary;
 }
 
 /** A booking as shown to the customer, with time-dependent state resolved on the server. */

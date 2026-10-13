@@ -27,6 +27,8 @@ const quote: OrderQuote = {
     gstPaise: 1_529,
     discountPaise: 0,
     totalPaise: 109_921,
+    giftCardPaise: 0,
+    payablePaise: 109_921,
   },
 };
 

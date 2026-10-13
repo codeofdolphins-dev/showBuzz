@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CreditCard, Heart, IdCard, LogOut, ShieldCheck } from "lucide-react";
+import { CreditCard, Gift, Heart, IdCard, LogOut, ShieldCheck } from "lucide-react";
 import { EventCard } from "@/components/public/cards/EventCard";
 import { MovieCard } from "@/components/public/cards/MovieCard";
 import { EmptyState } from "@/components/public/common/EmptyState";
+import { IssuedGiftCard } from "@/components/public/gift-card/IssuedGiftCard";
 import { useSignOut } from "@/hooks/use-sign-out";
 import { cn } from "@showbuzz/utils/cn";
 import { formatMonthYear } from "@showbuzz/utils/dates";
@@ -13,6 +14,7 @@ import type { EventListing } from "@showbuzz/schemas/event";
 import type { Movie } from "@showbuzz/schemas/movie";
 import { useWishlistStore } from "@/stores/wishlist";
 import type { AccountProfile } from "@showbuzz/schemas/types/account";
+import type { GiftCardSummary } from "@showbuzz/schemas/types/gift-card";
 import { AccountDetails } from "./AccountDetails";
 import { SecurityPanel } from "./SecurityPanel";
 
@@ -23,16 +25,18 @@ const SECTION_PATHS: Record<EventListing["kind"], string> = {
   activity: "/activities",
 };
 
-type Tab = "wishlist" | "edit" | "payments" | "security";
+type Tab = "wishlist" | "gift-cards" | "edit" | "payments" | "security";
 
 interface ProfileDashboardProps {
   /** Loaded from the database for this request (getAccountProfile). */
   profile: AccountProfile;
+  /** Gift cards bought by this account (balance and status as of this request). */
+  giftCards: GiftCardSummary[];
   movies: Movie[];
   events: EventListing[];
 }
 
-export function ProfileDashboard({ profile, movies, events }: ProfileDashboardProps) {
+export function ProfileDashboard({ profile, giftCards, movies, events }: ProfileDashboardProps) {
   const { user } = profile;
   const signOut = useSignOut();
   const wishlist = useWishlistStore((s) => s.ids);
@@ -67,6 +71,7 @@ export function ProfileDashboard({ profile, movies, events }: ProfileDashboardPr
         {(
           [
             ["wishlist", `Saved Wishlist (${wishlist.length})`, Heart, "text-rose-500"],
+            ["gift-cards", `My Gift Cards (${giftCards.length})`, Gift, "text-purple-500"],
             ["edit", "Account Details", IdCard, "text-blue-500"],
             ["payments", "Payment Methods", CreditCard, "text-emerald-500"],
             ["security", "Security", ShieldCheck, "text-slate-500"],
@@ -108,6 +113,28 @@ export function ProfileDashboard({ profile, movies, events }: ProfileDashboardPr
             {savedEvents.map((e) => (
               <div key={e.id} className="col-span-2 sm:col-span-1">
                 <EventCard event={e} href={`${SECTION_PATHS[e.kind]}/${e.slug}`} />
+              </div>
+            ))}
+          </div>
+        ))}
+
+      {tab === "gift-cards" &&
+        (giftCards.length === 0 ? (
+          <EmptyState
+            icon={Gift}
+            title="No gift cards yet"
+            description="Gift cards you buy appear here with their code, balance and expiry."
+            action={
+              <Link href="/gift-cards" className="gradient-btn tap-active inline-block rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md">
+                Buy a Gift Card
+              </Link>
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {giftCards.map((card) => (
+              <div key={card.code} className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-xs sm:p-5">
+                <IssuedGiftCard card={card} />
               </div>
             ))}
           </div>

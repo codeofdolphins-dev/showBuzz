@@ -45,6 +45,8 @@ export interface BookingAttrs {
   food: QuoteFoodLine[];
   amounts: OrderAmounts;
   couponCode?: string;
+  /** Gift card paying `amounts.giftCardPaise` of this order (balance deducted when the payment is confirmed). */
+  giftCardId?: Types.ObjectId;
   paymentMethod: PaymentMethod;
   contact: ContactDetails;
   /** Pay before this or the order lapses (the seat holds expire at the same moment). */
@@ -70,6 +72,8 @@ const amountsSchema = new Schema(
     gstPaise: Number,
     discountPaise: Number,
     totalPaise: Number,
+    giftCardPaise: { type: Number, default: 0 },
+    payablePaise: Number,
   },
   { _id: false },
 );
@@ -109,6 +113,7 @@ const bookingSchema = new Schema<BookingAttrs>(
     food: { type: [foodLineSchema], default: [] },
     amounts: { type: amountsSchema, required: true },
     couponCode: String,
+    giftCardId: { type: Schema.Types.ObjectId, ref: "GiftCard" },
     paymentMethod: { type: String, enum: ["upi", "card", "netbanking", "wallet"], required: true },
     contact: { name: String, phone: String, email: String },
     holdExpiresAt: { type: Date, required: true },
@@ -162,6 +167,9 @@ export function toBookingRecord(doc: LeanBooking): BookingRecord {
       gstPaise: doc.amounts.gstPaise,
       discountPaise: doc.amounts.discountPaise,
       totalPaise: doc.amounts.totalPaise,
+      // Bookings made before gift cards existed have neither field: all of it was paid at the gateway.
+      giftCardPaise: doc.amounts.giftCardPaise ?? 0,
+      payablePaise: doc.amounts.payablePaise ?? doc.amounts.totalPaise - (doc.amounts.giftCardPaise ?? 0),
     },
     ...(doc.couponCode ? { couponCode: doc.couponCode } : {}),
     paymentMethod: doc.paymentMethod,

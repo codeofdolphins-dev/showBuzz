@@ -29,3 +29,28 @@ export const giftCardOrderSchema = z.object({
 
 export type GiftCardDesign = z.infer<typeof giftCardDesignSchema>;
 export type GiftCardOrderInput = z.infer<typeof giftCardOrderSchema>;
+
+/** Unambiguous alphabet (Crockford base32): no I, L, O or U, so codes survive being read aloud. */
+export const GIFT_CARD_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+export const GIFT_CARD_CODE_LENGTH = 16;
+
+/** Upper-cases, drops spaces and dashes, and maps look-alikes (O→0, I/L→1) so typed codes match. */
+export function normalizeGiftCardCode(raw: string): string {
+  return raw.toUpperCase().replace(/[\s-]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+}
+
+/** "ABCD1234EFGH5678" → "ABCD-1234-EFGH-5678" */
+export function formatGiftCardCode(code: string): string {
+  return code.match(/.{1,4}/g)?.join("-") ?? code;
+}
+
+export const giftCardCodeSchema = z
+  .string()
+  .max(40)
+  .transform(normalizeGiftCardCode)
+  .pipe(
+    z
+      .string()
+      .length(GIFT_CARD_CODE_LENGTH, "Gift card codes have 16 characters")
+      .regex(/^[0-9A-HJKMNP-TV-Z]+$/, "Enter a valid gift card code"),
+  );

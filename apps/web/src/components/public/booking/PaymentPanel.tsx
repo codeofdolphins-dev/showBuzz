@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Landmark, CreditCard, FlaskConical, QrCode, ShieldCheck, Wallet } from "lucide-react";
+import { Landmark, CreditCard, FlaskConical, Gift, QrCode, ShieldCheck, Wallet } from "lucide-react";
 import { confirmPaymentAction, placeOrderAction } from "@/app/(public)/_actions/booking";
 import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { useOrderQuote } from "@/hooks/use-order-quote";
@@ -55,11 +55,13 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
     );
   }
 
-  const total = formatINR(quote.amounts.totalPaise, { exact: true });
+  const total = formatINR(quote.amounts.payablePaise, { exact: true });
+  // A gift card covering everything means nothing goes through the payment gateway.
+  const coveredByGiftCard = quote.amounts.payablePaise === 0 && quote.amounts.giftCardPaise > 0;
 
   /** Places the order, then asks the server to confirm the payment. `simulate` only matters for demo payments. */
   const pay = (simulate: "success" | "failure") => {
-    const { tickets, food, couponCode, contact, hold } = cart;
+    const { tickets, food, couponCode, giftCardCode, contact, hold } = cart;
     if (!tickets || !contact) return;
     if (authStatus !== "authenticated") {
       openAuthModal("/booking/payment");
@@ -67,7 +69,7 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
     }
     startTransition(async () => {
       const placed = await withAuthRetry(() =>
-        placeOrderAction({ tickets, food, couponCode, contact, paymentMethod: method }),
+        placeOrderAction({ tickets, food, couponCode, giftCardCode, contact, paymentMethod: method }),
       );
       if (!placed.success) {
         // The session couldn't be renewed: the sign-in modal is already open, the cart is kept.
@@ -77,7 +79,7 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
           router.replace(hold.seatsHref);
           return;
         }
-        if (placed.error.code === "SEAT_UNAVAILABLE" || placed.error.code === "COUPON_INVALID") {
+        if (["SEAT_UNAVAILABLE", "COUPON_INVALID", "VALIDATION_FAILED"].includes(placed.error.code)) {
           toast(placed.error.message, "error");
           return;
         }
@@ -115,113 +117,137 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
         </div>
       </div>
 
-      {simulated && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
-          <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            <span className="mr-1.5 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-black uppercase">Demo payment</span>
-            No payment gateway is connected yet. <strong>Pay</strong> completes the booking without charging anything;{" "}
-            <strong>Simulate failure</strong> shows what happens when a payment is declined.
+      {coveredByGiftCard ? (
+        <div className="mx-auto max-w-xl rounded-3xl border border-purple-200 bg-white p-6 text-center shadow-lg sm:p-8">
+          <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
+            <Gift className="h-6 w-6" />
+          </span>
+          <h2 className="text-base font-black text-slate-900">Your gift card covers this order</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {formatINR(quote.amounts.giftCardPaise, { exact: true })} will be deducted from gift card ••••
+            {quote.giftCard?.last4} when you confirm. Nothing is charged to a card or bank.
           </p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-lg md:grid-cols-3">
-        <div role="tablist" aria-label="Payment method" className="no-scrollbar flex gap-1 overflow-x-auto border-r border-slate-200/80 bg-slate-50 p-2 sm:p-4 md:flex-col">
-          {METHODS.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              role="tab"
-              aria-selected={method === m.value}
-              onClick={() => setMethod(m.value)}
-              className={cn(
-                "tap-active flex w-full shrink-0 items-center gap-3 rounded-2xl p-3 text-left text-xs font-bold transition-all md:shrink",
-                method === m.value ? "border border-rose-200 bg-white text-rose-600 shadow-sm" : "text-slate-700 hover:bg-white",
-              )}
-            >
-              <m.icon className="h-4 w-5 shrink-0" />
-              <span className="truncate">{m.label}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-5 p-5 sm:p-8 md:col-span-2">
-          {method === "upi" && (
-            <div className="flex flex-col items-center gap-6 rounded-2xl border border-slate-200/80 bg-slate-50 p-4 sm:flex-row sm:p-6">
-              <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-300">
-                <QrCode className="h-16 w-16" />
-              </span>
-              <div>
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-extrabold text-emerald-700 uppercase">Instant</span>
-                <h4 className="mt-1 text-sm font-bold text-slate-900">Pay with any UPI app</h4>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Google Pay, PhonePe, Paytm, BHIM or Cred. A UPI QR and collect request open on the next screen.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {method === "card" && (
-            <p className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-              Visa, Mastercard, RuPay and Amex are accepted. You&apos;ll enter your card details on the secure gateway page;
-              ShowBuzz never sees or stores your card number.
-            </p>
-          )}
-
-          {method === "netbanking" && (
-            <fieldset>
-              <legend className="mb-2 text-xs font-bold text-slate-700">Select Your Bank</legend>
-              <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-                {BANKS.map((b) => (
-                  <label
-                    key={b}
-                    className="tap-active flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 font-semibold hover:bg-slate-100"
-                  >
-                    <input type="radio" name="bank" checked={bank === b} onChange={() => setBank(b)} className="accent-rose-600" /> {b}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
-
-          {method === "wallet" && (
-            <fieldset className="space-y-2 text-xs">
-              <legend className="mb-2 text-xs font-bold text-slate-700">Choose Wallet</legend>
-              {WALLETS.map((w) => (
-                <label
-                  key={w}
-                  className="tap-active flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3.5 font-bold hover:bg-slate-100"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <Wallet className="h-4 w-4 text-rose-500" /> {w}
-                  </span>
-                  <input type="radio" name="wallet" checked={wallet === w} onChange={() => setWallet(w)} className="accent-rose-600" />
-                </label>
-              ))}
-            </fieldset>
-          )}
-
           <button
             type="button"
             onClick={() => pay("success")}
             disabled={isPending}
-            className="gradient-btn tap-active w-full rounded-2xl py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/20 disabled:opacity-60 sm:text-sm"
+            className="gradient-btn tap-active mt-5 w-full rounded-2xl py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/20 disabled:opacity-60 sm:text-sm"
           >
-            {simulated ? `Pay ${total} (Demo)` : `Pay Securely ${total}`}
+            Confirm with Gift Card
           </button>
-          {simulated && (
+        </div>
+      ) : (
+        <>
+        {simulated && (
+          <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
+            <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              <span className="mr-1.5 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-black uppercase">Demo payment</span>
+              No payment gateway is connected yet. <strong>Pay</strong> completes the booking without charging anything;{" "}
+              <strong>Simulate failure</strong> shows what happens when a payment is declined.
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-lg md:grid-cols-3">
+          <div role="tablist" aria-label="Payment method" className="no-scrollbar flex gap-1 overflow-x-auto border-r border-slate-200/80 bg-slate-50 p-2 sm:p-4 md:flex-col">
+            {METHODS.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                role="tab"
+                aria-selected={method === m.value}
+                onClick={() => setMethod(m.value)}
+                className={cn(
+                  "tap-active flex w-full shrink-0 items-center gap-3 rounded-2xl p-3 text-left text-xs font-bold transition-all md:shrink",
+                  method === m.value ? "border border-rose-200 bg-white text-rose-600 shadow-sm" : "text-slate-700 hover:bg-white",
+                )}
+              >
+                <m.icon className="h-4 w-5 shrink-0" />
+                <span className="truncate">{m.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="space-y-5 p-5 sm:p-8 md:col-span-2">
+            {method === "upi" && (
+              <div className="flex flex-col items-center gap-6 rounded-2xl border border-slate-200/80 bg-slate-50 p-4 sm:flex-row sm:p-6">
+                <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-300">
+                  <QrCode className="h-16 w-16" />
+                </span>
+                <div>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-extrabold text-emerald-700 uppercase">Instant</span>
+                  <h4 className="mt-1 text-sm font-bold text-slate-900">Pay with any UPI app</h4>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    Google Pay, PhonePe, Paytm, BHIM or Cred. A UPI QR and collect request open on the next screen.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {method === "card" && (
+              <p className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
+                Visa, Mastercard, RuPay and Amex are accepted. You&apos;ll enter your card details on the secure gateway page;
+                ShowBuzz never sees or stores your card number.
+              </p>
+            )}
+
+            {method === "netbanking" && (
+              <fieldset>
+                <legend className="mb-2 text-xs font-bold text-slate-700">Select Your Bank</legend>
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+                  {BANKS.map((b) => (
+                    <label
+                      key={b}
+                      className="tap-active flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 font-semibold hover:bg-slate-100"
+                    >
+                      <input type="radio" name="bank" checked={bank === b} onChange={() => setBank(b)} className="accent-rose-600" /> {b}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
+            {method === "wallet" && (
+              <fieldset className="space-y-2 text-xs">
+                <legend className="mb-2 text-xs font-bold text-slate-700">Choose Wallet</legend>
+                {WALLETS.map((w) => (
+                  <label
+                    key={w}
+                    className="tap-active flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3.5 font-bold hover:bg-slate-100"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Wallet className="h-4 w-4 text-rose-500" /> {w}
+                    </span>
+                    <input type="radio" name="wallet" checked={wallet === w} onChange={() => setWallet(w)} className="accent-rose-600" />
+                  </label>
+                ))}
+              </fieldset>
+            )}
+
             <button
               type="button"
-              onClick={() => pay("failure")}
+              onClick={() => pay("success")}
               disabled={isPending}
-              className="tap-active w-full rounded-2xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+              className="gradient-btn tap-active w-full rounded-2xl py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/20 disabled:opacity-60 sm:text-sm"
             >
-              Simulate failure
+              {simulated ? `Pay ${total} (Demo)` : `Pay Securely ${total}`}
             </button>
-          )}
+            {simulated && (
+              <button
+                type="button"
+                onClick={() => pay("failure")}
+                disabled={isPending}
+                className="tap-active w-full rounded-2xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+              >
+                Simulate failure
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+
+        </>
+      )}
 
       {isPending && (
         <div className="animate-fade-in fixed inset-0 z-[1500] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-md">

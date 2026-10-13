@@ -6,9 +6,10 @@ import { Suspense } from "react";
 import { CalendarCheck, Check, MapPin, Ticket, TicketX } from "lucide-react";
 import { TicketActions } from "@/components/public/booking/TicketActions";
 import { TicketCode } from "@/components/public/booking/TicketCode";
+import { IssuedGiftCard } from "@/components/public/gift-card/IssuedGiftCard";
 import { EmptyState } from "@/components/public/common/EmptyState";
 import { formatINR } from "@showbuzz/utils/money";
-import { PAYMENT_METHOD_LABELS } from "@showbuzz/utils/payment";
+import { paymentLabel } from "@showbuzz/utils/payment";
 import { bookingCodeSchema } from "@showbuzz/schemas/booking";
 import { requireCustomerPage } from "@showbuzz/core/auth/current-customer";
 import { renderTicketQrSvg } from "@showbuzz/core/booking/ticket-qr";
@@ -63,7 +64,8 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
 
   const cancelled = booking.status === "cancelled";
   // Only a confirmed booking gets a scannable code; the gate re-checks the booking anyway.
-  const qrSvg = cancelled ? undefined : await renderTicketQrSvg(booking);
+  // Gift card purchases show the issued card instead of an entry QR.
+  const qrSvg = cancelled || booking.issuedGiftCard ? undefined : await renderTicketQrSvg(booking);
 
   return (
     <>
@@ -86,7 +88,9 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
         <p className="mt-1 text-xs text-slate-500 sm:text-sm">
           {cancelled
             ? `Refund of ${formatINR(booking.refundPaise ?? 0, { exact: true })} is on its way to your original payment method.`
-            : `Your M-ticket has been sent to ${booking.contact.email}.`}
+            : booking.issuedGiftCard
+              ? "Your e-gift card is ready. Share the code below with the recipient."
+              : `Your M-ticket has been sent to ${booking.contact.email}.`}
         </p>
       </div>
 
@@ -151,15 +155,19 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
                 </p>
               </div>
             </div>
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50 p-4 text-center">
-              <div className="mb-2 h-28 w-28 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:h-32 sm:w-32">
-                <TicketCode code={booking.code} svg={qrSvg} />
+            {booking.issuedGiftCard ? (
+              <IssuedGiftCard card={booking.issuedGiftCard} />
+            ) : (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50 p-4 text-center">
+                <div className="mb-2 h-28 w-28 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:h-32 sm:w-32">
+                  <TicketCode code={booking.code} svg={qrSvg} />
+                </div>
+                <span className="text-[10px] font-black tracking-widest text-slate-700 uppercase">
+                  {cancelled ? "Cancelled" : "Scan at Gate"}
+                </span>
+                <span className="text-[9px] text-slate-400">Show this pass at entry</span>
               </div>
-              <span className="text-[10px] font-black tracking-widest text-slate-700 uppercase">
-                {cancelled ? "Cancelled" : "Scan at Gate"}
-              </span>
-              <span className="text-[9px] text-slate-400">Show this pass at entry</span>
-            </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3 border-b border-slate-100 py-4 text-xs sm:grid-cols-4 sm:gap-4 sm:py-6">
@@ -175,7 +183,7 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
             </div>
             <div>
               <span className="block text-[11px] font-medium text-slate-400">Payment</span>
-              <span className="font-bold text-slate-900">{PAYMENT_METHOD_LABELS[booking.paymentMethod]}</span>
+              <span className="font-bold text-slate-900">{paymentLabel(booking.paymentMethod, booking.amounts)}</span>
             </div>
             <div>
               <span className="block text-[11px] font-medium text-slate-400">Amount</span>

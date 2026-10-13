@@ -15,6 +15,7 @@ import { couponCodeSchema } from "@showbuzz/schemas/offer";
 import { useAuthStore } from "@/stores/auth";
 import { useBookingCart } from "@/stores/booking-cart";
 import { toast, useUiStore } from "@/stores/ui";
+import { GiftCardApply } from "./GiftCardApply";
 import { PriceBreakdown } from "./PriceBreakdown";
 import { QuoteFallback } from "./QuoteFallback";
 
@@ -227,6 +228,8 @@ export function CheckoutForm() {
           </section>
         )}
 
+        {quote.kind !== "gift-card" && <GiftCardApply quote={quote} />}
+
         <section className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
           <h3 className="mb-1 flex items-center gap-2 text-xs font-extrabold text-slate-900 sm:text-sm">
             <UserCheck className="h-4 w-4 text-blue-500" /> Contact for Digital M-Ticket
@@ -271,8 +274,10 @@ export function CheckoutForm() {
             <PriceBreakdown quote={quote} />
           </div>
           <div className="flex items-baseline justify-between py-3">
-            <span className="text-sm font-black text-slate-900 sm:text-base">Total Amount</span>
-            <span className="text-xl font-black text-rose-600 sm:text-2xl">{formatINR(quote.amounts.totalPaise, { exact: true })}</span>
+            <span className="text-sm font-black text-slate-900 sm:text-base">
+              {quote.amounts.giftCardPaise > 0 ? "Amount Payable" : "Total Amount"}
+            </span>
+            <span className="text-xl font-black text-rose-600 sm:text-2xl">{formatINR(quote.amounts.payablePaise, { exact: true })}</span>
           </div>
           <label className="mb-4 flex items-start gap-2">
             <input

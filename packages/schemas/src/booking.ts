@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { MAX_TICKETS_PER_ORDER } from "./constants";
 import { idSchema, indianPhoneSchema, objectIdSchema, personNameSchema } from "./common";
-import { giftCardOrderSchema } from "./gift-card";
+import { giftCardCodeSchema, giftCardOrderSchema } from "./gift-card";
 import { couponCodeSchema } from "./offer";
 
 /** Show ids are `shows._id` (ObjectId hex), for movie shows and stadium fixtures alike. */
@@ -40,6 +40,8 @@ export const orderDraftSchema = z.object({
   tickets: ticketSelectionSchema,
   food: z.array(foodLineSchema).max(20).default([]),
   couponCode: couponCodeSchema.optional(),
+  /** Gift card to pay with (not for gift card purchases). Checked and applied by the server. */
+  giftCardCode: giftCardCodeSchema.optional(),
 });
 
 export const contactDetailsSchema = z.object({

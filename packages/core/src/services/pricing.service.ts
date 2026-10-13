@@ -5,8 +5,10 @@ import { describeSchedule } from "@showbuzz/utils/schedule";
 import type { OrderDraft } from "@showbuzz/schemas/booking";
 import type { Coupon } from "@showbuzz/schemas/offer";
 import type { BookingKind, OrderQuote, QuoteFoodLine } from "@showbuzz/schemas/types/booking";
+import type { Types } from "@showbuzz/db/mongoose";
 import { AppError } from "../http/app-error";
 import { getCouponByCode, getEventById, listFoodItems, listGiftCardDesigns } from "./catalog.service";
+import { lookupGiftCard } from "./gift-card.service";
 import { loadSeatPlan, priceSeats } from "./seat-map.service";
 import { getSettings } from "./settings.service";
 import { getSeatState } from "./seat-hold.service";
@@ -189,9 +191,46 @@ export interface QuoteOptions {
   strictCoupon?: boolean;
   /** This browser's seat-hold key, so its own held seats count as available. */
   holderKey?: string;
+  /** Who is asking, for gift card lookups (sign-in required, rate-limited per user and IP). */
+  giftCardContext?: { userId?: string; ip: string };
+}
+
+/** The customer-facing quote plus server-only details (which gift card pays). */
+export interface PricedOrder {
+  quote: OrderQuote;
+  giftCardId?: Types.ObjectId;
 }
 
 export async function quoteOrder(draft: OrderDraft, now: Date, options: QuoteOptions = {}): Promise<OrderQuote> {
+  return (await priceOrder(draft, now, options)).quote;
+}
+
+/** Applies a gift card to what is left after coupon and fees. Throws instead of returning errors when `strict`. */
+async function applyGiftCard(
+  draft: OrderDraft,
+  kind: BookingKind,
+  totalPaise: number,
+  now: Date,
+  options: QuoteOptions,
+): Promise<{ giftCard?: OrderQuote["giftCard"]; giftCardId?: Types.ObjectId; giftCardError?: string }> {
+  if (!draft.giftCardCode) return {};
+  const fail = (message: string) => {
+    if (options.strictCoupon) throw new AppError("VALIDATION_FAILED", message, 422);
+    return { giftCardError: message };
+  };
+  if (kind === "gift-card") return fail("Gift cards can't be used to buy gift cards.");
+  if (!options.giftCardContext) return fail("Sign in to pay with a gift card.");
+
+  const found = await lookupGiftCard(draft.giftCardCode, { ...options.giftCardContext, now });
+  if (!found.ok) return fail(found.error);
+  const appliedPaise = Math.min(found.card.balancePaise, totalPaise);
+  return {
+    giftCard: { last4: found.card.last4, appliedPaise, balancePaise: found.card.balancePaise },
+    giftCardId: found.card.id,
+  };
+}
+
+export async function priceOrder(draft: OrderDraft, now: Date, options: QuoteOptions = {}): Promise<PricedOrder> {
   const tickets = await priceTickets(draft.tickets, now, options.holderKey);
   if (draft.food.length > 0 && !tickets.foodAllowed) {
     throw new AppError("VALIDATION_FAILED", "Food pre-orders are only available for cinema shows.", 422);
@@ -221,8 +260,10 @@ export async function quoteOrder(draft: OrderDraft, now: Date, options: QuoteOpt
   }
 
   const totalPaise = Math.max(0, tickets.ticketsPaise + foodPaise + convenienceFeePaise + gstPaise - discountPaise);
+  const { giftCard, giftCardId, giftCardError } = await applyGiftCard(draft, tickets.kind, totalPaise, now, options);
+  const giftCardPaise = giftCard?.appliedPaise ?? 0;
 
-  return {
+  const quote: OrderQuote = {
     kind: tickets.kind,
     title: tickets.title,
     poster: tickets.poster,
@@ -245,8 +286,13 @@ export async function quoteOrder(draft: OrderDraft, now: Date, options: QuoteOpt
       gstPaise,
       discountPaise,
       totalPaise,
+      giftCardPaise,
+      payablePaise: totalPaise - giftCardPaise,
     },
     coupon,
     couponError,
+    ...(giftCard ? { giftCard } : {}),
+    ...(giftCardError ? { giftCardError } : {}),
   };
+  return { quote, ...(giftCardId ? { giftCardId } : {}) };
 }

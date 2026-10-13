@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { z } from "zod";
 import {
   bookingCodeSchema,
@@ -10,9 +11,10 @@ import {
   type PlaceOrderInput,
 } from "@showbuzz/schemas/booking";
 import { getOrCreateHolderKey, readHolderKey } from "@showbuzz/core/booking/hold-cookie";
-import { requireCustomer } from "@showbuzz/core/auth/current-customer";
+import { getCurrentCustomer, requireCustomer } from "@showbuzz/core/auth/current-customer";
 import { AppError } from "@showbuzz/core/http/app-error";
 import { runAction } from "@showbuzz/core/http/action-result";
+import { getClientIp } from "@showbuzz/core/http/request";
 import { cancelBooking, confirmPayment, placeOrder } from "@showbuzz/core/services/booking.service";
 import { quoteOrder } from "@showbuzz/core/services/pricing.service";
 import { holdSeats } from "@showbuzz/core/services/seat-hold.service";
@@ -33,10 +35,18 @@ const confirmPaymentSchema = z.object({
   simulate: z.enum(["success", "failure"]),
 });
 
+async function clientIp() {
+  return getClientIp(await headers());
+}
+
 export async function quoteOrderAction(draft: OrderDraftInput) {
-  return runAction(async () =>
-    quoteOrder(orderDraftSchema.parse(draft), new Date(), { holderKey: await readHolderKey() }),
-  );
+  return runAction(async () => {
+    const customer = await getCurrentCustomer();
+    return quoteOrder(orderDraftSchema.parse(draft), new Date(), {
+      holderKey: await readHolderKey(),
+      giftCardContext: { userId: customer?.id, ip: await clientIp() },
+    });
+  });
 }
 
 /**
@@ -66,7 +76,9 @@ export async function holdSeatsAction(input: z.input<typeof holdSeatsSchema>) {
 
 /** Sign-in is required before payment (decided 2026-10-13); the owner comes from the session only. */
 export async function placeOrderAction(input: PlaceOrderInput) {
-  return runAction(async () => placeOrder(input, await requireCustomer(), await readHolderKey(), new Date()));
+  return runAction(async () =>
+    placeOrder(input, await requireCustomer(), { holderKey: await readHolderKey(), ip: await clientIp() }, new Date()),
+  );
 }
 
 /** Confirms the order's payment on the server; with the simulated gateway `simulate` picks the outcome. */

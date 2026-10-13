@@ -15,6 +15,7 @@ import { City } from "@showbuzz/db/models/City";
 import { Coupon } from "@showbuzz/db/models/Coupon";
 import { Event } from "@showbuzz/db/models/Event";
 import { FoodItem } from "@showbuzz/db/models/FoodItem";
+import { GiftCard } from "@showbuzz/db/models/GiftCard";
 import { GiftCardDesign } from "@showbuzz/db/models/GiftCardDesign";
 import { Lead } from "@showbuzz/db/models/Lead";
 import { Movie } from "@showbuzz/db/models/Movie";
@@ -184,7 +185,7 @@ async function main() {
   const seededModels = [City, Movie, Venue, Event, StreamTitle, Coupon, FoodItem, GiftCardDesign, Show, Settings];
   // The unique indexes are what make upserts by slug/code safe (and, for seatHolds/bookings, what prevents double
   // booking in production, where autoIndex is off); createIndexes never drops anything.
-  for (const model of [...seededModels, SeatHold, Booking, Payment, Refund, Review, Lead, WishlistItem])
+  for (const model of [...seededModels, SeatHold, Booking, Payment, Refund, Review, Lead, WishlistItem, GiftCard])
     await model.createIndexes();
 
   await Settings.updateOne({ key: SETTINGS_KEY }, { $setOnInsert: { ...SETTINGS_DEFAULTS } }, { upsert: true });

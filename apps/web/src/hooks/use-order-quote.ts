@@ -20,8 +20,8 @@ type QuoteState =
  */
 export function useOrderQuote(): QuoteState {
   const hydrated = useStoresHydrated();
-  const { tickets, food, couponCode } = useBookingCart(
-    useShallow((s) => ({ tickets: s.tickets, food: s.food, couponCode: s.couponCode })),
+  const { tickets, food, couponCode, giftCardCode } = useBookingCart(
+    useShallow((s) => ({ tickets: s.tickets, food: s.food, couponCode: s.couponCode, giftCardCode: s.giftCardCode })),
   );
   const [latest, setLatest] = useState<QuoteState>();
 
@@ -29,7 +29,7 @@ export function useOrderQuote(): QuoteState {
   useEffect(() => {
     if (!hydrated || !tickets) return;
     let cancelled = false;
-    quoteOrderAction({ tickets, food, couponCode }).then((result) => {
+    quoteOrderAction({ tickets, food, couponCode, giftCardCode }).then((result) => {
       if (cancelled) return;
       setLatest(
         result.success ? { status: "ready", quote: result.data } : { status: "error", message: result.error.message },
@@ -38,7 +38,7 @@ export function useOrderQuote(): QuoteState {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, tickets, food, couponCode]);
+  }, [hydrated, tickets, food, couponCode, giftCardCode]);
 
   if (!hydrated) return { status: "loading" };
   if (!tickets) return { status: "empty" };

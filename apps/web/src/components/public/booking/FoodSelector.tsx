@@ -189,7 +189,7 @@ export function FoodSelector({ items }: { items: FoodItem[] }) {
               <PriceBreakdown quote={quote} />
               <div className="mt-2 flex justify-between border-t border-slate-100 pt-2 text-base font-black text-slate-900">
                 <span>Total Payable</span>
-                <span className="text-emerald-600">{formatINR(quote.amounts.totalPaise, { exact: true })}</span>
+                <span className="text-emerald-600">{formatINR(quote.amounts.payablePaise, { exact: true })}</span>
               </div>
             </div>
             <button
