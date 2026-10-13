@@ -1,0 +1,37 @@
+{
+  "name": "@showbuzz/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Mongoose connection, models and seed data. The only package that depends on mongoose.",
+  "exports": {
+    "./models": "./src/models/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:sync-indexes": "tsx --env-file-if-exists=../../apps/web/.env.local --tsconfig tsconfig.scripts.json scripts/sync-indexes.ts"
+  },
+  "dependencies": {
+    "@showbuzz/runtime": "workspace:*",
+    "@showbuzz/schemas": "workspace:*",
+    "mongoose": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@showbuzz/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "tsx": "catalog:"
+  }
+}

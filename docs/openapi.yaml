@@ -283,6 +283,7 @@ components:
         - OTP_EXPIRED
         - RATE_LIMITED
         - NOT_CONFIGURED
+        - STEP_UP_REQUIRED
         - INTERNAL
 
     CustomerSnapshot:

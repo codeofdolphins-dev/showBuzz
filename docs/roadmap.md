@@ -22,7 +22,7 @@
 4. **Dependencies.** Install only the packages the batch prompt names (exact versions from CLAUDE.md §2).
    Ask before adding anything else.
 5. **Boundaries.** Zod validates every input (body, query, params, Server Action args, env). Business rules live in
-   `src/server/services/`. Route handlers and Server Actions stay thin. Every `src/server/**` module starts with
+   `packages/core/src/services/`. Route handlers and Server Actions stay thin. Every `packages/core/src/**` module starts with
    `import "server-only"`.
 6. **Security baseline.** Never log or return secrets, tokens, OTP codes (except the dev-mode on-screen code), or
    full phone/email in logs. Use constant-time comparisons for secrets. Generic error messages for auth failures.
@@ -36,7 +36,7 @@
 
 ## Definition of Done (every batch)
 
-- [ ] `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` all pass (build matters: Cache Components rules are enforced there).
+- [ ] `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` all pass (build matters: Cache Components rules are enforced there).
 - [ ] New/changed behaviour covered by tests, including the failure paths.
 - [ ] No `any`, no commented-out code, no stray `console.log`.
 - [ ] Docs updated (see rule 9).
@@ -60,12 +60,17 @@
 
 ## Open questions (answer before the batch that needs them)
 
-- **Before 1.8:** must a customer sign in before checkout/payment (BookMyShow style), or is guest checkout allowed? _Recommended: sign-in required before payment._
-- **Before 1.7:** account deletion. Anonymise the user but keep bookings/payments for GST record-keeping? _Recommended: yes._
+- ~~**Before 1.8:** sign in before checkout/payment?~~ **Answered 2026-10-13: sign-in required before payment** (no guest checkout). Also decided: one review per customer per movie, a second submit updates it.
+- ~~**Before 1.7:** account deletion.~~ **Answered 2026-10-13: yes**, anonymise the user (tombstone) and keep bookings/payments linked by userId for GST records.
 - **Before Phase 2:** CLAUDE.md §12 inconsistencies (ticket limit 8 vs 10, cancellation 20 min vs 4 h, coupon codes, city list).
-- **Before 3.4:** payment gateway (Razorpay vs Cashfree). **Before 1.9 go-live:** OTP/SMS + email provider.
+- **Before 3.4:** payment gateway (Razorpay vs Cashfree). **Before go-live:** OTP/SMS + email provider (see `docs/auth.md` §7–8).
 
 ---
+
+## Monorepo (pnpm + Turborepo), done 2026-10-13
+
+- [x] **M.1** Convert to a pnpm + Turborepo monorepo (pure restructure): `apps/web` + `packages/{schemas,utils,runtime,db,core,ui,config}`, pnpm catalog, `turbo.json`, tests moved next to their code (306 passing, same as before), docs updated.
+- [ ] **M.2** `apps/admin` foundation: admin design system, staff auth with roles, console shell (admin.showbuzz.com).
 
 ## Phase 0: Foundation
 
@@ -73,7 +78,7 @@
 - [x] **0.1** Tooling & test harness: Prettier, Vitest (unit + integration projects), Testing Library, mongodb-memory-server, `server-only` stub, CI workflow, smoke tests for existing utils.
 - [x] **0.2** Server core: env split (server/public), `.env.example`, Mongoose connection, `apiHandler` + response envelope, extended `AppError`, redacting logger, request helpers (IP, origin check), rate limiter, health route, baseline security headers.
 
-## Phase 1: Public authentication (customer OTP)
+## Phase 1: Public authentication (customer OTP), done 2026-10-13
 
 - [x] **1.1** Customer data layer: `User` + `OtpChallenge` models, identifier normalisation (E.164 / lowercase email), schemas, indexes.
 - [x] **1.2** OTP service on MongoDB: delivery provider interface, request/verify, cooldowns, attempts, rate limits, masked destinations.
@@ -81,9 +86,11 @@
 - [x] **1.4** Auth API + Server Actions: OTP request/verify, refresh (POST + GET bounce), logout, me. OpenAPI doc.
 - [x] **1.5** Route protection: `getCurrentCustomer` / `requireCustomer`, `proxy.ts` for `/account/**`, safe `next` redirects.
 - [x] **1.6** Client integration: server-fed auth store, AuthModal on real API (resend timer, deep-link open), keep-alive refresh, sign-out, remove `AccountGate`.
-- [ ] **1.7** Profile & account management: DB-backed profile, verified email/phone change, active sessions, sign out everywhere, account deletion.
-- [ ] **1.8** Identity in existing features: bookings/reviews/checkout bound to the signed-in user, ownership checks.
-- [ ] **1.9** Hardening: Playwright E2E for sign-in, security review (OWASP ASVS auth/session), `docs/auth.md`, CLAUDE.md cleanup.
+- [x] **1.7** Profile & account management: DB-backed profile, verified email/phone change, active sessions, sign out everywhere, account deletion.
+- [x] **1.8** Identity in existing features: bookings/reviews/checkout bound to the signed-in user, ownership checks.
+- [x] **1.9** Hardening: Playwright E2E for sign-in, security review (OWASP ASVS auth/session), `docs/auth.md`, CLAUDE.md cleanup.
+
+**Phase 1 follow-ups** (from the 1.9 review, `docs/auth.md` §6): CI job for `pnpm test:e2e` (skipped in 1.9; no CI workflow in the repo yet); F5 revoke the old session when re-signing in on the same device; F6 rate-limit bucket for unknown IPs; F7 rate limits on orders, reviews and leads (with 3.4 / 4.1 / 4.3); F8 CSP (8.2); F9 public pages are `no-store` because the layout reads cookies (8.3); seed poster `photo-1579783902614` returns 404 from Unsplash (2.3).
 
 ## Phase 2: Catalogue backend
 

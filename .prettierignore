@@ -1,10 +1,8 @@
-.next
+# Workspaces format themselves (pnpm format runs prettier in each); this file covers root-level files only.
+apps
+packages
 node_modules
-package-lock.json
+pnpm-lock.yaml
+.turbo
 showBuzz_HTML
 coverage
-public
-# Generated files
-AGENTS.md
-next-env.d.ts
-*.tsbuildinfo

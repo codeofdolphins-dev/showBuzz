@@ -1,0 +1,9 @@
+{
+  "extends": "@showbuzz/config/tsconfig/base.json",
+  "include": [
+    "src",
+    "tests",
+    "scripts",
+    "*.mts"
+  ]
+}

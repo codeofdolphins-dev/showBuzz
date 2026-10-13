@@ -1,0 +1,44 @@
+{
+  "name": "@showbuzz/core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Server business logic: services, HTTP helpers (apiHandler, AppError), auth and rate limiting.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@showbuzz/db": "workspace:*",
+    "@showbuzz/runtime": "workspace:*",
+    "@showbuzz/schemas": "workspace:*",
+    "@showbuzz/utils": "workspace:*",
+    "jose": "catalog:",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "next": "*",
+    "react": "*"
+  },
+  "devDependencies": {
+    "@showbuzz/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "@types/react": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  }
+}

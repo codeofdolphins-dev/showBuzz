@@ -1,0 +1,85 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "globalDependencies": [
+    "pnpm-workspace.yaml"
+  ],
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "MONGODB_URI",
+        "MONGODB_DB",
+        "OTP_*",
+        "JWT_*",
+        "NEXT_PUBLIC_*",
+        "VERCEL_URL",
+        "VERCEL_BRANCH_URL"
+      ]
+    },
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**"
+      ],
+      "env": [
+        "MONGODB_URI",
+        "MONGODB_DB",
+        "OTP_*",
+        "JWT_*",
+        "NEXT_PUBLIC_*",
+        "VERCEL_URL",
+        "VERCEL_BRANCH_URL"
+      ]
+    },
+    "lint": {},
+    "typecheck": {
+      "outputs": [
+        ".next/types/**",
+        ".next/dev/types/**",
+        "next-env.d.ts"
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        "@showbuzz/config#mongod"
+      ],
+      "outputs": [],
+      "passThroughEnv": [
+        "MONGOMS_*"
+      ]
+    },
+    "test:e2e": {
+      "dependsOn": [
+        "@showbuzz/config#mongod"
+      ],
+      "cache": false,
+      "passThroughEnv": [
+        "MONGOMS_*",
+        "PLAYWRIGHT_*"
+      ]
+    },
+    "format": {
+      "cache": false
+    },
+    "format:check": {},
+    "//#format:root": {
+      "cache": false
+    },
+    "//#format:check:root": {},
+    "@showbuzz/config#mongod": {
+      "cache": false,
+      "passThroughEnv": [
+        "MONGOMS_*"
+      ]
+    }
+  }
+}
