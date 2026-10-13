@@ -1,0 +1,53 @@
+{
+  "name": "@showbuzz/admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "eslint .",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:seed-roles": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.scripts.json scripts/seed-roles.ts",
+    "db:create-admin": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.scripts.json scripts/create-admin.ts",
+    "db:seed-demo-admin": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.scripts.json scripts/seed-demo-admin.ts"
+  },
+  "dependencies": {
+    "@showbuzz/core": "workspace:*",
+    "@showbuzz/db": "workspace:*",
+    "@showbuzz/runtime": "workspace:*",
+    "@showbuzz/schemas": "workspace:*",
+    "@showbuzz/utils": "workspace:*",
+    "lucide-react": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@playwright/test": "catalog:",
+    "@showbuzz/config": "workspace:*",
+    "@tailwindcss/turbopack": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "mongodb-memory-server": "catalog:",
+    "prettier": "catalog:",
+    "tailwindcss": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

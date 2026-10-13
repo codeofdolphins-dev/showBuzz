@@ -1,10 +1,10 @@
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
-import { env } from "@showbuzz/runtime/env";
+import { customerAuthEnv } from "@showbuzz/runtime/customer-auth-env";
 import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } from "@showbuzz/core/auth/jwt";
 
 const ids = { sub: "652f1c0e8b3f4a2d9c1e7b55", sid: "0b5e2f0c-6c1a-4a9e-9f7b-2d3c4e5f6a7b" };
-const accessKey = new TextEncoder().encode(env.JWT_ACCESS_SECRET);
+const accessKey = new TextEncoder().encode(customerAuthEnv.JWT_ACCESS_SECRET);
 
 function base64url(value: object) {
   return Buffer.from(JSON.stringify(value)).toString("base64url");

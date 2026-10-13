@@ -70,7 +70,7 @@
 ## Monorepo (pnpm + Turborepo), done 2026-10-13
 
 - [x] **M.1** Convert to a pnpm + Turborepo monorepo (pure restructure): `apps/web` + `packages/{schemas,utils,runtime,db,core,ui,config}`, pnpm catalog, `turbo.json`, tests moved next to their code (306 passing, same as before), docs updated.
-- [ ] **M.2** `apps/admin` foundation: admin design system, staff auth with roles, console shell (admin.showbuzz.com).
+- [x] **M.2** `apps/admin` foundation (2026-10-13): admin design system, staff auth with roles (generalised core token/cookie/session helpers), console shell with permission-filtered menu, Ctrl+K palette, dashboard (sample data), profile + password change, Super Admin password reset stand-in. Covers 5.1, 5.2 (without lockout/TOTP) and 5.4. Tests written but not run (2026-10-13: user paused testing); the Playwright admin test was not written.
 
 ## Phase 0: Foundation
 
@@ -121,10 +121,10 @@
 
 ## Phase 5: Admin authentication & RBAC
 
-- [ ] **5.1** `staff` + `roles` models, permission catalogue, seeded roles, bcrypt, `scripts/create-admin.ts`.
+- [x] **5.1** `staff` + `roles` models, permission catalogue, seeded roles, bcrypt, `scripts/create-admin.ts`.
 - [ ] **5.2** Admin login/refresh/logout (`aud: showbuzz-admin`, separate cookies), lockout, forgot/reset password, optional TOTP 2FA.
 - [ ] **5.3** `requirePermission()`, `/admin/**` in `proxy.ts`, activity log service.
-- [ ] **5.4** Admin shell UI (layout, sidebar, topbar, Ctrl+K, admin tokens) + login/forgot pages.
+- [x] **5.4** Admin shell UI (layout, sidebar, topbar, Ctrl+K, admin tokens) + login/forgot pages.
 
 ## Phase 6: Admin CRUD (each batch = UI conversion + API + tests)
 

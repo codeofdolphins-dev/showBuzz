@@ -20,6 +20,7 @@
     "@showbuzz/runtime": "workspace:*",
     "@showbuzz/schemas": "workspace:*",
     "@showbuzz/utils": "workspace:*",
+    "bcryptjs": "catalog:",
     "jose": "catalog:",
     "zod": "catalog:"
   },

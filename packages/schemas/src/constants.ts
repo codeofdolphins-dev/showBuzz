@@ -43,6 +43,21 @@ export const AUTH = {
   stepUpWindowSec: 10 * 60,
 } as const;
 
+/** Staff sign-in (admin app). Tokens use their own keys and audience; see ADMIN_JWT_* in runtime/admin-auth-env. */
+export const ADMIN_AUTH = {
+  accessTokenTtlSec: 15 * 60,
+  // Rotated on every use and revocable per device, like customer refresh tokens.
+  refreshTokenTtlSec: 7 * 24 * 60 * 60,
+  maxSessionsPerStaff: 5,
+  bcryptCost: 12,
+  // Login attempts per window: per email stops guessing one account, per IP stops spraying many.
+  loginWindowSec: 15 * 60,
+  loginMaxPerEmail: 5,
+  loginMaxPerIp: 20,
+  // Current-password checks on /profile (same guessing risk as login).
+  passwordChangeMaxPerWindow: 5,
+} as const;
+
 /** Display name for accounts created from the sign-in tab, where no name is asked for. */
 export const DEFAULT_CUSTOMER_NAME = "ShowBuzz Member";
 

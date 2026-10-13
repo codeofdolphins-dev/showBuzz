@@ -2,65 +2,43 @@ import "server-only";
 import { z } from "zod";
 
 /**
- * Server environment, validated once when first imported so a misconfigured deployment fails at
- * boot (and `next build` fails) instead of on the first request. Together with public-env.ts this is
- * the only place that reads process.env. Variables from CLAUDE.md §6 that no code uses yet
- * (QR_SIGNING_SECRET, PAYMENT_*, ...) are added here when the code that needs them lands.
+ * Server environment shared by every app, validated once when first imported so a misconfigured deployment
+ * fails at boot (and `next build` fails) instead of on the first request. Secrets that only one app needs
+ * live in their own module (customer-auth-env.ts, admin-auth-env.ts), so the admin app never needs customer
+ * secrets and vice versa. Together with public-env.ts these are the only places that read process.env.
+ * Variables from CLAUDE.md §6 that no code uses yet (QR_SIGNING_SECRET, PAYMENT_*, ...) are added when the
+ * code that needs them lands.
  */
-const serverEnvSchema = z
-  .object({
-    NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-    MONGODB_URI: z
-      .string()
-      .regex(/^mongodb(\+srv)?:\/\/\S+$/, "must be a mongodb:// or mongodb+srv:// connection string"),
-    MONGODB_DB: z
-      .string()
-      .regex(/^[A-Za-z0-9_-]{1,63}$/, "must be a database name (letters, digits, _ and -, max 63 characters)"),
-    /** HMAC key for OTP codes at rest (codes are never stored in plain text). */
-    OTP_HASH_SECRET: z.string().min(32, "must be at least 32 characters"),
-    /**
-     * How sign-in codes reach the customer. No SMS/email provider is chosen yet:
-     * - "none" (default): the code is written to the server log (and shown on screen outside production);
-     * - "dev": shown on screen only, never logged; not allowed in production.
-     */
-    OTP_PROVIDER: z.enum(["none", "dev"]).default("none"),
-    /** HS256 keys for customer JWTs (batch 1.3). Separate keys so one can be rotated without the other. */
-    JWT_ACCESS_SECRET: z.string().min(32, "must be at least 32 characters"),
-    JWT_REFRESH_SECRET: z.string().min(32, "must be at least 32 characters"),
-    /** Set by Vercel: the deployment and branch hostnames, accepted as same-origin on preview deployments. */
-    VERCEL_URL: z.string().optional(),
-    VERCEL_BRANCH_URL: z.string().optional(),
-  })
-  .refine((e) => !(e.NODE_ENV === "production" && e.OTP_PROVIDER === "dev"), {
-    message: '"dev" is not allowed in production',
-    path: ["OTP_PROVIDER"],
-  })
-  .refine((e) => e.JWT_ACCESS_SECRET !== e.JWT_REFRESH_SECRET, {
-    message: "must differ from JWT_ACCESS_SECRET",
-    path: ["JWT_REFRESH_SECRET"],
-  });
+const serverEnvSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  MONGODB_URI: z
+    .string()
+    .regex(/^mongodb(\+srv)?:\/\/\S+$/, "must be a mongodb:// or mongodb+srv:// connection string"),
+  MONGODB_DB: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{1,63}$/, "must be a database name (letters, digits, _ and -, max 63 characters)"),
+  /** Set by Vercel: the deployment and branch hostnames, accepted as same-origin on preview deployments. */
+  VERCEL_URL: z.string().optional(),
+  VERCEL_BRANCH_URL: z.string().optional(),
+});
 
-function parseServerEnv() {
-  const result = serverEnvSchema.safeParse({
-    NODE_ENV: process.env.NODE_ENV,
-    MONGODB_URI: process.env.MONGODB_URI,
-    MONGODB_DB: process.env.MONGODB_DB,
-    OTP_HASH_SECRET: process.env.OTP_HASH_SECRET,
-    OTP_PROVIDER: process.env.OTP_PROVIDER,
-    JWT_ACCESS_SECRET: process.env.JWT_ACCESS_SECRET,
-    JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
-    VERCEL_URL: process.env.VERCEL_URL,
-    VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
-  });
+/** Parses `values` with `schema`, naming only the failing variables (values can hold credentials). */
+export function parseEnv<T extends z.ZodType>(schema: T, values: Record<string, string | undefined>): z.output<T> {
+  const result = schema.safeParse(values);
   if (!result.success) {
-    // Name the variables only: values can hold credentials.
     const problems = result.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`);
     throw new Error(`Invalid server environment (see .env.example):\n  ${problems.join("\n  ")}`);
   }
   return result.data;
 }
 
-export const env = parseServerEnv();
+export const env = parseEnv(serverEnvSchema, {
+  NODE_ENV: process.env.NODE_ENV,
+  MONGODB_URI: process.env.MONGODB_URI,
+  MONGODB_DB: process.env.MONGODB_DB,
+  VERCEL_URL: process.env.VERCEL_URL,
+  VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
+});
 
 export const isProduction = env.NODE_ENV === "production";
 

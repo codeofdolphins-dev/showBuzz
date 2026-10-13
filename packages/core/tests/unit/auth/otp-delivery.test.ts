@@ -61,11 +61,11 @@ describe("OTP delivery in production", () => {
   });
 });
 
-describe("server env", () => {
+describe("customer auth env", () => {
   it("requires OTP_HASH_SECRET of at least 32 characters", async () => {
     vi.stubEnv("OTP_HASH_SECRET", "too-short");
     vi.resetModules();
 
-    await expect(import("@showbuzz/runtime/env")).rejects.toThrow(/OTP_HASH_SECRET: must be at least 32 characters/);
+    await expect(import("@showbuzz/runtime/customer-auth-env")).rejects.toThrow(/OTP_HASH_SECRET: must be at least 32 characters/);
   });
 });

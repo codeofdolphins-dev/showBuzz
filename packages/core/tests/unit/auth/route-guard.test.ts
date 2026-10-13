@@ -1,6 +1,6 @@
 import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
-import { env } from "@showbuzz/runtime/env";
+import { customerAuthEnv } from "@showbuzz/runtime/customer-auth-env";
 import { signAccessToken, signRefreshToken } from "@showbuzz/core/auth/jwt";
 import { decideCustomerRoute } from "@showbuzz/core/auth/route-guard";
 
@@ -49,7 +49,7 @@ describe("decideCustomerRoute", () => {
       .setSubject(ids.sub)
       .setIssuedAt()
       .setExpirationTime("15m")
-      .sign(new TextEncoder().encode(env.JWT_ACCESS_SECRET));
+      .sign(new TextEncoder().encode(customerAuthEnv.JWT_ACCESS_SECRET));
 
     expect(await decideCustomerRoute({ ...page, accessToken: adminToken })).toEqual(toRefresh("/account/profile"));
   });

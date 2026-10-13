@@ -13,6 +13,8 @@ servers:
 tags:
   - name: Customer auth
     description: Phone/email one-time-code sign-in and cookie sessions.
+  - name: Staff auth
+    description: Admin console (admin.showbuzz.com) email + password sign-in and cookie sessions.
   - name: System
 
 paths:
@@ -188,6 +190,90 @@ paths:
               schema: { $ref: "#/components/schemas/SessionEnvelope" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
 
+  /admin/auth/login:
+    post:
+      tags: [Staff auth]
+      summary: Staff sign-in (email + password)
+      description: |
+        Served by the admin app. Wrong email, wrong password and disabled accounts all answer 401
+        "Invalid email or password.". Limited to 5 attempts per email and 20 per IP per 15 minutes.
+        Sets the staff cookies (sba_*), never the customer ones.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/StaffSessionCookies" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffSessionEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /admin/auth/refresh:
+    post:
+      tags: [Staff auth]
+      summary: Rotate the staff session
+      description: Uses the staff refresh cookie (path /api/v1/admin/auth). A replayed old token revokes the session.
+      security: [{ staffRefreshCookie: [] }]
+      responses:
+        "200":
+          description: New token pair.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/StaffSessionCookies" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffSessionEnvelope" }
+        "401":
+          description: Session ended; staff cookies are cleared.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    get:
+      tags: [Staff auth]
+      summary: Rotate and redirect (page navigations from proxy.ts)
+      security: [{ staffRefreshCookie: [] }]
+      parameters:
+        - name: next
+          in: query
+          schema: { type: string }
+          description: Local path to return to; anything else falls back to /dashboard.
+      responses:
+        "303":
+          description: To `next` with new cookies, or to /login?next= with cleared cookies.
+  /admin/auth/logout:
+    post:
+      tags: [Staff auth]
+      summary: End this device's staff session
+      responses:
+        "200":
+          description: Signed out (idempotent); staff cookies cleared.
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /admin/auth/me:
+    get:
+      tags: [Staff auth]
+      summary: The signed-in staff member, role and permissions
+      description: Customer tokens never verify here (different audience and keys).
+      security: [{ staffAccessCookie: [] }]
+      responses:
+        "200":
+          description: Current staff member.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StaffSessionEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+
 components:
   securitySchemes:
     accessCookie:
@@ -201,12 +287,29 @@ components:
       name: __Secure-sb_rt
       description: Refresh JWT (7 days, sliding), sent only to /api/v1/auth. Named `sb_rt` outside production.
 
+    staffAccessCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-sba_at
+      description: Staff access JWT (15 min, aud showbuzz-admin). Named `sba_at` outside production.
+    staffRefreshCookie:
+      type: apiKey
+      in: cookie
+      name: __Secure-sba_rt
+      description: Staff refresh JWT (7 days, sliding), sent only to /api/v1/admin/auth. Named `sba_rt` outside production.
+
   headers:
     SessionCookies:
       description: |
         `__Host-sb_at` (Path=/; Max-Age=900) and `__Secure-sb_rt` (Path=/api/v1/auth; Max-Age=604800),
         plus `__Host-sb_has_session=1` (Path=/; Max-Age=604800, no secret: tells pages a session exists so the
         client can refresh silently). All HttpOnly; Secure; SameSite=Lax. Cleared with Max-Age=0.
+      schema: { type: string }
+
+    StaffSessionCookies:
+      description: |
+        `__Host-sba_at` (Path=/; Max-Age=900), `__Secure-sba_rt` (Path=/api/v1/admin/auth; Max-Age=604800) and
+        `__Host-sba_has_session=1`. All HttpOnly; Secure; SameSite=Lax; host-only (no Domain attribute).
       schema: { type: string }
 
   responses:
@@ -326,3 +429,31 @@ components:
               properties:
                 status: { type: string, enum: [ok, degraded] }
                 db: { type: string, enum: [up, down] }
+
+    StaffSnapshot:
+      type: object
+      required: [id, name, email, role, permissions]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string, examples: [Super Admin] }
+        permissions:
+          type: array
+          items: { type: string, examples: ["movies:read"] }
+        lastLoginAt: { type: string, format: date-time }
+
+    StaffSessionEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - properties:
+            data:
+              type: object
+              required: [staff, accessExpiresAt]
+              properties:
+                staff: { $ref: "#/components/schemas/StaffSnapshot" }
+                accessExpiresAt: { type: string, format: date-time }

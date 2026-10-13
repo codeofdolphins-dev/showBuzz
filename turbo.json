@@ -13,6 +13,7 @@
         "MONGODB_DB",
         "OTP_*",
         "JWT_*",
+        "ADMIN_JWT_*",
         "NEXT_PUBLIC_*",
         "VERCEL_URL",
         "VERCEL_BRANCH_URL"
@@ -35,6 +36,7 @@
         "MONGODB_DB",
         "OTP_*",
         "JWT_*",
+        "ADMIN_JWT_*",
         "NEXT_PUBLIC_*",
         "VERCEL_URL",
         "VERCEL_BRANCH_URL"

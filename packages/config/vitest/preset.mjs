@@ -61,6 +61,8 @@ export function defineShowbuzzVitest({ projects, next = false, alias = [] }) {
         OTP_HASH_SECRET: "test-only-otp-hash-secret-0123456789abcdef",
         JWT_ACCESS_SECRET: "test-only-jwt-access-secret-0123456789abcdef",
         JWT_REFRESH_SECRET: "test-only-jwt-refresh-secret-0123456789abcdef",
+        ADMIN_JWT_ACCESS_SECRET: "test-only-admin-access-secret-0123456789abcdef",
+        ADMIN_JWT_REFRESH_SECRET: "test-only-admin-refresh-secret-0123456789abcdef",
       },
       coverage: {
         provider: "v8",

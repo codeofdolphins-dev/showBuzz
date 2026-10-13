@@ -17,7 +17,10 @@
     "format:check": "turbo run format:check format:check:root",
     "format:root": "prettier --write .",
     "format:check:root": "prettier --check .",
-    "db:sync-indexes": "pnpm --filter @showbuzz/db db:sync-indexes"
+    "db:sync-indexes": "pnpm --filter @showbuzz/db db:sync-indexes",
+    "db:seed-roles": "pnpm --filter @showbuzz/admin db:seed-roles",
+    "db:create-admin": "pnpm --filter @showbuzz/admin db:create-admin",
+    "db:seed-demo-admin": "pnpm --filter @showbuzz/admin db:seed-demo-admin"
   },
   "devDependencies": {
     "@showbuzz/config": "workspace:*",
