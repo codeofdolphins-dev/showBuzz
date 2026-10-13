@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Landmark, CreditCard, FlaskConical, QrCode, ShieldCheck, Wallet } from "lucide-react";
-import { placeOrderAction } from "@/app/(public)/_actions/booking";
+import { confirmPaymentAction, placeOrderAction } from "@/app/(public)/_actions/booking";
 import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { useOrderQuote } from "@/hooks/use-order-quote";
 import { cn } from "@showbuzz/utils/cn";
@@ -29,7 +29,8 @@ const WALLETS = ["Paytm Wallet", "Amazon Pay Balance", "Mobikwik"];
  * Method picker. Card, bank and wallet details are entered on the payment gateway's own
  * page (Razorpay/Cashfree, still to be chosen), never in this app.
  */
-export function PaymentPanel({ demoMode }: { demoMode: boolean }) {
+/** `simulated`: PAYMENT_PROVIDER=simulated, so the panel shows the "Demo payment" label and a failure button. */
+export function PaymentPanel({ simulated }: { simulated: boolean }) {
   const router = useRouter();
   const quoteState = useOrderQuote();
   const cart = useBookingCart();
@@ -56,29 +57,43 @@ export function PaymentPanel({ demoMode }: { demoMode: boolean }) {
 
   const total = formatINR(quote.amounts.totalPaise, { exact: true });
 
-  const pay = () => {
-    const { tickets, food, couponCode, contact } = cart;
+  /** Places the order, then asks the server to confirm the payment. `simulate` only matters for demo payments. */
+  const pay = (simulate: "success" | "failure") => {
+    const { tickets, food, couponCode, contact, hold } = cart;
     if (!tickets || !contact) return;
     if (authStatus !== "authenticated") {
       openAuthModal("/booking/payment");
       return;
     }
     startTransition(async () => {
-      const result = await withAuthRetry(() =>
+      const placed = await withAuthRetry(() =>
         placeOrderAction({ tickets, food, couponCode, contact, paymentMethod: method }),
       );
-      if (!result.success) {
+      if (!placed.success) {
         // The session couldn't be renewed: the sign-in modal is already open, the cart is kept.
-        if (result.error.code === "UNAUTHENTICATED") return;
-        if (result.error.code === "SEAT_UNAVAILABLE" || result.error.code === "COUPON_INVALID") {
-          toast(result.error.message, "error");
+        if (placed.error.code === "UNAUTHENTICATED") return;
+        if (placed.error.code === "HOLD_EXPIRED" && hold) {
+          toast(placed.error.message, "warning");
+          router.replace(hold.seatsHref);
           return;
         }
-        router.push(`/booking/failure?reason=${encodeURIComponent(result.error.code)}`);
+        if (placed.error.code === "SEAT_UNAVAILABLE" || placed.error.code === "COUPON_INVALID") {
+          toast(placed.error.message, "error");
+          return;
+        }
+        router.push(`/booking/failure?reason=${encodeURIComponent(placed.error.code)}`);
         return;
       }
-      cart.clear();
-      router.replace(`/booking/success?id=${result.data.code}`);
+
+      const { code } = placed.data;
+      const confirmed = await withAuthRetry(() => confirmPaymentAction({ code, simulate }));
+      if (confirmed.success && confirmed.data.status === "confirmed") {
+        cart.clear();
+        router.replace(`/booking/success?id=${code}`);
+        return;
+      }
+      // The cart is kept so "Retry" can pay again (seated orders re-pick seats: their holds were released).
+      router.push(`/booking/failure?code=${code}`);
     });
   };
 
@@ -100,12 +115,13 @@ export function PaymentPanel({ demoMode }: { demoMode: boolean }) {
         </div>
       </div>
 
-      {demoMode && (
+      {simulated && (
         <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800">
           <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
-            <strong>Test mode.</strong> No payment gateway is connected yet, so paying here simulates a successful payment
-            and no money is charged. This is disabled in production.
+            <span className="mr-1.5 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-black uppercase">Demo payment</span>
+            No payment gateway is connected yet. <strong>Pay</strong> completes the booking without charging anything;{" "}
+            <strong>Simulate failure</strong> shows what happens when a payment is declined.
           </p>
         </div>
       )}
@@ -188,12 +204,22 @@ export function PaymentPanel({ demoMode }: { demoMode: boolean }) {
 
           <button
             type="button"
-            onClick={pay}
+            onClick={() => pay("success")}
             disabled={isPending}
             className="gradient-btn tap-active w-full rounded-2xl py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/20 disabled:opacity-60 sm:text-sm"
           >
-            Pay Securely {total}
+            {simulated ? `Pay ${total} (Demo)` : `Pay Securely ${total}`}
           </button>
+          {simulated && (
+            <button
+              type="button"
+              onClick={() => pay("failure")}
+              disabled={isPending}
+              className="tap-active w-full rounded-2xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+            >
+              Simulate failure
+            </button>
+          )}
         </div>
       </div>
 

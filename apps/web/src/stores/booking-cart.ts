@@ -8,12 +8,19 @@ import type { ContactDetailsInput, FoodLine, TicketSelection } from "@showbuzz/s
  * The order being built across seats → food → checkout → payment. It holds only ids and
  * quantities; every price is re-computed by the server from these.
  */
+/** The real seat hold behind a seated cart: when it expires the customer is sent back to `seatsHref`. */
+export interface CartSeatHold {
+  expiresAt: string;
+  seatsHref: string;
+}
+
 interface BookingCartState {
   tickets: TicketSelection | null;
   food: FoodLine[];
   couponCode?: string;
   contact?: ContactDetailsInput;
-  startTickets: (tickets: TicketSelection) => void;
+  hold?: CartSeatHold;
+  startTickets: (tickets: TicketSelection, hold?: CartSeatHold) => void;
   setFoodQuantity: (foodItemId: string, quantity: number) => void;
   setCoupon: (code: string | undefined) => void;
   setContact: (contact: ContactDetailsInput) => void;
@@ -25,7 +32,7 @@ export const useBookingCart = create<BookingCartState>()(
     (set) => ({
       tickets: null,
       food: [],
-      startTickets: (tickets) => set({ tickets, food: [], couponCode: undefined }),
+      startTickets: (tickets, hold) => set({ tickets, hold, food: [], couponCode: undefined }),
       setFoodQuantity: (foodItemId, quantity) =>
         set((s) => {
           // Unchanged quantities keep the same array so the order quote isn't re-requested.
@@ -35,7 +42,7 @@ export const useBookingCart = create<BookingCartState>()(
         }),
       setCoupon: (couponCode) => set({ couponCode }),
       setContact: (contact) => set({ contact }),
-      clear: () => set({ tickets: null, food: [], couponCode: undefined }),
+      clear: () => set({ tickets: null, hold: undefined, food: [], couponCode: undefined }),
     }),
     {
       name: "showbuzz-cart",

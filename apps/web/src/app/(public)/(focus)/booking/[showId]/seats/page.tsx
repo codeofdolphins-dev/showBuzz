@@ -5,7 +5,10 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { SeatSelector } from "@/components/public/seat-map/SeatSelector";
 import { showIdSchema } from "@showbuzz/schemas/booking";
+import { readHolderKey } from "@showbuzz/core/booking/hold-cookie";
+import { getSeatState } from "@showbuzz/core/services/seat-hold.service";
 import { buildSeatMap, loadSeatPlan } from "@showbuzz/core/services/seat-map.service";
+import { getSettings } from "@showbuzz/core/services/settings.service";
 import { getShowDetails } from "@showbuzz/core/services/show.service";
 
 export const metadata: Metadata = { title: "Select Seats" };
@@ -17,12 +20,23 @@ async function Seats({ params, searchParams }: PageProps<"/booking/[showId]/seat
   await connection();
 
   const parsed = showIdSchema.safeParse(showId);
-  const show = parsed.success ? await getShowDetails(parsed.data, new Date()) : undefined;
+  const now = new Date();
+  const show = parsed.success ? await getShowDetails(parsed.data, now) : undefined;
   const plan = show && (await loadSeatPlan(show.id));
   if (!show || !plan) notFound();
 
   const stand = standSchema.parse(Array.isArray(query.stand) ? query.stand[0] : query.stand);
-  return <SeatSelector show={show} seatMap={buildSeatMap(show, plan)} focusTier={stand} />;
+  const [state, settings] = await Promise.all([getSeatState(show.id, await readHolderKey(), now), getSettings()]);
+  return (
+    <SeatSelector
+      // Remount when the hold changes (e.g. it expired), so the selection starts from the server state.
+      key={state.myExpiresAt?.toISOString() ?? "no-hold"}
+      show={show}
+      seatMap={buildSeatMap(show, plan, state)}
+      maxTickets={settings.maxTicketsPerOrder}
+      focusTier={stand}
+    />
+  );
 }
 
 export default function SeatSelectionPage(props: PageProps<"/booking/[showId]/seats">) {

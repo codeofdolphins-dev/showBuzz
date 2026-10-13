@@ -107,13 +107,15 @@ Done as **Prompt A** (`docs/prompts/phase-2-public-backend.md`, 2026-10-13); ver
 
 ## Phase 3: Booking engine
 
-- [ ] **3.1** Seat availability + seat holds (unique `{showId, seatId}`, TTL), hold/release/extend API, concurrency tests.
-- [ ] **3.2** Pricing from `settings`; offers & coupons models + validation rules.
-- [ ] **3.3** Food items; server-side order draft and quote.
-- [ ] **3.4** Orders + payment gateway integration (after gateway decision).
-- [ ] **3.5** Webhooks: signature verification, idempotency, holds → booking in a transaction, payment records.
+Prompt B (`docs/prompts/phase-2-public-backend.md`, 2026-10-13) built the booking engine on a simulated gateway; verified with lint + typecheck + build only (tests deferred).
+
+- [x] **3.1** Seat holds (unique `{showId, seatId}` + TTL, browser hold cookie, insertMany + rollback on conflict) and tier passes (conditional `$inc` on the pass show). As Server Actions, no REST API yet; concurrency tests deferred.
+- [x] **3.2** Pricing from `settings`; coupons in MongoDB with the existing validation rules (done in Prompt A).
+- [x] **3.3** Food items in MongoDB; server-side quote (Prompt A) and re-pricing at order time.
+- [~] **3.4** Orders (`bookings`, `payments`) behind a `PaymentGateway` interface with `SimulatedGateway` (`PAYMENT_PROVIDER=simulated`, allowed in production). Real gateway still open.
+- [~] **3.5** Server-side confirmation, idempotent, holds → sold in a transaction, payment records. Webhooks + signature verification come with the real gateway.
 - [ ] **3.6** Tickets: `bookingCode`, HMAC-signed QR, success page, confirmation email/SMS.
-- [ ] **3.7** Cancellation & refunds (cutoff, fee, gateway refund, refund records).
+- [x] **3.7** Cancellation & refunds (Settings cutoff and fee, transaction, `refunds` record, simulated gateway refund). Only `bookingCode` of 3.6 is done; QR is Prompt C.
 - [ ] **3.8** Gift cards: purchase, balance, redeem.
 
 ## Phase 4: Engagement

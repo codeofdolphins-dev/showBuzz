@@ -43,6 +43,7 @@ export interface ShowDetails {
   backHref: string;
 }
 
+/** "sold" covers seats sold and seats held by other customers: both are unavailable to this browser. */
 export type SeatStatus = "available" | "sold" | "accessible";
 
 export interface Seat {
@@ -71,4 +72,6 @@ export interface SeatTier {
 export interface SeatMap {
   layout: "screen" | "stadium";
   tiers: SeatTier[];
+  /** Seats this browser already holds for the show (pre-selected), with the hold's real expiry. */
+  ownHold?: { seatIds: string[]; expiresAt: string };
 }

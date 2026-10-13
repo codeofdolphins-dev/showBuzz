@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { X } from "lucide-react";
+import { bookingCodeSchema } from "@showbuzz/schemas/booking";
+import { getCurrentCustomer } from "@showbuzz/core/auth/current-customer";
+import { getOrderOutcome } from "@showbuzz/core/services/booking.service";
 
 export const metadata: Metadata = { title: "Payment Unsuccessful", robots: { index: false } };
 
@@ -12,24 +16,51 @@ const REASONS: Record<string, string> = {
   INTERNAL: "Payment gateway error",
 };
 
-async function Reason({ searchParams }: Pick<PageProps<"/booking/failure">, "searchParams">) {
-  const { reason } = await searchParams;
-  const code = Array.isArray(reason) ? reason[0] : reason;
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+/** The order's own failure reason (owner only) or, without an order, the error code from placing it. */
+async function Outcome({ searchParams }: Pick<PageProps<"/booking/failure">, "searchParams">) {
+  const params = await searchParams;
+  await connection();
+  const code = bookingCodeSchema.safeParse(first(params.code));
+  const reasonCode = first(params.reason);
+
+  const customer = code.success ? await getCurrentCustomer() : null;
+  const outcome = code.success && customer ? await getOrderOutcome(code.data, customer.id) : undefined;
+  const reason = outcome?.reason ?? (reasonCode && REASONS[reasonCode]) ?? "The payment could not be completed";
+  const retryHref = outcome?.retryHref ?? "/booking/payment";
+
   return (
-    <div className="my-6 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left text-xs">
-      <div className="flex justify-between gap-4 text-slate-500">
-        <span>Error Reason:</span>
-        <span className="text-right font-bold text-rose-600">
-          {(code && REASONS[code]) ?? "The payment could not be completed"}
-        </span>
-      </div>
-      {code && (
-        <div className="flex justify-between text-slate-500">
-          <span>Reference:</span>
-          <span className="font-mono font-bold text-slate-800">{code.slice(0, 40)}</span>
+    <>
+      <div className="my-6 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left text-xs">
+        <div className="flex justify-between gap-4 text-slate-500">
+          <span>Error Reason:</span>
+          <span className="text-right font-bold text-rose-600">{reason}</span>
         </div>
-      )}
-    </div>
+        {(outcome || reasonCode) && (
+          <div className="flex justify-between text-slate-500">
+            <span>Reference:</span>
+            <span className="font-mono font-bold text-slate-800">
+              {outcome && code.success ? code.data : reasonCode?.slice(0, 40)}
+            </span>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Link
+          href={retryHref}
+          className="flex-1 gradient-btn rounded-2xl py-3.5 text-xs font-black text-white shadow-lg shadow-rose-500/20"
+        >
+          {retryHref === "/booking/payment" ? "Retry Payment" : "Pick Seats Again"} &rarr;
+        </Link>
+        <Link
+          href="/"
+          className="flex-1 rounded-2xl bg-slate-100 py-3.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200"
+        >
+          Back to Homepage
+        </Link>
+      </div>
+    </>
   );
 }
 
@@ -43,26 +74,12 @@ export default function BookingFailurePage({ searchParams }: PageProps<"/booking
         <span className="text-xs font-black tracking-widest text-rose-600 uppercase">Transaction Failed</span>
         <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">Payment Unsuccessful</h1>
         <p className="mt-2 text-xs leading-relaxed text-slate-500 sm:text-sm">
-          We couldn&apos;t process your payment. If any amount was debited from your bank account or UPI wallet, it will
-          be automatically refunded within 24-48 business hours.
+          We couldn&apos;t complete your payment. If any amount was debited from your bank account or UPI wallet, it
+          will be automatically refunded within 24-48 business hours.
         </p>
-        <Suspense fallback={<div className="my-6 h-16 skeleton" />}>
-          <Reason searchParams={searchParams} />
+        <Suspense fallback={<div className="my-6 h-28 skeleton" />}>
+          <Outcome searchParams={searchParams} />
         </Suspense>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/booking/payment"
-            className="flex-1 gradient-btn rounded-2xl py-3.5 text-xs font-black text-white shadow-lg shadow-rose-500/20"
-          >
-            Retry Payment &rarr;
-          </Link>
-          <Link
-            href="/"
-            className="flex-1 rounded-2xl bg-slate-100 py-3.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-200"
-          >
-            Back to Homepage
-          </Link>
-        </div>
       </div>
     </main>
   );

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { Accessibility, ArrowLeft, ArrowRight, Armchair, Clock, Crown, Sofa, TicketCheck, Tv, Users } from "lucide-react";
-import { MAX_TICKETS_PER_ORDER, SEAT_HOLD_MINUTES } from "@showbuzz/schemas/constants";
 import { cn } from "@showbuzz/utils/cn";
 import { formatDateLong, formatTime } from "@showbuzz/utils/dates";
 import { formatINR } from "@showbuzz/utils/money";
+import { holdSeatsAction } from "@/app/(public)/_actions/booking";
+import { formatCountdown, useCountdown } from "@/hooks/use-countdown";
 import { useBookingCart } from "@/stores/booking-cart";
 import { toast } from "@/stores/ui";
 import type { Seat, SeatMap, SeatTier, ShowDetails } from "@showbuzz/schemas/types/catalog";
@@ -27,28 +28,28 @@ function tierIcon(show: ShowDetails, index: number) {
 interface SeatSelectorProps {
   show: ShowDetails;
   seatMap: SeatMap;
+  /** From Settings (the server enforces it again). */
+  maxTickets: number;
   /** Tier to highlight on arrival (sports details page passes the chosen stand). */
   focusTier?: number;
 }
 
-export function SeatSelector({ show, seatMap, focusTier }: SeatSelectorProps) {
+export function SeatSelector({ show, seatMap, maxTickets, focusTier }: SeatSelectorProps) {
   const router = useRouter();
   const startTickets = useBookingCart((s) => s.startTickets);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [secondsLeft, setSecondsLeft] = useState(SEAT_HOLD_MINUTES * 60);
+  // Seats this browser already holds (e.g. after going back from checkout) come back selected.
+  const [selected, setSelected] = useState<string[]>(seatMap.ownHold?.seatIds ?? []);
+  const [isHolding, startHolding] = useTransition();
+  const secondsLeft = useCountdown(seatMap.ownHold?.expiresAt);
   const [highlight, setHighlight] = useState<number | undefined>(focusTier);
   const tierRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // The page keys this component by the hold expiry, so the refresh after expiry starts with no selection.
   useEffect(() => {
-    const timer = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (secondsLeft > 0) return;
-    toast("Your seat session timed out. Please pick your seats again.", "warning");
-    router.push(show.backHref);
-  }, [secondsLeft, router, show.backHref]);
+    if (secondsLeft !== 0) return;
+    toast("Your seat hold expired. Please pick your seats again.", "warning");
+    router.refresh();
+  }, [secondsLeft, router]);
 
   useEffect(() => {
     if (focusTier === undefined) return;
@@ -68,8 +69,8 @@ export function SeatSelector({ show, seatMap, focusTier }: SeatSelectorProps) {
       setSelected((s) => s.filter((x) => x !== id));
       return;
     }
-    if (selected.length >= MAX_TICKETS_PER_ORDER) {
-      toast(`Maximum ${MAX_TICKETS_PER_ORDER} seats allowed per booking.`, "warning");
+    if (selected.length >= maxTickets) {
+      toast(`Maximum ${maxTickets} seats allowed per booking.`, "warning");
       return;
     }
     setSelected((s) => [...s, id]);
@@ -81,13 +82,26 @@ export function SeatSelector({ show, seatMap, focusTier }: SeatSelectorProps) {
     setTimeout(() => setHighlight(undefined), 1800);
   };
 
-  const proceed = () => {
-    startTickets({ kind: "show", showId: show.id, seatIds: selected });
-    router.push(show.kind === "movie" ? "/booking/food" : "/booking/checkout");
-  };
+  const proceed = () =>
+    startHolding(async () => {
+      const seatIds = selected;
+      const result = await holdSeatsAction({ showId: show.id, seatIds });
+      if (!result.success) {
+        toast(result.error.message, "error");
+        const taken = result.error.details?.seats;
+        if (Array.isArray(taken)) setSelected((s) => s.filter((id) => !taken.includes(id)));
+        // Shows seats others took meanwhile as unavailable.
+        router.refresh();
+        return;
+      }
+      startTickets(
+        { kind: "show", showId: show.id, seatIds },
+        { expiresAt: result.data.expiresAt, seatsHref: `/booking/${show.id}/seats` },
+      );
+      router.push(show.kind === "movie" ? "/booking/food" : "/booking/checkout");
+    });
 
   const start = new Date(show.startsAt);
-  const timer = `${Math.floor(secondsLeft / 60).toString().padStart(2, "0")}:${(secondsLeft % 60).toString().padStart(2, "0")}`;
 
   return (
     <>
@@ -118,15 +132,17 @@ export function SeatSelector({ show, seatMap, focusTier }: SeatSelectorProps) {
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-rose-200/80 bg-rose-50 px-3 py-1.5 shadow-xs">
-            <Clock className="h-3.5 w-3.5 animate-pulse text-rose-500" />
-            <div className="flex flex-col text-right leading-none">
-              <span className="text-[9px] font-bold tracking-wider text-rose-400 uppercase">Time Left</span>
-              <span className="font-mono text-xs font-black text-rose-600" role="timer">
-                {timer}
-              </span>
+          {secondsLeft !== null && (
+            <div className="flex shrink-0 items-center gap-2 rounded-xl border border-rose-200/80 bg-rose-50 px-3 py-1.5 shadow-xs">
+              <Clock className="h-3.5 w-3.5 animate-pulse text-rose-500" />
+              <div className="flex flex-col text-right leading-none">
+                <span className="text-[9px] font-bold tracking-wider text-rose-400 uppercase">Time Left</span>
+                <span className="font-mono text-xs font-black text-rose-600" role="timer">
+                  {formatCountdown(secondsLeft)}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </header>
 
@@ -270,7 +286,7 @@ export function SeatSelector({ show, seatMap, focusTier }: SeatSelectorProps) {
           <button
             type="button"
             onClick={proceed}
-            disabled={selected.length === 0}
+            disabled={selected.length === 0 || isHolding}
             className="gradient-btn tap-active flex shrink-0 items-center gap-2 rounded-xl px-6 py-3 text-xs font-black text-white shadow-lg shadow-rose-500/20 disabled:cursor-not-allowed disabled:opacity-40 sm:rounded-2xl sm:px-8 sm:text-sm"
           >
             Continue <ArrowRight className="h-3.5 w-3.5" />

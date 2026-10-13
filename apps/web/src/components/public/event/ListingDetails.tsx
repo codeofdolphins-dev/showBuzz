@@ -5,7 +5,7 @@ import { cn } from "@showbuzz/utils/cn";
 import { describeSchedule } from "@showbuzz/utils/schedule";
 import type { EventListing } from "@showbuzz/schemas/event";
 import { LISTING_SECTIONS, type ListingSection } from "./sections";
-import { TierPicker } from "./TierPicker";
+import { LiveTierPicker } from "./LiveTierPicker";
 
 /** Detail card for plays, sports and activities. */
 interface ListingDetailsProps {
@@ -61,9 +61,8 @@ export function ListingDetails({ listing, section, seatMapShowId }: ListingDetai
 
         <div className="border-t border-slate-100 pt-6">
           <h3 className="mb-4 text-base font-extrabold text-slate-900">{config.tiersHeading}</h3>
-          <TierPicker
-            eventId={listing.id}
-            tiers={listing.ticketTiers}
+          <LiveTierPicker
+            listing={listing}
             accent={config.accent}
             layout="grid"
             seatMapShowId={seatMapShowId}

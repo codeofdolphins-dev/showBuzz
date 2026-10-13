@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { CalendarDays, Clock, MapPin, Navigation, Ticket } from "lucide-react";
 import { tierPriceRange } from "@/components/public/cards/EventCard";
 import { WishlistButton } from "@/components/public/common/WishlistButton";
-import { TierPicker } from "@/components/public/event/TierPicker";
+import { LiveTierPicker } from "@/components/public/event/LiveTierPicker";
 import { describeSchedule } from "@showbuzz/utils/schedule";
 import { getEventBySlug, listEvents } from "@showbuzz/core/services/catalog.service";
 
@@ -140,7 +140,7 @@ export default async function EventDetailsPage({ params }: PageProps<"/events/[s
               <h3 className="mb-4 border-b border-slate-100 pb-3 text-base font-extrabold text-slate-900">
                 Select Ticket Passes
               </h3>
-              <TierPicker eventId={event.id} tiers={event.ticketTiers} accent="rose" layout="stack" />
+              <LiveTierPicker listing={event} accent="rose" layout="stack" />
             </div>
           </div>
         </div>

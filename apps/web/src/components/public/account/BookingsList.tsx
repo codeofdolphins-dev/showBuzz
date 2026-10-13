@@ -8,7 +8,6 @@ import { QrCode, TicketX } from "lucide-react";
 import { cancelBookingAction } from "@/app/(public)/_actions/booking";
 import { EmptyState } from "@/components/public/common/EmptyState";
 import { Modal } from "@showbuzz/ui/Modal";
-import { CANCELLATION_CUTOFF_MINUTES, PRICING_DEFAULTS } from "@showbuzz/schemas/constants";
 import { cn } from "@showbuzz/utils/cn";
 import { formatINR } from "@showbuzz/utils/money";
 import { PAYMENT_METHOD_LABELS } from "@showbuzz/utils/payment";
@@ -16,7 +15,13 @@ import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { toast } from "@/stores/ui";
 import type { BookingView } from "@showbuzz/schemas/types/booking";
 
-export function BookingsList({ bookings }: { bookings: BookingView[] }) {
+interface BookingsListProps {
+  bookings: BookingView[];
+  /** From Settings, for the cancellation dialog (the server applies the same values). */
+  cancellation: { feePaise: number; cutoffMinutes: number };
+}
+
+export function BookingsList({ bookings, cancellation }: BookingsListProps) {
   const router = useRouter();
   const [tab, setTab] = useState<"active" | "past">("active");
   const [confirming, setConfirming] = useState<BookingView | null>(null);
@@ -154,11 +159,11 @@ export function BookingsList({ bookings }: { bookings: BookingView[] }) {
           <>
             <p className="text-xs leading-relaxed text-slate-600">
               Booking <strong>{confirming.code}</strong> will be cancelled. A cancellation fee of{" "}
-              {formatINR(PRICING_DEFAULTS.cancellationFeePaise)} applies; you&apos;ll receive{" "}
+              {formatINR(cancellation.feePaise)} applies; you&apos;ll receive{" "}
               <strong>
-                {formatINR(Math.max(0, confirming.amounts.totalPaise - PRICING_DEFAULTS.cancellationFeePaise), { exact: true })}
+                {formatINR(Math.max(0, confirming.amounts.totalPaise - cancellation.feePaise), { exact: true })}
               </strong>{" "}
-              back to {PAYMENT_METHOD_LABELS[confirming.paymentMethod]}. Cancellations close {CANCELLATION_CUTOFF_MINUTES} minutes
+              back to {PAYMENT_METHOD_LABELS[confirming.paymentMethod]}. Cancellations close {cancellation.cutoffMinutes} minutes
               before the show.
             </p>
             <div className="mt-5 flex gap-2">

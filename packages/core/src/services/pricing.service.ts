@@ -9,7 +9,8 @@ import { AppError } from "../http/app-error";
 import { getCouponByCode, getEventById, listFoodItems, listGiftCardDesigns } from "./catalog.service";
 import { loadSeatPlan, priceSeats } from "./seat-map.service";
 import { getSettings } from "./settings.service";
-import { getShowDetails } from "./show.service";
+import { getSeatState } from "./seat-hold.service";
+import { findPassShow, getShowDetails } from "./show.service";
 
 /** All prices are computed here; anything the client shows is display-only. */
 
@@ -46,14 +47,15 @@ function assertTicketLimit(count: number, maxTicketsPerOrder: number) {
   }
 }
 
-async function priceTickets(tickets: OrderDraft["tickets"], now: Date): Promise<TicketPricing> {
+async function priceTickets(tickets: OrderDraft["tickets"], now: Date, holderKey?: string): Promise<TicketPricing> {
   const { maxTicketsPerOrder } = await getSettings();
   if (tickets.kind === "show") {
     assertTicketLimit(tickets.seatIds.length, maxTicketsPerOrder);
     const show = await getShowDetails(tickets.showId, now);
     const plan = show && (await loadSeatPlan(show.id));
     if (!show || !plan) throw new AppError("NOT_FOUND", "This show is no longer available for booking.", 404);
-    const seats = priceSeats(show, plan, tickets.seatIds);
+    // Seats held by this browser are fine; sold seats and other browsers' holds are not.
+    const seats = priceSeats(show, plan, tickets.seatIds, await getSeatState(show.id, holderKey, now));
     const start = new Date(show.startsAt);
     return {
       kind: show.kind,
@@ -84,8 +86,11 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date): Promise<
     if (event.schedule.type === "once" && new Date(event.schedule.startsAt) <= now) {
       throw new AppError("NOT_FOUND", "Bookings for this listing have closed.", 410);
     }
-    if (tickets.quantity > tier.available) {
-      throw new AppError("SEAT_UNAVAILABLE", `Only ${tier.available} passes left in ${tier.name}.`, 409);
+    const passShow = await findPassShow(event.id);
+    const remaining = (passShow?.inventory ?? []).find((t) => t.tierId === tier.id)?.remaining ?? 0;
+    if (tickets.quantity > remaining) {
+      const left = remaining === 0 ? `${tier.name} is sold out.` : `Only ${remaining} passes left in ${tier.name}.`;
+      throw new AppError("SEAT_UNAVAILABLE", left, 409);
     }
     const when = describeSchedule(event.schedule);
     return {
@@ -182,10 +187,12 @@ export function evaluateCoupon(
 export interface QuoteOptions {
   /** Throw on an inapplicable coupon instead of returning `couponError` (used when placing orders). */
   strictCoupon?: boolean;
+  /** This browser's seat-hold key, so its own held seats count as available. */
+  holderKey?: string;
 }
 
 export async function quoteOrder(draft: OrderDraft, now: Date, options: QuoteOptions = {}): Promise<OrderQuote> {
-  const tickets = await priceTickets(draft.tickets, now);
+  const tickets = await priceTickets(draft.tickets, now, options.holderKey);
   if (draft.food.length > 0 && !tickets.foodAllowed) {
     throw new AppError("VALIDATION_FAILED", "Food pre-orders are only available for cinema shows.", 422);
   }

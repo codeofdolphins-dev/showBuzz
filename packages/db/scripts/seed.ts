@@ -10,12 +10,16 @@ import { SETTINGS_DEFAULTS } from "@showbuzz/schemas/settings";
 import type { EventListing } from "@showbuzz/schemas/event";
 import type { Screen, SeatZone, VenueKind } from "@showbuzz/schemas/venue";
 import { connect, disconnect } from "@showbuzz/db/connect";
+import { Booking } from "@showbuzz/db/models/Booking";
 import { City } from "@showbuzz/db/models/City";
 import { Coupon } from "@showbuzz/db/models/Coupon";
 import { Event } from "@showbuzz/db/models/Event";
 import { FoodItem } from "@showbuzz/db/models/FoodItem";
 import { GiftCardDesign } from "@showbuzz/db/models/GiftCardDesign";
 import { Movie } from "@showbuzz/db/models/Movie";
+import { Payment } from "@showbuzz/db/models/Payment";
+import { Refund } from "@showbuzz/db/models/Refund";
+import { SeatHold } from "@showbuzz/db/models/SeatHold";
 import { SETTINGS_KEY, Settings } from "@showbuzz/db/models/Settings";
 import { Show } from "@showbuzz/db/models/Show";
 import { StreamTitle } from "@showbuzz/db/models/StreamTitle";
@@ -146,11 +150,38 @@ async function seedFixtureShow(event: EventListing, eventId: Types.ObjectId, ven
   );
 }
 
+/**
+ * Events, plays and activities sell passes by quantity: one Show per listing holds each tier's capacity.
+ * `$setOnInsert` only, so re-seeding never resets what has been sold. Daily activities have no start time.
+ */
+async function seedPassShow(event: EventListing, eventId: Types.ObjectId, venueId: Types.ObjectId) {
+  if (event.kind === "sport") return;
+  const startsAt = event.schedule.type === "once" ? new Date(event.schedule.startsAt) : null;
+  await Show.updateOne(
+    { venueId, screenId: "passes", startsAt, eventId },
+    {
+      $setOnInsert: {
+        screenName: "General Admission",
+        availability: "available",
+        pricePaise: Math.min(...event.ticketTiers.map((t) => t.pricePaise)),
+        inventory: event.ticketTiers.map((t) => ({
+          tierId: t.id,
+          capacity: t.available,
+          remaining: t.available,
+          sold: 0,
+        })),
+      },
+    },
+    { upsert: true },
+  );
+}
+
 async function main() {
   await connect();
-  const catalogueModels = [City, Movie, Venue, Event, StreamTitle, Coupon, FoodItem, GiftCardDesign, Show, Settings];
-  // The unique indexes are what make upserts by slug/code safe; createIndexes never drops anything.
-  for (const model of catalogueModels) await model.createIndexes();
+  const seededModels = [City, Movie, Venue, Event, StreamTitle, Coupon, FoodItem, GiftCardDesign, Show, Settings];
+  // The unique indexes are what make upserts by slug/code safe (and, for seatHolds/bookings, what prevents double
+  // booking in production, where autoIndex is off); createIndexes never drops anything.
+  for (const model of [...seededModels, SeatHold, Booking, Payment, Refund]) await model.createIndexes();
 
   await Settings.updateOne({ key: SETTINGS_KEY }, { $setOnInsert: { ...SETTINGS_DEFAULTS } }, { upsert: true });
   log.info("Seeded", { collection: "settings", note: "defaults on first run only; later edits are kept" });
@@ -186,7 +217,7 @@ async function main() {
     );
   });
 
-  await upsertBy("events (+ venues, fixture shows)", events, async (e, sortOrder) => {
+  await upsertBy("events (+ venues, fixture and pass shows)", events, async (e, sortOrder) => {
     const venue = await seedEventVenue(e, sortOrder);
     const schedule =
       e.schedule.type === "once"
@@ -201,7 +232,10 @@ async function main() {
       { $set: { ...withoutId(e), schedule, venueId: venue?._id, sortOrder } },
       { upsert: true, returnDocument: "after", lean: true },
     );
-    if (saved && venue) await seedFixtureShow(e, saved._id, venue._id);
+    if (saved && venue) {
+      await seedFixtureShow(e, saved._id, venue._id);
+      await seedPassShow(e, saved._id, venue._id);
+    }
   });
 
   await upsertBy("streamTitles", streamTitles, (s, sortOrder) =>

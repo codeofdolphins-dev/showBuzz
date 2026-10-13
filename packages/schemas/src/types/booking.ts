@@ -42,7 +42,11 @@ export interface OrderQuote {
   couponError?: string;
 }
 
-export type BookingStatus = "confirmed" | "cancelled";
+/**
+ * pending_payment → confirmed → cancelled, or pending_payment → payment_failed / expired (inventory released).
+ * Only confirmed and cancelled bookings are shown to the customer as tickets.
+ */
+export type BookingStatus = "pending_payment" | "confirmed" | "payment_failed" | "expired" | "cancelled";
 
 export interface BookingRecord {
   code: string;
@@ -50,7 +54,7 @@ export interface BookingRecord {
   userId: string;
   status: BookingStatus;
   kind: BookingKind;
-  /** Set for seated bookings, so cancelling can release the seats. */
+  /** Set for seated and pass bookings (seat holds or tier inventory live on the show). */
   showId?: string;
   title: string;
   poster: string;
@@ -73,6 +77,8 @@ export interface BookingRecord {
   cancellable: boolean;
   cancelledAt?: string;
   refundPaise?: number;
+  /** Customer-facing reason for payment_failed / expired. */
+  failureReason?: string;
 }
 
 /** A booking as shown to the customer, with time-dependent state resolved on the server. */

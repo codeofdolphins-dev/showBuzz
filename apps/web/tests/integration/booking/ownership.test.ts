@@ -61,7 +61,8 @@ afterAll(async () => {
   await disconnect();
 });
 
-// Skipped 2026-10-13: orders and reviews now resolve "eve-1"/"mov-1" against the MongoDB catalogue (ObjectIds); needs seeded fixtures.
+// Skipped 2026-10-13: written for the removed in-memory booking store and seed ids ("eve-1"); orders now need seeded
+// pass shows, seat holds and the payment confirmation step in MongoDB.
 describe.skip("bookings belong to the signed-in customer", () => {
   it("refuses to place an order without a session", async () => {
     await actAs(null);

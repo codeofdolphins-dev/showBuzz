@@ -3,7 +3,8 @@ import { type Model, Schema, type Types, model, models } from "mongoose";
 import type { ShowAvailability, ShowZone } from "@showbuzz/schemas/venue";
 
 /**
- * One concrete performance: a movie show at a cinema screen or a stadium fixture (`eventId`).
+ * One concrete performance: a movie show at a cinema screen, a stadium fixture (`eventId` + seat zones) or an
+ * event "pass" show (`eventId` + `inventory`: quantity tiers without seat numbers).
  * Movie shows are created from the cinemas' daily templates by `ensureMovieShows` (../shows.ts).
  */
 export interface ShowAttrs {
@@ -12,8 +13,8 @@ export interface ShowAttrs {
   venueId: Types.ObjectId;
   screenId: string;
   screenName: string;
-  /** UTC instant. */
-  startsAt: Date;
+  /** UTC instant. Missing only for passes to daily activities (no fixed start). */
+  startsAt?: Date;
   format?: string;
   language?: string;
   availability: ShowAvailability;
@@ -21,7 +22,24 @@ export interface ShowAttrs {
   pricePaise: number;
   priceTier?: string;
   zones: ShowZone[];
+  /**
+   * Pass shows only. `remaining` is decremented with one conditional update (`remaining >= qty`) when an order is
+   * placed and given back on failure, expiry or cancellation, so a tier can never be oversold.
+   */
+  inventory: ShowInventoryTier[];
 }
+
+export interface ShowInventoryTier {
+  tierId: string;
+  capacity: number;
+  remaining: number;
+  sold: number;
+}
+
+const inventoryTierSchema = new Schema(
+  { tierId: String, capacity: Number, remaining: { type: Number, min: 0 }, sold: { type: Number, default: 0 } },
+  { _id: false },
+);
 
 const showZoneSchema = new Schema(
   { zoneId: String, name: String, description: String, pricePaise: Number },
@@ -35,13 +53,14 @@ const showSchema = new Schema<ShowAttrs>(
     venueId: { type: Schema.Types.ObjectId, ref: "Venue", required: true },
     screenId: { type: String, required: true },
     screenName: { type: String, required: true },
-    startsAt: { type: Date, required: true },
+    startsAt: Date,
     format: String,
     language: String,
     availability: { type: String, enum: ["available", "fast-filling", "almost-full"], default: "available" },
     pricePaise: { type: Number, required: true, min: 0 },
     priceTier: String,
     zones: { type: [showZoneSchema], default: [] },
+    inventory: { type: [inventoryTierSchema], default: [] },
   },
   { timestamps: true, versionKey: false },
 );

@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { connect } from "@showbuzz/db/connect";
 import { Show as ShowModel, type ShowAttrs } from "@showbuzz/db/models/Show";
+import type { Types } from "@showbuzz/db/mongoose";
 import { ensureMovieShows } from "@showbuzz/db/shows";
 import { log } from "@showbuzz/runtime/log";
 import { objectIdSchema } from "@showbuzz/schemas/common";
@@ -17,7 +18,7 @@ import { EVENT_SECTION_PATH, getEventById, getMovieById, listCinemas } from "./c
  * never runs out of shows and needs no cron job. Everything here is time-dependent and stays uncached.
  */
 
-type LeanShow = ShowAttrs & { _id: { toString(): string } };
+type LeanShow = ShowAttrs & { _id: Types.ObjectId };
 
 const globalStore = globalThis as unknown as { __showbuzzEnsuredShowDates?: Map<string, Promise<void>> };
 const ensuredDates = (globalStore.__showbuzzEnsuredShowDates ??= new Map<string, Promise<void>>());
@@ -46,7 +47,7 @@ function toShow(doc: LeanShow): Show {
     id: doc._id.toString(),
     movieId: doc.movieId?.toString() ?? "",
     cinemaId: doc.venueId.toString(),
-    startsAt: doc.startsAt.toISOString(),
+    startsAt: (doc.startsAt ?? new Date(0)).toISOString(),
     format: doc.format ?? "",
     language: doc.language ?? "",
     availability: doc.availability,
@@ -98,7 +99,9 @@ export async function listShowtimes(movieId: string, dateKey: string, now: Date)
 /** Resolves a show id. Returns undefined for unknown, started or out-of-window shows. */
 export async function getShowDetails(showId: string, now: Date): Promise<ShowDetails | undefined> {
   const show = await findShow(showId);
-  if (!show || show.startsAt <= now) return undefined;
+  // Seat-map shows only (movie shows and stadium fixtures); pass shows have no seat map.
+  // Shows created before tier inventory existed have no `inventory` field (lean reads skip defaults).
+  if (!show?.startsAt || show.startsAt <= now || (show.inventory ?? []).length > 0) return undefined;
   const startsAt = show.startsAt.toISOString();
 
   if (show.eventId) {
@@ -140,3 +143,11 @@ export async function getShowDetails(showId: string, now: Date): Promise<ShowDet
     backHref: `/cinemas?movie=${movie.slug}&date=${dateKey}`,
   };
 }
+
+/** The pass show (tier inventory) for an event, play or activity. */
+export const findPassShow = cache(async (eventId: string): Promise<LeanShow | undefined> => {
+  if (!objectIdSchema.safeParse(eventId).success) return undefined;
+  await connect();
+  const show = await ShowModel.findOne({ eventId, "inventory.0": { $exists: true } }).lean();
+  return show ?? undefined;
+});

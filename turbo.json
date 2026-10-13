@@ -16,7 +16,8 @@
         "ADMIN_JWT_*",
         "NEXT_PUBLIC_*",
         "VERCEL_URL",
-        "VERCEL_BRANCH_URL"
+        "VERCEL_BRANCH_URL",
+        "PAYMENT_PROVIDER"
       ]
     },
     "build": {
@@ -39,7 +40,8 @@
         "ADMIN_JWT_*",
         "NEXT_PUBLIC_*",
         "VERCEL_URL",
-        "VERCEL_BRANCH_URL"
+        "VERCEL_BRANCH_URL",
+        "PAYMENT_PROVIDER"
       ]
     },
     "lint": {},

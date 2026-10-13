@@ -6,7 +6,7 @@ import { z } from "zod";
  * fails at boot (and `next build` fails) instead of on the first request. Secrets that only one app needs
  * live in their own module (customer-auth-env.ts, admin-auth-env.ts), so the admin app never needs customer
  * secrets and vice versa. Together with public-env.ts these are the only places that read process.env.
- * Variables from CLAUDE.md §6 that no code uses yet (QR_SIGNING_SECRET, PAYMENT_*, ...) are added when the
+ * Variables from CLAUDE.md §6 that no code uses yet (QR_SIGNING_SECRET, PAYMENT_KEY_*, ...) are added when the
  * code that needs them lands.
  */
 const serverEnvSchema = z.object({
@@ -20,6 +20,11 @@ const serverEnvSchema = z.object({
   /** Set by Vercel: the deployment and branch hostnames, accepted as same-origin on preview deployments. */
   VERCEL_URL: z.string().optional(),
   VERCEL_BRANCH_URL: z.string().optional(),
+  /**
+   * Payment gateway behind the PaymentGateway interface. Only "simulated" exists until Razorpay/Cashfree is
+   * chosen; it is allowed in production (agreed 2026-10-13) so the demo can book on Vercel.
+   */
+  PAYMENT_PROVIDER: z.enum(["simulated"]).default("simulated"),
 });
 
 /** Parses `values` with `schema`, naming only the failing variables (values can hold credentials). */
@@ -38,9 +43,10 @@ export const env = parseEnv(serverEnvSchema, {
   MONGODB_DB: process.env.MONGODB_DB,
   VERCEL_URL: process.env.VERCEL_URL,
   VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
+  PAYMENT_PROVIDER: process.env.PAYMENT_PROVIDER,
 });
 
 export const isProduction = env.NODE_ENV === "production";
 
-/** Demo flows (mock OTP delivery, simulated payment) only run outside production. */
+/** Demo-only flows (on-screen OTP codes) run outside production. Simulated payment is PAYMENT_PROVIDER instead. */
 export const isDemoMode = !isProduction;
