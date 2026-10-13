@@ -16,14 +16,17 @@ import { Coupon } from "@showbuzz/db/models/Coupon";
 import { Event } from "@showbuzz/db/models/Event";
 import { FoodItem } from "@showbuzz/db/models/FoodItem";
 import { GiftCardDesign } from "@showbuzz/db/models/GiftCardDesign";
+import { Lead } from "@showbuzz/db/models/Lead";
 import { Movie } from "@showbuzz/db/models/Movie";
 import { Payment } from "@showbuzz/db/models/Payment";
 import { Refund } from "@showbuzz/db/models/Refund";
+import { Review } from "@showbuzz/db/models/Review";
 import { SeatHold } from "@showbuzz/db/models/SeatHold";
 import { SETTINGS_KEY, Settings } from "@showbuzz/db/models/Settings";
 import { Show } from "@showbuzz/db/models/Show";
 import { StreamTitle } from "@showbuzz/db/models/StreamTitle";
 import { Venue, screenIdFor } from "@showbuzz/db/models/Venue";
+import { WishlistItem } from "@showbuzz/db/models/WishlistItem";
 import type { Types } from "@showbuzz/db/mongoose";
 import { ensureMovieShows, istDateKeys } from "@showbuzz/db/shows";
 import { log } from "@showbuzz/runtime/log";
@@ -181,7 +184,8 @@ async function main() {
   const seededModels = [City, Movie, Venue, Event, StreamTitle, Coupon, FoodItem, GiftCardDesign, Show, Settings];
   // The unique indexes are what make upserts by slug/code safe (and, for seatHolds/bookings, what prevents double
   // booking in production, where autoIndex is off); createIndexes never drops anything.
-  for (const model of [...seededModels, SeatHold, Booking, Payment, Refund]) await model.createIndexes();
+  for (const model of [...seededModels, SeatHold, Booking, Payment, Refund, Review, Lead, WishlistItem])
+    await model.createIndexes();
 
   await Settings.updateOne({ key: SETTINGS_KEY }, { $setOnInsert: { ...SETTINGS_DEFAULTS } }, { upsert: true });
   log.info("Seeded", { collection: "settings", note: "defaults on first run only; later edits are kept" });

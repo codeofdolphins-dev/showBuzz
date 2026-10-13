@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { QrCode, TicketX } from "lucide-react";
 import { cancelBookingAction } from "@/app/(public)/_actions/booking";
+import { TicketCode } from "@/components/public/booking/TicketCode";
 import { EmptyState } from "@/components/public/common/EmptyState";
 import { Modal } from "@showbuzz/ui/Modal";
 import { cn } from "@showbuzz/utils/cn";
@@ -19,12 +20,15 @@ interface BookingsListProps {
   bookings: BookingView[];
   /** From Settings, for the cancellation dialog (the server applies the same values). */
   cancellation: { feePaise: number; cutoffMinutes: number };
+  /** Server-rendered QR SVGs for upcoming confirmed bookings, by booking code. */
+  qrCodes: Record<string, string>;
 }
 
-export function BookingsList({ bookings, cancellation }: BookingsListProps) {
+export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListProps) {
   const router = useRouter();
   const [tab, setTab] = useState<"active" | "past">("active");
   const [confirming, setConfirming] = useState<BookingView | null>(null);
+  const [openQr, setOpenQr] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const visible = bookings.filter((b) => (tab === "active" ? b.phase === "upcoming" : b.phase !== "upcoming"));
@@ -139,6 +143,16 @@ export function BookingsList({ bookings, cancellation }: BookingsListProps) {
                       Cancel & Refund
                     </button>
                   )}
+                  {qrCodes[b.code] && (
+                    <button
+                      type="button"
+                      onClick={() => setOpenQr((c) => (c === b.code ? null : b.code))}
+                      aria-expanded={openQr === b.code}
+                      className="tap-active flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50"
+                    >
+                      <QrCode className="h-3 w-3" /> {openQr === b.code ? "Hide QR" : "Show QR"}
+                    </button>
+                  )}
                   {b.phase !== "cancelled" && (
                     <Link
                       href={`/booking/success?id=${b.code}`}
@@ -149,6 +163,14 @@ export function BookingsList({ bookings, cancellation }: BookingsListProps) {
                   )}
                 </div>
               </div>
+              {openQr === b.code && qrCodes[b.code] && (
+                <div className="mt-4 flex flex-col items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50 p-4">
+                  <div className="h-40 w-40 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+                    <TicketCode code={b.code} svg={qrCodes[b.code]} />
+                  </div>
+                  <span className="text-[10px] font-black tracking-widest text-slate-700 uppercase">Scan at Gate</span>
+                </div>
+              )}
             </article>
           ))}
         </div>

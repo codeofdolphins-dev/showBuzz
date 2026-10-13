@@ -159,6 +159,13 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
                   className="tap-active rounded-lg bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white transition-colors hover:bg-white/20"
                 />
               </div>
+              {movie.userRating && (
+                <p className="mt-2 flex items-center justify-center gap-1 text-xs font-semibold text-amber-300 md:justify-start">
+                  <Star className="h-3 w-3 fill-current" />
+                  {movie.userRating.average}/5 &middot; {movie.userRating.count}{" "}
+                  {movie.userRating.count === 1 ? "review" : "reviews"} on ShowBuzz
+                </p>
+              )}
 
               <div className="mt-3 space-y-1.5">
                 <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs md:justify-start">

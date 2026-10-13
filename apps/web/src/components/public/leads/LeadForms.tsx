@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { useForm, type FieldValues, type UseFormReturn } from "react-hook-form";
+import { useForm, type FieldValues, type UseFormRegisterReturn, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoaderCircle } from "lucide-react";
 import {
@@ -50,6 +50,21 @@ function useLeadSubmit<T extends FieldValues>(
   return { onSubmit, isPending };
 }
 
+/**
+ * Spam trap: off-screen and out of the tab order, so people never fill it in but form-filling bots do.
+ * The server answers such a submission normally and stores nothing.
+ */
+function HoneypotField({ registration }: { registration: UseFormRegisterReturn }) {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute -left-[10000px] h-px w-px overflow-hidden">
+      <label>
+        Website
+        <input type="text" tabIndex={-1} autoComplete="off" {...registration} />
+      </label>
+    </div>
+  );
+}
+
 function SubmitButton({ pending, children }: { pending: boolean; children: React.ReactNode }) {
   return (
     <button
@@ -83,6 +98,7 @@ export function ShowSubmissionForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4 text-xs">
+      <HoneypotField registration={form.register("website")} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field id="lys-name" label="Your Full Name *" error={e.name?.message}>
           <input id="lys-name" placeholder="e.g. Vikram Singhania" {...form.register("name")} className={inputClass} />
@@ -141,6 +157,7 @@ export function CorporateEnquiryForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4 text-xs">
+      <HoneypotField registration={form.register("website")} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field id="corp-company" label="Company Name *" error={e.companyName?.message}>
           <input id="corp-company" placeholder="e.g. Tata Consultancy Services" {...form.register("companyName")} className={inputClass} />
@@ -180,6 +197,7 @@ export function ContactForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4 text-xs">
+      <HoneypotField registration={form.register("website")} />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field id="ct-name" label="Your Full Name *" error={e.name?.message}>
           <input id="ct-name" autoComplete="name" placeholder="Aarav Roy" {...form.register("name")} className={inputClass} />

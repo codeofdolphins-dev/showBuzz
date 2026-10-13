@@ -32,6 +32,14 @@ export function MovieCard({ movie, priority }: MovieCardProps) {
             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
             <span>{movie.rating}/10</span>
             <span className="text-[9px] font-normal text-slate-300">({movie.votesLabel})</span>
+            {movie.userRating && (
+              <span
+                className="border-l border-white/20 pl-1.5 text-[9px] font-semibold text-amber-300"
+                title={`${movie.userRating.count} ShowBuzz ${movie.userRating.count === 1 ? "review" : "reviews"}`}
+              >
+                ★{movie.userRating.average}/5
+              </span>
+            )}
           </div>
         ) : (
           <div className="absolute bottom-2.5 left-2.5 flex items-center gap-1 rounded-lg bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white shadow-lg">

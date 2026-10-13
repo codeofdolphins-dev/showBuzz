@@ -6,9 +6,12 @@ import { type LeanDoc, sortOrderField } from "./transforms";
 type StoredReview = Omit<MovieReview, "createdAt"> & { createdAt: Date };
 
 /** A film. Fields follow `movieSchema`; `releaseDate` stays a calendar date string ("2026-08-14", IST). */
-export interface MovieAttrs extends Omit<MovieShape, "id" | "reviews"> {
+export interface MovieAttrs extends Omit<MovieShape, "id" | "reviews" | "userRating"> {
   /** Editorial reviews shipped with the catalogue; customer reviews get their own collection (batch 4.1). */
   reviews: StoredReview[];
+  /** Customer review totals, changed only with $inc by review.service (in the same transaction as the review). */
+  userRatingCount: number;
+  userRatingSum: number;
   sortOrder: number;
 }
 
@@ -41,6 +44,8 @@ const movieSchema = new Schema<MovieAttrs>(
     cast: { type: [personSchema], default: [] },
     crew: { type: [crewSchema], default: [] },
     reviews: { type: [reviewSchema], default: [] },
+    userRatingCount: { type: Number, default: 0, min: 0 },
+    userRatingSum: { type: Number, default: 0, min: 0 },
     sortOrder: sortOrderField,
   },
   { timestamps: true, versionKey: false },
@@ -48,6 +53,15 @@ const movieSchema = new Schema<MovieAttrs>(
 
 movieSchema.index({ slug: 1 }, { unique: true });
 movieSchema.index({ status: 1, sortOrder: 1 });
+
+/** Average to one decimal; missing until the first customer review (older documents lack the totals). */
+function userRating(
+  doc: Partial<Pick<MovieAttrs, "userRatingCount" | "userRatingSum">>,
+): Pick<MovieShape, "userRating"> {
+  const count = doc.userRatingCount ?? 0;
+  if (count <= 0) return {};
+  return { userRating: { average: Math.round(((doc.userRatingSum ?? 0) / count) * 10) / 10, count } };
+}
 
 export function toMovie(doc: LeanDoc<MovieAttrs>): MovieShape {
   return {
@@ -78,6 +92,7 @@ export function toMovie(doc: LeanDoc<MovieAttrs>): MovieShape {
       text: r.text,
       createdAt: r.createdAt.toISOString(),
     })),
+    ...userRating(doc),
   };
 }
 

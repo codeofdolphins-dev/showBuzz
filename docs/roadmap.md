@@ -114,15 +114,15 @@ Prompt B (`docs/prompts/phase-2-public-backend.md`, 2026-10-13) built the bookin
 - [x] **3.3** Food items in MongoDB; server-side quote (Prompt A) and re-pricing at order time.
 - [~] **3.4** Orders (`bookings`, `payments`) behind a `PaymentGateway` interface with `SimulatedGateway` (`PAYMENT_PROVIDER=simulated`, allowed in production). Real gateway still open.
 - [~] **3.5** Server-side confirmation, idempotent, holds → sold in a transaction, payment records. Webhooks + signature verification come with the real gateway.
-- [ ] **3.6** Tickets: `bookingCode`, HMAC-signed QR, success page, confirmation email/SMS.
+- [~] **3.6** Tickets: `bookingCode`, HMAC-signed QR (SVG on the success page and in My Bookings, `verifyTicketPayload()` for scan-qr) done in Prompt C. Confirmation email/SMS waits for a provider.
 - [x] **3.7** Cancellation & refunds (Settings cutoff and fee, transaction, `refunds` record, simulated gateway refund). Only `bookingCode` of 3.6 is done; QR is Prompt C.
 - [ ] **3.8** Gift cards: purchase, balance, redeem.
 
 ## Phase 4: Engagement
 
-- [ ] **4.1** Reviews & ratings in DB (moderation status, aggregates).
-- [ ] **4.2** Wishlist in DB (merge local wishlist on sign-in).
-- [ ] **4.3** Leads (list-your-show, corporate, contact) in DB + staff notification + spam protection.
+- [x] **4.1** Reviews & ratings in DB (Prompt C): one per customer per movie, `status` field (all published until moderation in admin), movie aggregate updated in a transaction.
+- [x] **4.2** Wishlist in DB (Prompt C): merged from the device once at sign-in, optimistic toggles.
+- [~] **4.3** Leads in DB with per-IP rate limit and honeypot (Prompt C). Staff notification waits for the admin app / email provider.
 - [ ] **4.4** Notifications infrastructure (in-app + email).
 
 ## Phase 5: Admin authentication & RBAC

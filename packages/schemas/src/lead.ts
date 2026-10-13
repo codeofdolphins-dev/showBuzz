@@ -10,6 +10,12 @@ const optionalPhone = z.string().transform((value, ctx) => {
   return z.NEVER;
 });
 
+/**
+ * Honeypot: a field hidden from people (off-screen, not focusable), so only bots fill it in. The lead service
+ * answers a filled honeypot normally but stores nothing.
+ */
+const honeypot = { website: z.string().max(200).optional() };
+
 export const supportTopics = [
   "Ticket Not Received on WhatsApp/Email",
   "Cancellation & Refund Status",
@@ -29,6 +35,7 @@ export const contactLeadSchema = z.object({
     .regex(/^(SB-\d{6})?$/, "Booking ids look like SB-123456"),
   topic: z.enum(supportTopics),
   message: z.string().trim().min(10, "Please add a few more details").max(2000),
+  ...honeypot,
 });
 
 export const corporateLeadSchema = z.object({
@@ -37,6 +44,7 @@ export const corporateLeadSchema = z.object({
   email: z.email("Enter a valid work email"),
   phone: indianPhoneSchema,
   requirements: z.string().trim().max(2000),
+  ...honeypot,
 });
 
 export const organiserCategories = [
@@ -64,6 +72,7 @@ export const showSubmissionSchema = z.object({
   city: z.string().trim().min(2, "Enter the host city").max(60),
   capacity: z.enum(organiserCapacities),
   overview: z.string().trim().max(2000),
+  ...honeypot,
 });
 
 export type ContactLeadInput = z.input<typeof contactLeadSchema>;

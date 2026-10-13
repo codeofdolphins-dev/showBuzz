@@ -45,6 +45,8 @@ export const movieSchema = z.object({
   cast: z.array(castMemberSchema),
   crew: z.array(crewMemberSchema),
   reviews: z.array(movieReviewSchema),
+  /** Customer reviews (1–5 stars): average and count, kept on the movie document. Absent until the first review. */
+  userRating: z.object({ average: z.number().min(1).max(5), count: z.int().positive() }).optional(),
 });
 
 export const movieSortSchema = z.enum(["popularity", "rating", "newest"]);

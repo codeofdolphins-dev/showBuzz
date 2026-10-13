@@ -119,7 +119,7 @@ describe.skip("bookings belong to the signed-in customer", () => {
   });
 });
 
-// Skipped 2026-10-13: same reason as above (movie "mov-1" is no longer an in-memory seed id).
+// Skipped 2026-10-13: written for the removed in-memory review store; reviews are now in MongoDB (needs a seeded movie).
 describe.skip("reviews", () => {
   const review = { movieId: "mov-1", rating: 4, text: "Great visuals" };
   const ownReviews = async (name: string) => (await listMovieReviews("mov-1")).filter((r) => r.author === name);

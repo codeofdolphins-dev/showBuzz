@@ -4,6 +4,7 @@ import { AuthModal } from "@/components/public/layout/AuthModal";
 import { CityModal } from "@/components/public/layout/CityModal";
 import { SessionBootstrap } from "@/components/public/layout/SessionBootstrap";
 import { StoreHydrator } from "@/components/public/layout/StoreHydrator";
+import { WishlistSync } from "@/components/public/layout/WishlistSync";
 import { Toaster } from "@/components/ui/Toaster";
 import { listCities } from "@showbuzz/core/services/catalog.service";
 
@@ -17,6 +18,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
       <AuthModal />
       <Toaster />
       <StoreHydrator />
+      <WishlistSync />
       {/* Per-request parts stream in after the static shell (Cache Components). */}
       <Suspense fallback={null}>
         <SessionBootstrap />

@@ -22,6 +22,7 @@
     "@showbuzz/utils": "workspace:*",
     "bcryptjs": "catalog:",
     "jose": "catalog:",
+    "qrcode": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {
@@ -31,15 +32,16 @@
   "devDependencies": {
     "@showbuzz/config": "workspace:*",
     "@types/node": "catalog:",
+    "@types/qrcode": "catalog:",
+    "@types/react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "next": "catalog:",
     "prettier": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:",
-    "@types/react": "catalog:",
-    "next": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:"
+    "vitest": "catalog:"
   }
 }

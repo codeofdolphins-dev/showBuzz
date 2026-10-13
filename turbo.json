@@ -17,7 +17,8 @@
         "NEXT_PUBLIC_*",
         "VERCEL_URL",
         "VERCEL_BRANCH_URL",
-        "PAYMENT_PROVIDER"
+        "PAYMENT_PROVIDER",
+        "QR_SIGNING_SECRET"
       ]
     },
     "build": {
@@ -41,7 +42,8 @@
         "NEXT_PUBLIC_*",
         "VERCEL_URL",
         "VERCEL_BRANCH_URL",
-        "PAYMENT_PROVIDER"
+        "PAYMENT_PROVIDER",
+        "QR_SIGNING_SECRET"
       ]
     },
     "lint": {},

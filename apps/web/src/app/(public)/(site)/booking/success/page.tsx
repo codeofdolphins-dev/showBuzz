@@ -11,6 +11,7 @@ import { formatINR } from "@showbuzz/utils/money";
 import { PAYMENT_METHOD_LABELS } from "@showbuzz/utils/payment";
 import { bookingCodeSchema } from "@showbuzz/schemas/booking";
 import { requireCustomerPage } from "@showbuzz/core/auth/current-customer";
+import { renderTicketQrSvg } from "@showbuzz/core/booking/ticket-qr";
 import { getBooking } from "@showbuzz/core/services/booking.service";
 import type { BookingView } from "@showbuzz/schemas/types/booking";
 
@@ -61,6 +62,8 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
   }
 
   const cancelled = booking.status === "cancelled";
+  // Only a confirmed booking gets a scannable code; the gate re-checks the booking anyway.
+  const qrSvg = cancelled ? undefined : await renderTicketQrSvg(booking);
 
   return (
     <>
@@ -150,7 +153,7 @@ async function Ticketpass({ searchParams }: Pick<PageProps<"/booking/success">, 
             </div>
             <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200/80 bg-slate-50 p-4 text-center">
               <div className="mb-2 h-28 w-28 rounded-xl border border-slate-200 bg-white p-2 shadow-sm sm:h-32 sm:w-32">
-                <TicketCode code={booking.code} />
+                <TicketCode code={booking.code} svg={qrSvg} />
               </div>
               <span className="text-[10px] font-black tracking-widest text-slate-700 uppercase">
                 {cancelled ? "Cancelled" : "Scan at Gate"}
