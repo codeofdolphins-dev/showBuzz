@@ -28,4 +28,5 @@ const roleSchema = new Schema<RoleAttrs, RoleModel>(
 
 roleSchema.index({ name: 1 }, { unique: true });
 
-export const Role: RoleModel = (models.Role as RoleModel | undefined) ?? model<RoleAttrs, RoleModel>("Role", roleSchema, "roles");
+export const Role: RoleModel =
+  (models.Role as RoleModel | undefined) ?? model<RoleAttrs, RoleModel>("Role", roleSchema, "roles");

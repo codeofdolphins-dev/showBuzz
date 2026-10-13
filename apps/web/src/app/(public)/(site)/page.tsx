@@ -9,8 +9,8 @@ import { MovieCarousel } from "@/components/public/home/MovieCarousel";
 import { formatINR } from "@showbuzz/utils/money";
 import {
   EVENT_SECTION_PATH,
-  getEventById,
-  getMovieById,
+  getEventBySlug,
+  getMovieBySlug,
   listCinemas,
   listEvents,
   listMovies,
@@ -21,9 +21,9 @@ const BROWSE_GENRES = ["Action", "Sci-Fi", "Romance", "Animation", "Mythology"];
 
 async function getHeroSlides(): Promise<HeroSlide[]> {
   const [movie, concert, match] = await Promise.all([
-    getMovieById("mov-1"),
-    getEventById("eve-1"),
-    getEventById("spo-1"),
+    getMovieBySlug("chrono-nexus-origins"),
+    getEventBySlug("event", "sunburn-edm-arena-2026"),
+    getEventBySlug("sport", "kolkata-thunder-vs-mumbai-blasters"),
   ]);
   const slides: HeroSlide[] = [];
   if (movie) {

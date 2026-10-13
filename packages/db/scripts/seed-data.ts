@@ -12,7 +12,8 @@ import { cinemaSchema } from "@showbuzz/schemas/venue";
 /**
  * Catalogue ported from the prototype (showBuzz_HTML/assets/js/data.js), normalised to the
  * production shapes: money in paise, dates as ISO strings in IST, slugs for public URLs.
- * This stands in for MongoDB until the backend phase; scripts/seed.ts will load it.
+ * Used only by scripts/seed.ts (`pnpm db:seed`). The `id` fields are seed keys: the database
+ * assigns ObjectIds, and records are matched by slug or code.
  */
 
 const unsplash = (id: string, w: number) => `https://images.unsplash.com/photo-${id}?w=${w}&auto=format&fit=crop&q=80`;

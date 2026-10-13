@@ -1,6 +1,6 @@
 /**
- * Business constants. Values that operators can change (fees, limits) will move to the
- * `settings` document in the backend phase; until then these are the defaults.
+ * Business constants. Values that operators can change (fees, limits) live in the `settings`
+ * document (./settings.ts); these are its defaults and the hard upper bounds for input schemas.
  */
 
 export const APP_NAME = "ShowBuzz";

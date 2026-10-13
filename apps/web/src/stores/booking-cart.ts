@@ -37,6 +37,14 @@ export const useBookingCart = create<BookingCartState>()(
       setContact: (contact) => set({ contact }),
       clear: () => set({ tickets: null, food: [], couponCode: undefined }),
     }),
-    { name: "showbuzz-cart", storage: createJSONStorage(() => sessionStorage), skipHydration: true },
+    {
+      name: "showbuzz-cart",
+      storage: createJSONStorage(() => sessionStorage),
+      skipHydration: true,
+      // v1: catalogue ids became MongoDB ObjectIds (shows, events, food, gift card designs). A cart saved
+      // with the old ids can't be priced any more, so it is dropped instead of failing at checkout.
+      version: 1,
+      migrate: () => ({ tickets: null, food: [] }),
+    },
   ),
 );

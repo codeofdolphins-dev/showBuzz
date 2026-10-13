@@ -11,24 +11,22 @@ const GROUPS: { label: string; types: SearchEntryType[]; cta: string }[] = [
   { label: "Cinemas", types: ["cinema"], cta: "Showtimes" },
 ];
 
-export function filterSearchEntries(entries: SearchEntry[], query: string): SearchEntry[] {
-  const q = query.toLowerCase().trim();
-  if (!q) return [];
-  return entries.filter((e) => `${e.title} ${e.subtitle} ${e.keywords}`.toLowerCase().includes(q));
-}
-
 interface SearchResultsProps {
   query: string;
   results: SearchEntry[];
+  /** A newer query is still being searched on the server. */
+  loading?: boolean;
   onNavigate: () => void;
 }
 
-export function SearchResults({ query, results, onNavigate }: SearchResultsProps) {
+export function SearchResults({ query, results, loading = false, onNavigate }: SearchResultsProps) {
   if (results.length === 0) {
     return (
-      <div className="p-6 text-center">
+      <div className="p-6 text-center" aria-live="polite">
         <Search className="mx-auto mb-2 h-6 w-6 text-slate-300" />
-        <p className="text-xs font-bold text-slate-800">No matches for &ldquo;{query}&rdquo;</p>
+        <p className="text-xs font-bold text-slate-800">
+          {loading ? "Searching…" : <>No matches for &ldquo;{query}&rdquo;</>}
+        </p>
       </div>
     );
   }

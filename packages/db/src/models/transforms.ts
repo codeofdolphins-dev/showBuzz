@@ -16,3 +16,9 @@ export function hidePrivateFields(_doc: unknown, ret: Record<string, unknown>): 
 }
 
 export const serialisationOptions = { virtuals: false, versionKey: false, transform: hidePrivateFields } as const;
+
+/** A `.lean()` result: the stored fields plus `_id`. Catalogue mappers turn these into the Zod shapes. */
+export type LeanDoc<T> = T & { _id: { toString(): string } };
+
+/** Keeps the seed's display order in lists (the prototype's order is the editorial order for now). */
+export const sortOrderField = { type: Number, default: 0 } as const;

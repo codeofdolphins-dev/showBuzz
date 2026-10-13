@@ -94,12 +94,16 @@
 
 ## Phase 2: Catalogue backend
 
-- [ ] **2.1** Reference data + `settings` singleton (cities, languages, genres, pricing/limits) + idempotent `scripts/seed.ts` skeleton.
-- [ ] **2.2** Venues, screens, seat layouts (models + seed).
-- [ ] **2.3** Movies + events (`kind`) models; seed normalising the prototype catalogues.
-- [ ] **2.4** Shows (UTC datetimes, zone pricing) + seed generator.
-- [ ] **2.5** Catalogue services on MongoDB replacing `seed-catalog.ts`; `use cache` + cache tags; public read endpoints with pagination/filters.
-- [ ] **2.6** Search (text index vs Atlas Search decision), city scoping.
+Done as **Prompt A** (`docs/prompts/phase-2-public-backend.md`, 2026-10-13); verified with lint + typecheck + build only (tests deferred).
+
+- [x] **2.1** `settings` singleton + cities + idempotent `pnpm db:seed` (`packages/db/scripts/seed.ts`). Languages/genres stay plain strings on movies (no collections yet).
+- [x] **2.2** Venues with embedded screens and seat layouts (cinemas, stadiums, event venues).
+- [x] **2.3** Movies + events (`kind`) models; seeded from the public prototype catalogue (the admin catalogue is reconciled with the admin app).
+- [x] **2.4** Shows (UTC `startsAt`, zone prices) + idempotent generator, run lazily from showtimes and by the seed.
+- [x] **2.5** Catalogue services on MongoDB (`seed-catalog.ts` moved to `scripts/seed-data.ts`), `use cache` + per-collection tags + `revalidateCatalog()`. Public REST read endpoints with pagination/filters: not built (pages read services directly); add with the admin/API work.
+- [~] **2.6** Search: Server Action with escaped case-insensitive substring match (no text/Atlas Search index yet). City scoping not done (the city picker doesn't filter listings yet).
+
+**Prompt A follow-ups:** admin needs a protected revalidate route on the web app (`revalidateTag` doesn't cross deployments); UI copy and SeatSelector limits still read constants, not Settings; skipped tests (`pricing.test.ts` › quoteOrder, `ownership.test.ts`) need seeded catalogue fixtures; city scoping for listings.
 
 ## Phase 3: Booking engine
 

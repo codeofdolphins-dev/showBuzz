@@ -1,17 +1,11 @@
 import { z } from "zod";
 import { MAX_TICKETS_PER_ORDER } from "./constants";
-import { idSchema, indianPhoneSchema, personNameSchema } from "./common";
+import { idSchema, indianPhoneSchema, objectIdSchema, personNameSchema } from "./common";
 import { giftCardOrderSchema } from "./gift-card";
 import { couponCodeSchema } from "./offer";
 
-/**
- * Show ids are opaque to clients. Movie shows are `<cinemaId>_<movieId>_<yyyymmdd>_<slot>`,
- * stadium fixtures are `sport_<eventId>`; booking.service parses them.
- */
-export const showIdSchema = z
-  .string()
-  .max(120)
-  .regex(/^[a-z0-9-]+(?:_[a-z0-9-]+){1,3}$/, "Invalid show");
+/** Show ids are `shows._id` (ObjectId hex), for movie shows and stadium fixtures alike. */
+export const showIdSchema = objectIdSchema;
 
 export const seatIdSchema = z.string().regex(/^[A-Z]\d{1,2}$/, "Invalid seat");
 

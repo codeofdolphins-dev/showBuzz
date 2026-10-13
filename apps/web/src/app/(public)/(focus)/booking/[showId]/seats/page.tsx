@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { z } from "zod";
 import { SeatSelector } from "@/components/public/seat-map/SeatSelector";
 import { showIdSchema } from "@showbuzz/schemas/booking";
-import { buildSeatMap } from "@showbuzz/core/services/seat-map.service";
+import { buildSeatMap, loadSeatPlan } from "@showbuzz/core/services/seat-map.service";
 import { getShowDetails } from "@showbuzz/core/services/show.service";
 
 export const metadata: Metadata = { title: "Select Seats" };
@@ -18,10 +18,11 @@ async function Seats({ params, searchParams }: PageProps<"/booking/[showId]/seat
 
   const parsed = showIdSchema.safeParse(showId);
   const show = parsed.success ? await getShowDetails(parsed.data, new Date()) : undefined;
-  if (!show) notFound();
+  const plan = show && (await loadSeatPlan(show.id));
+  if (!show || !plan) notFound();
 
   const stand = standSchema.parse(Array.isArray(query.stand) ? query.stand[0] : query.stand);
-  return <SeatSelector show={show} seatMap={buildSeatMap(show)} focusTier={stand} />;
+  return <SeatSelector show={show} seatMap={buildSeatMap(show, plan)} focusTier={stand} />;
 }
 
 export default function SeatSelectionPage(props: PageProps<"/booking/[showId]/seats">) {

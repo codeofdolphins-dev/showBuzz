@@ -18,22 +18,19 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@showbuzz/utils/cn";
+import { useCatalogSearch } from "@/hooks/use-catalog-search";
 import { useSignOut } from "@/hooks/use-sign-out";
 import { useAuthStore } from "@/stores/auth";
 import { useCityStore } from "@/stores/city";
 import { toast, useUiStore } from "@/stores/ui";
 import { useWishlistStore } from "@/stores/wishlist";
-import type { SearchEntry } from "@showbuzz/schemas/types/catalog";
 import { BrandLogo, BrandMark } from "./BrandLogo";
 import { MobileDrawer } from "./MobileDrawer";
 import { CATEGORY_NAV, SERVICE_NAV, isActivePath } from "./nav";
-import { SearchResults, filterSearchEntries } from "./SearchResults";
+import { SearchResults } from "./SearchResults";
 
-interface SiteHeaderProps {
-  searchIndex: SearchEntry[];
-}
 
-export function SiteHeader({ searchIndex }: SiteHeaderProps) {
+export function SiteHeader() {
   const pathname = usePathname();
   const city = useCityStore((s) => s.city);
   const user = useAuthStore((s) => s.user);
@@ -72,7 +69,7 @@ export function SiteHeader({ searchIndex }: SiteHeaderProps) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, []);
 
-  const results = filterSearchEntries(searchIndex, query);
+  const { results, loading: searching } = useCatalogSearch(query);
   const closeSearch = () => {
     setSearchOpen(false);
     setMobileSearchOpen(false);
@@ -160,7 +157,7 @@ export function SiteHeader({ searchIndex }: SiteHeaderProps) {
               </div>
               {searchOpen && query.trim() && (
                 <div className="absolute top-full right-0 left-0 z-50 mt-2 max-h-[480px] overflow-hidden overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-2xl">
-                  <SearchResults query={query} results={results} onNavigate={closeSearch} />
+                  <SearchResults query={query} results={results} loading={searching} onNavigate={closeSearch} />
                 </div>
               )}
             </div>
@@ -337,7 +334,7 @@ export function SiteHeader({ searchIndex }: SiteHeaderProps) {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto py-3">
-            {query.trim() && <SearchResults query={query} results={results} onNavigate={closeSearch} />}
+            {query.trim() && <SearchResults query={query} results={results} loading={searching} onNavigate={closeSearch} />}
           </div>
         </div>
       )}

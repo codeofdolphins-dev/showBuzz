@@ -15,7 +15,8 @@
     "test:coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:sync-indexes": "tsx --env-file-if-exists=../../apps/web/.env.local --tsconfig tsconfig.scripts.json scripts/sync-indexes.ts"
+    "db:sync-indexes": "tsx --env-file-if-exists=../../apps/web/.env.local --tsconfig tsconfig.scripts.json scripts/sync-indexes.ts",
+    "db:seed": "tsx --env-file-if-exists=../../apps/web/.env.local --tsconfig tsconfig.scripts.json scripts/seed.ts"
   },
   "dependencies": {
     "@showbuzz/runtime": "workspace:*",

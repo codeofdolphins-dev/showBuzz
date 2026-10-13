@@ -1,15 +1,14 @@
 import "server-only";
-import { PRICING_DEFAULTS } from "@showbuzz/schemas/constants";
 import { formatDateLong, formatTime, istWeekday } from "@showbuzz/utils/dates";
 import { formatINR } from "@showbuzz/utils/money";
 import { describeSchedule } from "@showbuzz/utils/schedule";
 import type { OrderDraft } from "@showbuzz/schemas/booking";
 import type { Coupon } from "@showbuzz/schemas/offer";
 import type { BookingKind, OrderQuote, QuoteFoodLine } from "@showbuzz/schemas/types/booking";
-import { foodItems, giftCardDesigns } from "@showbuzz/db/seed-catalog";
 import { AppError } from "../http/app-error";
-import { getCouponByCode, getEventById } from "./catalog.service";
-import { priceSeats } from "./seat-map.service";
+import { getCouponByCode, getEventById, listFoodItems, listGiftCardDesigns } from "./catalog.service";
+import { loadSeatPlan, priceSeats } from "./seat-map.service";
+import { getSettings } from "./settings.service";
 import { getShowDetails } from "./show.service";
 
 /** All prices are computed here; anything the client shows is display-only. */
@@ -41,11 +40,20 @@ export interface TicketPricing {
   foodAllowed: boolean;
 }
 
+function assertTicketLimit(count: number, maxTicketsPerOrder: number) {
+  if (count > maxTicketsPerOrder) {
+    throw new AppError("VALIDATION_FAILED", `Maximum ${maxTicketsPerOrder} tickets per booking.`, 422);
+  }
+}
+
 async function priceTickets(tickets: OrderDraft["tickets"], now: Date): Promise<TicketPricing> {
+  const { maxTicketsPerOrder } = await getSettings();
   if (tickets.kind === "show") {
+    assertTicketLimit(tickets.seatIds.length, maxTicketsPerOrder);
     const show = await getShowDetails(tickets.showId, now);
-    if (!show) throw new AppError("NOT_FOUND", "This show is no longer available for booking.", 404);
-    const seats = priceSeats(show, tickets.seatIds);
+    const plan = show && (await loadSeatPlan(show.id));
+    if (!show || !plan) throw new AppError("NOT_FOUND", "This show is no longer available for booking.", 404);
+    const seats = priceSeats(show, plan, tickets.seatIds);
     const start = new Date(show.startsAt);
     return {
       kind: show.kind,
@@ -69,6 +77,7 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date): Promise<
   }
 
   if (tickets.kind === "event") {
+    assertTicketLimit(tickets.quantity, maxTicketsPerOrder);
     const event = await getEventById(tickets.eventId);
     const tier = event?.ticketTiers.find((t) => t.id === tickets.tierId);
     if (!event || !tier) throw new AppError("NOT_FOUND", "This ticket option is no longer available.", 404);
@@ -99,7 +108,7 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date): Promise<
   }
 
   const { giftCard } = tickets;
-  if (!giftCardDesigns.some((d) => d.id === giftCard.designId)) {
+  if (!(await listGiftCardDesigns()).some((d) => d.id === giftCard.designId)) {
     throw new AppError("NOT_FOUND", "Gift card design not found.", 404);
   }
   return {
@@ -118,10 +127,12 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date): Promise<
   };
 }
 
-function priceFood(lines: OrderDraft["food"]): QuoteFoodLine[] {
+async function priceFood(lines: OrderDraft["food"]): Promise<QuoteFoodLine[]> {
   const merged = new Map<string, number>();
   for (const line of lines) merged.set(line.foodItemId, (merged.get(line.foodItemId) ?? 0) + line.quantity);
+  if (merged.size === 0) return [];
 
+  const foodItems = await listFoodItems();
   return [...merged].map(([foodItemId, quantity]) => {
     const item = foodItems.find((f) => f.id === foodItemId);
     if (!item) throw new AppError("NOT_FOUND", "A snack in your order is no longer available.", 404);
@@ -178,13 +189,11 @@ export async function quoteOrder(draft: OrderDraft, now: Date, options: QuoteOpt
   if (draft.food.length > 0 && !tickets.foodAllowed) {
     throw new AppError("VALIDATION_FAILED", "Food pre-orders are only available for cinema shows.", 422);
   }
-  const food = priceFood(draft.food);
+  const [food, settings] = await Promise.all([priceFood(draft.food), getSettings()]);
   const foodPaise = food.reduce((sum, f) => sum + f.totalPaise, 0);
 
-  const convenienceFeePaise = tickets.feesApply
-    ? percentOf(tickets.ticketsPaise, PRICING_DEFAULTS.convenienceFeeBps)
-    : 0;
-  const gstPaise = percentOf(convenienceFeePaise, PRICING_DEFAULTS.gstBps);
+  const convenienceFeePaise = tickets.feesApply ? percentOf(tickets.ticketsPaise, settings.convenienceFeeBps) : 0;
+  const gstPaise = percentOf(convenienceFeePaise, settings.gstBps);
 
   let discountPaise = 0;
   let coupon: OrderQuote["coupon"];

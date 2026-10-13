@@ -18,6 +18,7 @@
     "format:root": "prettier --write .",
     "format:check:root": "prettier --check .",
     "db:sync-indexes": "pnpm --filter @showbuzz/db db:sync-indexes",
+    "db:seed": "pnpm --filter @showbuzz/db db:seed",
     "db:seed-roles": "pnpm --filter @showbuzz/admin db:seed-roles",
     "db:create-admin": "pnpm --filter @showbuzz/admin db:create-admin",
     "db:seed-demo-admin": "pnpm --filter @showbuzz/admin db:seed-demo-admin"

@@ -1,13 +1,14 @@
 import "server-only";
-import type { Seat, SeatMap, SeatRow, SeatTier, ShowDetails } from "@showbuzz/schemas/types/catalog";
-import { events } from "@showbuzz/db/seed-catalog";
+import type { Seat, SeatMap, SeatTier, ShowDetails } from "@showbuzz/schemas/types/catalog";
+import type { SeatZone, ShowZone } from "@showbuzz/schemas/venue";
 import { AppError } from "../http/app-error";
-import { getShowBasePrice } from "./show.service";
+import { getScreen } from "./catalog.service";
+import { findShow } from "./show.service";
 
 /**
- * Seat layouts mirror the prototype's fixed auditorium (rows A-G). Sold seats are the
- * prototype's static set plus seats sold through demo bookings. In the backend phase this is
- * replaced by seatLayouts + seatHolds/bookings, where a unique index prevents double-booking.
+ * Seat layouts come from the venue's screen (MongoDB); zone names and prices come from the show. Sold
+ * seats are still the prototype's static set plus seats sold through demo bookings (in memory). In the
+ * booking batch this becomes seatHolds/bookings, where a unique index prevents double-booking.
  */
 
 const PROTOTYPE_SOLD = new Set(["A3", "A4", "B7", "C5", "C6", "C7", "D10", "D11", "E4", "E5", "F8", "F9", "G10"]);
@@ -15,93 +16,47 @@ const PROTOTYPE_SOLD = new Set(["A3", "A4", "B7", "C5", "C6", "C7", "D10", "D11"
 const globalStore = globalThis as unknown as { __showbuzzSoldSeats?: Map<string, Set<string>> };
 const soldSeats = (globalStore.__showbuzzSoldSeats ??= new Map<string, Set<string>>());
 
-const ROW_PLAN: { tierIndex: 0 | 1 | 2; row: string; count: number }[] = [
-  { tierIndex: 0, row: "A", count: 8 },
-  { tierIndex: 0, row: "B", count: 8 },
-  { tierIndex: 1, row: "C", count: 12 },
-  { tierIndex: 1, row: "D", count: 12 },
-  { tierIndex: 1, row: "E", count: 12 },
-  { tierIndex: 2, row: "F", count: 12 },
-  { tierIndex: 2, row: "G", count: 12 },
-];
-
-const ACCENTS: SeatTier["accent"][] = ["rose", "amber", "blue"];
-
-interface TierSpec {
-  id: string;
-  name: string;
-  description: string;
-  pricePaise: number;
+/** A show's priced zones joined with the screen's rows. Load it before any synchronous claim step. */
+export interface SeatPlan {
+  layoutType: "screen" | "stadium";
+  zones: { layout: SeatZone; pricing: ShowZone }[];
 }
 
-function movieTiers(basePaise: number): TierSpec[] {
-  return [
-    { id: "recliner", name: "Royal Recliner", description: "Recliner Section", pricePaise: basePaise },
-    { id: "prime", name: "Prime Gold", description: "Prime Gold", pricePaise: Math.max(18_000, basePaise - 18_000) },
-    {
-      id: "classic",
-      name: "Classic Silver",
-      description: "Classic Silver",
-      pricePaise: Math.max(15_000, basePaise - 30_000),
-    },
-  ];
+export async function loadSeatPlan(showId: string): Promise<SeatPlan | undefined> {
+  const show = await findShow(showId);
+  if (!show) return undefined;
+  const screen = await getScreen(show.venueId.toString(), show.screenId);
+  if (!screen) return undefined;
+  const zones = show.zones.flatMap((pricing) => {
+    const layout = screen.zones.find((z) => z.id === pricing.zoneId);
+    return layout ? [{ layout, pricing }] : [];
+  });
+  return { layoutType: screen.layoutType, zones };
 }
 
-const STADIUM_BLOCKS = [
-  "Purple Outer & Teal Blocks • G1/F1/D1/C1/K1/H/L",
-  "Hot Pink Pavilion • Block C/K & Club House",
-  "Gray Stand Blocks • G/F/D/B/H1/L1/B1",
-];
-
-function sportTiers(eventId: string): TierSpec[] {
-  const event = events.find((e) => e.id === eventId);
-  if (!event) return [];
-  return event.ticketTiers.slice(0, 3).map((t, i) => ({
-    id: t.id,
-    name: t.name,
-    description: STADIUM_BLOCKS[i] ?? t.description,
-    pricePaise: t.pricePaise,
-  }));
-}
-
-function tierSpecs(show: ShowDetails): TierSpec[] {
-  if (show.kind === "sport") return sportTiers(show.id.replace(/^sport_/, ""));
-  const base = getShowBasePrice(show.id);
-  return base === undefined ? [] : movieTiers(base);
-}
-
-function seatStatus(showId: string, row: string, n: number, count: number): Seat["status"] {
-  const id = `${row}${n}`;
+function seatStatus(showId: string, id: string, accessible: boolean): Seat["status"] {
   if (PROTOTYPE_SOLD.has(id) || soldSeats.get(showId)?.has(id)) return "sold";
-  if (row === "C" && (n === 1 || n === count)) return "accessible";
-  return "available";
+  return accessible ? "accessible" : "available";
 }
 
-export function buildSeatMap(show: ShowDetails): SeatMap {
-  const specs = tierSpecs(show);
-  const tiers: SeatTier[] = specs.map((spec, i) => ({
-    ...spec,
-    accent: ACCENTS[i] ?? "blue",
-    recliner: i === 0 && show.kind === "movie",
-    rows: [],
+export function buildSeatMap(show: ShowDetails, plan: SeatPlan): SeatMap {
+  const tiers: SeatTier[] = plan.zones.map(({ layout, pricing }) => ({
+    id: layout.id,
+    name: pricing.name,
+    description: pricing.description,
+    pricePaise: pricing.pricePaise,
+    accent: layout.accent,
+    recliner: layout.recliner && show.kind === "movie",
+    rows: layout.rows.map((r) => ({
+      row: r.row,
+      seats: Array.from({ length: r.count }, (_, i) => {
+        const id = `${r.row}${i + 1}`;
+        return { id, number: i + 1, status: seatStatus(show.id, id, r.accessibleSeats.includes(i + 1)) };
+      }),
+      aisleAfter: r.aisleAfter,
+    })),
   }));
-
-  for (const plan of ROW_PLAN) {
-    const tier = tiers[plan.tierIndex];
-    if (!tier) continue;
-    const row: SeatRow = {
-      row: plan.row,
-      seats: Array.from({ length: plan.count }, (_, i) => ({
-        id: `${plan.row}${i + 1}`,
-        number: i + 1,
-        status: seatStatus(show.id, plan.row, i + 1, plan.count),
-      })),
-      aisleAfter: plan.count > 8 ? plan.count / 2 : undefined,
-    };
-    tier.rows.push(row);
-  }
-
-  return { layout: show.kind === "sport" ? "stadium" : "screen", tiers };
+  return { layout: plan.layoutType, tiers };
 }
 
 export interface PricedSeat {
@@ -110,9 +65,9 @@ export interface PricedSeat {
   pricePaise: number;
 }
 
-/** Prices the requested seats and rejects any that do not exist or are already sold. */
-export function priceSeats(show: ShowDetails, seatIds: string[]): PricedSeat[] {
-  const map = buildSeatMap(show);
+/** Prices the requested seats and rejects any that do not exist or are already sold. Synchronous on purpose. */
+export function priceSeats(show: ShowDetails, plan: SeatPlan, seatIds: string[]): PricedSeat[] {
+  const map = buildSeatMap(show, plan);
   return seatIds.map((id) => {
     for (const tier of map.tiers) {
       const seat = tier.rows.flatMap((r) => r.seats).find((s) => s.id === id);
