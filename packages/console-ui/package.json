@@ -7,6 +7,7 @@
     "./theme.css": "./src/theme.css",
     "./nav": "./src/nav.ts",
     "./search-params": "./src/search-params.ts",
+    "./action-errors": "./src/action-errors.ts",
     "./*": "./src/*.tsx"
   },
   "scripts": {
@@ -16,8 +17,12 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@hookform/resolvers": "catalog:",
+    "@showbuzz/schemas": "workspace:*",
     "@showbuzz/utils": "workspace:*",
-    "lucide-react": "catalog:"
+    "lucide-react": "catalog:",
+    "react-hook-form": "catalog:",
+    "zod": "catalog:"
   },
   "peerDependencies": {
     "next": "*",

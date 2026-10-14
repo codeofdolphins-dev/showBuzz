@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { Clock, Play, Star, Tags, Ticket } from "lucide-react";
@@ -12,7 +12,7 @@ import { ReviewDialog } from "@/components/public/movie/ReviewDialog";
 import { formatDateLong, formatDateShort, formatDuration } from "@showbuzz/utils/dates";
 import { formatINR } from "@showbuzz/utils/money";
 import type { Movie } from "@showbuzz/schemas/movie";
-import { getMovieBySlug, listCinemas, listMovies } from "@showbuzz/core/services/catalog.service";
+import { getMergedMovieSlug, getMovieBySlug, listCinemas, listMovies } from "@showbuzz/core/services/catalog.service";
 import { listMovieReviews } from "@showbuzz/core/services/review.service";
 
 export async function generateStaticParams() {
@@ -75,8 +75,14 @@ function BookCta({ movie, className }: { movie: Movie; className: string }) {
 }
 
 export default async function MovieDetailsPage({ params }: PageProps<"/movies/[slug]">) {
-  const movie = await getMovieBySlug((await params).slug);
-  if (!movie) notFound();
+  const { slug } = await params;
+  const movie = await getMovieBySlug(slug);
+  if (!movie) {
+    // A duplicate the super-admin merged into another film: its old links keep working.
+    const target = await getMergedMovieSlug(slug);
+    if (target) permanentRedirect(`/movies/${target}`);
+    notFound();
+  }
 
   const cinemas = await listCinemas();
   const fromPaise = Math.min(...cinemas.flatMap((c) => c.showTemplates.map((t) => t.pricePaise)));
@@ -84,7 +90,7 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
 
   return (
     <main className="flex-1 pb-24 lg:pb-16">
-      <section className="relative flex min-h-[360px] items-center overflow-hidden bg-slate-950 text-white sm:min-h-[460px]">
+      <section className="relative flex min-h-90 items-center overflow-hidden bg-slate-950 text-white sm:min-h-115">
         <Image
           src={movie.backdrop}
           alt=""
@@ -93,8 +99,8 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
           sizes="100vw"
           className="object-cover opacity-25 mix-blend-luminosity blur-xs"
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/85 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-r from-slate-950 via-slate-950/85 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-transparent to-transparent" />
 
         <div className="relative z-10 w-full px-4 py-8 sm:px-6 sm:py-10 lg:px-8 xl:px-12">
           <div className="flex flex-col items-center gap-6 sm:gap-8 md:flex-row">
@@ -105,7 +111,7 @@ export default async function MovieDetailsPage({ params }: PageProps<"/movies/[s
                 width={448}
                 height={672}
                 priority
-                className="aspect-[2/3] w-full object-cover"
+                className="aspect-2/3 w-full object-cover"
               />
               <TrailerButton
                 title={movie.title}

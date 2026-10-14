@@ -18,6 +18,12 @@ export interface MovieAttrs extends Omit<MovieShape, "id" | "reviews" | "userRat
   userRatingSum: number;
   /** The vendor that added it (it and the super-admin may edit it); null = platform catalogue. */
   createdByVendorId: Types.ObjectId | null;
+  /**
+   * Set when the super-admin merged this film into another (duplicate): it disappears from every public list and
+   * search, and `/movies/<slug>` redirects to the film in `mergedIntoId`. Never deleted (bookings and old links).
+   */
+  archivedAt?: Date;
+  mergedIntoId?: Types.ObjectId;
   sortOrder: number;
 }
 
@@ -53,6 +59,8 @@ const movieSchema = new Schema<MovieAttrs>(
     userRatingCount: { type: Number, default: 0, min: 0 },
     userRatingSum: { type: Number, default: 0, min: 0 },
     createdByVendorId: { type: Schema.Types.ObjectId, ref: "Vendor", default: null },
+    archivedAt: Date,
+    mergedIntoId: { type: Schema.Types.ObjectId, ref: "Movie" },
     sortOrder: sortOrderField,
   },
   { timestamps: true, versionKey: false },
@@ -61,6 +69,10 @@ const movieSchema = new Schema<MovieAttrs>(
 movieSchema.index({ slug: 1 }, { unique: true });
 movieSchema.index({ createdByVendorId: 1 });
 movieSchema.index({ status: 1, sortOrder: 1 });
+movieSchema.index({ mergedIntoId: 1 }, { sparse: true });
+
+/** Films still in the catalogue (not merged into another). */
+export const ACTIVE_MOVIE_FILTER = { archivedAt: { $exists: false } } as const;
 
 /** Average to one decimal; missing until the first customer review (older documents lack the totals). */
 function userRating(

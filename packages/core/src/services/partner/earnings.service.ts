@@ -105,7 +105,10 @@ export async function getVendorEarnings(
       { $sort: { _id: -1 } },
     ]),
     Vendor.findById(vendor, { billingModel: 1, commissionBps: 1, planId: 1 }).lean(),
-    Settlement.find({ vendorId: vendor }).sort({ periodTo: -1 }).limit(24).lean(),
+    Settlement.find({ vendorId: vendor, status: { $in: ["pending", "paid"] } })
+      .sort({ periodTo: -1 })
+      .limit(24)
+      .lean(),
     SubscriptionInvoice.find({ vendorId: vendor }).sort({ month: -1 }).limit(24).lean(),
   ]);
   if (!vendorDoc) throw new AppError("NOT_FOUND", "Vendor not found.", 404);
@@ -158,12 +161,14 @@ export async function getVendorEarnings(
       id: p._id.toString(),
       code: p.code,
       periodFrom: p.periodFrom.toISOString(),
-      periodTo: p.periodTo.toISOString(),
+      // Stored as the exclusive end (midnight after the last day).
+      periodTo: new Date(p.periodTo.getTime() - 1).toISOString(),
       grossSalesPaise: p.grossSalesPaise,
       commissionPaise: p.commissionPaise,
+      counterCollectedPaise: p.counterCollectedPaise ?? 0,
       refundsPaise: p.refundsPaise,
       netPayoutPaise: p.netPayoutPaise,
-      status: p.status,
+      status: p.status === "paid" ? "paid" : "pending",
       ...(p.reference ? { reference: p.reference } : {}),
       ...(p.paidAt ? { paidAt: p.paidAt.toISOString() } : {}),
     })),

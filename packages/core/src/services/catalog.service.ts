@@ -6,7 +6,7 @@ import { Coupon, toCoupon } from "@showbuzz/db/models/Coupon";
 import { ACTIVE_EVENT_FILTER, Event, toEvent } from "@showbuzz/db/models/Event";
 import { FoodItem, toFoodItem } from "@showbuzz/db/models/FoodItem";
 import { GiftCardDesign, toGiftCardDesign } from "@showbuzz/db/models/GiftCardDesign";
-import { Movie, toMovie } from "@showbuzz/db/models/Movie";
+import { ACTIVE_MOVIE_FILTER, Movie, toMovie } from "@showbuzz/db/models/Movie";
 import { LIVE_SHOW_FILTER, Show } from "@showbuzz/db/models/Show";
 import { StreamTitle, toStreamTitle } from "@showbuzz/db/models/StreamTitle";
 import { Vendor, toVendorPublic } from "@showbuzz/db/models/Vendor";
@@ -60,6 +60,30 @@ async function vendorsById(): Promise<Map<string, VendorPublic>> {
   return new Map((await listVendorsPublic()).map((v) => [v.id, v]));
 }
 
+/**
+ * Vendors whose listings are hidden from the public site: suspended by the super-admin, or onboarding not finished.
+ * Tagged `vendors`, so suspending or reactivating a vendor (revalidateWeb([vendors])) shows or hides all its
+ * cinemas, events and offers at once. Their shows were already unbookable (getSellerTerms answers 410).
+ */
+async function listHiddenVendorIds(): Promise<string[]> {
+  "use cache";
+  cacheTag(CATALOG_TAGS.vendors);
+  cacheLife("hours");
+  await connect();
+  const docs = await Vendor.find(
+    { $or: [{ status: { $ne: "active" } }, { onboardingStatus: { $ne: "complete" } }] },
+    { _id: 1 },
+  ).lean();
+  return docs.map((d) => d._id.toString());
+}
+
+/** Drops listings of hidden vendors (listings without a vendor predate the marketplace and stay). */
+async function visibleOnly<T extends { vendorId?: unknown }>(docs: T[]): Promise<T[]> {
+  const hidden = new Set(await listHiddenVendorIds());
+  if (hidden.size === 0) return docs;
+  return docs.filter((d) => !d.vendorId || !hidden.has(String(d.vendorId)));
+}
+
 /** Cancellable only when the vendor's policy and the venue both allow it. */
 export function cancellationLabel(venueAllows: boolean, policy: CancellationPolicy): Cinema["cancellation"] {
   if (!venueAllows || !policy.allowed) return { allowed: false, label: "Non-Cancellable" };
@@ -96,7 +120,7 @@ export async function listMovies(): Promise<MovieShape[]> {
   cacheTag(CATALOG_TAGS.movies);
   cacheLife("hours");
   await connect();
-  const docs = await Movie.find().sort({ sortOrder: 1 }).lean();
+  const docs = await Movie.find(ACTIVE_MOVIE_FILTER).sort({ sortOrder: 1 }).lean();
   return docs.map(toMovie);
 }
 
@@ -105,8 +129,20 @@ export async function getMovieBySlug(slug: string): Promise<MovieShape | undefin
   cacheTag(CATALOG_TAGS.movies);
   cacheLife("hours");
   await connect();
-  const doc = await Movie.findOne({ slug }).lean();
+  const doc = await Movie.findOne({ slug, ...ACTIVE_MOVIE_FILTER }).lean();
   return doc ? toMovie(doc) : undefined;
+}
+
+/** The slug a merged (archived) film now redirects to, if `slug` belongs to one. */
+export async function getMergedMovieSlug(slug: string): Promise<string | undefined> {
+  "use cache";
+  cacheTag(CATALOG_TAGS.movies);
+  cacheLife("hours");
+  await connect();
+  const archived = await Movie.findOne({ slug, archivedAt: { $exists: true } }, { mergedIntoId: 1 }).lean();
+  if (!archived?.mergedIntoId) return undefined;
+  const target = await Movie.findOne({ _id: archived.mergedIntoId, ...ACTIVE_MOVIE_FILTER }, { slug: 1 }).lean();
+  return target?.slug;
 }
 
 export async function getMovieById(id: string): Promise<MovieShape | undefined> {
@@ -130,7 +166,7 @@ export async function listCinemas(): Promise<Cinema[]> {
       .lean(),
     vendorsById(),
   ]);
-  return docs.map((doc) => withOperator(toCinema(doc), vendors));
+  return (await visibleOnly(docs)).map((doc) => withOperator(toCinema(doc), vendors));
 }
 
 export async function getCinemaById(id: string) {
@@ -160,7 +196,7 @@ export async function listEvents(kind: EventKind): Promise<EventListing[]> {
       .lean(),
     vendorsById(),
   ]);
-  return docs.map((doc) => withOrganiser(toEvent(doc), vendors));
+  return (await visibleOnly(docs)).map((doc) => withOrganiser(toEvent(doc), vendors));
 }
 
 export async function getEventBySlug(kind: EventKind, slug: string): Promise<EventListing | undefined> {
@@ -172,7 +208,8 @@ export async function getEventBySlug(kind: EventKind, slug: string): Promise<Eve
     Event.findOne({ kind, slug, ...ACTIVE_EVENT_FILTER }).lean(),
     vendorsById(),
   ]);
-  return doc ? withOrganiser(toEvent(doc), vendors) : undefined;
+  const [visible] = doc ? await visibleOnly([doc]) : [];
+  return visible ? withOrganiser(toEvent(visible), vendors) : undefined;
 }
 
 export async function getEventById(id: string): Promise<EventListing | undefined> {
@@ -182,7 +219,8 @@ export async function getEventById(id: string): Promise<EventListing | undefined
   if (!isObjectId(id)) return undefined;
   await connect();
   const [doc, vendors] = await Promise.all([Event.findOne({ _id: id, ...ACTIVE_EVENT_FILTER }).lean(), vendorsById()]);
-  return doc ? withOrganiser(toEvent(doc), vendors) : undefined;
+  const [visible] = doc ? await visibleOnly([doc]) : [];
+  return visible ? withOrganiser(toEvent(visible), vendors) : undefined;
 }
 
 /** The bookable stadium Show for a sports fixture (its seat map), if one exists. */
@@ -217,10 +255,12 @@ export async function listPlatformCoupons() {
  * vendor's business name (they apply only to that vendor's shows).
  */
 export async function listOffers(): Promise<OfferListing[]> {
-  const [coupons, vendors] = await Promise.all([listCoupons(), vendorsById()]);
+  const [coupons, vendors, hidden] = await Promise.all([listCoupons(), vendorsById(), listHiddenVendorIds()]);
+  const hiddenIds = new Set(hidden);
   return coupons.flatMap((c): OfferListing[] => {
     if (c.status === "inactive") return [];
     if (!c.vendorId) return [c];
+    if (hiddenIds.has(c.vendorId)) return [];
     const vendor = vendors.get(c.vendorId);
     return c.showOnOffersPage && vendor ? [{ ...c, vendorName: vendor.businessName }] : [];
   });
@@ -274,15 +314,15 @@ function escapeRegex(text: string): string {
 /** Header search: case-insensitive substring match on titles, genres, categories and venue names. */
 export async function searchCatalog(query: string): Promise<SearchEntry[]> {
   "use cache";
-  cacheTag(CATALOG_TAGS.movies, CATALOG_TAGS.events, CATALOG_TAGS.venues);
+  cacheTag(CATALOG_TAGS.movies, CATALOG_TAGS.events, CATALOG_TAGS.venues, CATALOG_TAGS.vendors);
   cacheLife("hours");
   const q = query.trim();
   if (!q) return [];
   const pattern = new RegExp(escapeRegex(q), "i");
 
   await connect();
-  const [movies, events, cinemas] = await Promise.all([
-    Movie.find({ $or: [{ title: pattern }, { genres: pattern }, { languages: pattern }] })
+  const [movies, allEvents, allCinemas] = await Promise.all([
+    Movie.find({ ...ACTIVE_MOVIE_FILTER, $or: [{ title: pattern }, { genres: pattern }, { languages: pattern }] })
       .sort({ sortOrder: 1 })
       .limit(SEARCH_LIMIT_PER_TYPE)
       .lean(),
@@ -295,6 +335,7 @@ export async function searchCatalog(query: string): Promise<SearchEntry[]> {
       .limit(SEARCH_LIMIT_PER_TYPE)
       .lean(),
   ]);
+  const [events, cinemas] = await Promise.all([visibleOnly(allEvents), visibleOnly(allCinemas)]);
 
   const movieEntries: SearchEntry[] = movies.map((m) => ({
     type: "movie",

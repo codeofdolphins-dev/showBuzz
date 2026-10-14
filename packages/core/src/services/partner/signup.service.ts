@@ -13,6 +13,7 @@ import { hashPassword } from "../../auth/password";
 import { AppError } from "../../http/app-error";
 import { consumeRateLimit } from "../../security/rate-limit";
 import { getSettings } from "../settings.service";
+import { availableSlug, newVendorTerms } from "./vendor-defaults";
 
 /**
  * Self-service vendor signup (partner.showbuzz.com/signup). The mobile number is proven with a one-time code (the
@@ -79,18 +80,7 @@ export async function signupVendor(input: unknown, ctx: AuthRequestContext): Pro
             contact: { name: form.contactName, email: form.email, phone: form.phone },
             address: { line: "", cityId: form.cityId, pincode: "" },
             kyc: { documents: [] },
-            onboardingStatus: "incomplete",
-            status: "active",
-            billingModel: "commission",
-            commissionBps: settings.defaultCommissionBps,
-            convenienceFeeBps: settings.convenienceFeeBps,
-            gstBps: settings.gstBps,
-            cancellation: {
-              allowed: true,
-              cutoffMinutes: settings.cancellationCutoffMinutes,
-              feePaise: settings.cancellationFeePaise,
-            },
-            shareCustomerContact: false,
+            ...newVendorTerms(settings),
           },
         ],
         { session },
@@ -122,22 +112,4 @@ export async function signupVendor(input: unknown, ctx: AuthRequestContext): Pro
   const user = await VendorUser.findById(userId);
   if (!user) throw new Error("Vendor user missing after signup");
   return user;
-}
-
-/** "Acme Events Pvt Ltd" → "acme-events-pvt-ltd", with -2, -3... when taken. */
-export async function availableSlug(name: string): Promise<string> {
-  const base =
-    name
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[^\w\s-]/g, "")
-      .trim()
-      .replace(/[\s_-]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 60) || "vendor";
-  for (let n = 1; n < 50; n++) {
-    const slug = n === 1 ? base : `${base}-${n}`;
-    if (!(await Vendor.exists({ slug }))) return slug;
-  }
-  return `${base}-${new Types.ObjectId().toString().slice(-6)}`;
 }

@@ -19,6 +19,7 @@
     "db:seed-demo-admin": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.scripts.json scripts/seed-demo-admin.ts"
   },
   "dependencies": {
+    "@hookform/resolvers": "catalog:",
     "@showbuzz/console-ui": "workspace:*",
     "@showbuzz/core": "workspace:*",
     "@showbuzz/db": "workspace:*",
@@ -29,6 +30,7 @@
     "next": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-hook-form": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

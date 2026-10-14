@@ -1,6 +1,6 @@
 import "server-only";
 import { connect } from "@showbuzz/db/connect";
-import { Movie, type MovieAttrs, toMovie } from "@showbuzz/db/models/Movie";
+import { ACTIVE_MOVIE_FILTER, Movie, type MovieAttrs, toMovie } from "@showbuzz/db/models/Movie";
 import { LIVE_SHOW_FILTER, Show } from "@showbuzz/db/models/Show";
 import { Vendor } from "@showbuzz/db/models/Vendor";
 import { VendorMovie } from "@showbuzz/db/models/VendorMovie";
@@ -133,7 +133,7 @@ export async function searchCatalogMovies(vendorId: string, raw: unknown): Promi
   const input = movieSearchSchema.parse(raw);
   if (!input.q && !input.language && !input.year) return [];
   await connect();
-  const filter: Record<string, unknown> = {};
+  const filter: Record<string, unknown> = { ...ACTIVE_MOVIE_FILTER };
   if (input.q) filter.title = new RegExp(escapeRegex(input.q), "i");
   if (input.language) filter.languages = new RegExp(`^${escapeRegex(input.language)}$`, "i");
   if (input.year) filter.releaseDate = new RegExp(`^${input.year}-`);
@@ -186,7 +186,7 @@ export async function findPossibleDuplicates(
   const longest = [...words].sort((a, b) => b.length - a.length)[0] ?? title;
   await connect();
   const candidates = await Movie.find(
-    { title: new RegExp(escapeRegex(longest), "i") },
+    { title: new RegExp(escapeRegex(longest), "i"), ...ACTIVE_MOVIE_FILTER },
     { title: 1, releaseDate: 1, languages: 1 },
   )
     .limit(50)
@@ -278,7 +278,8 @@ export async function addMovieToVendor(vendorId: string, movieId: string): Promi
   const _id = toObjectId(movieId);
   if (!_id) throw NOT_FOUND();
   await connect();
-  const movie = await Movie.findById(_id, { title: 1 }).lean();
+  // A film merged into another can't be added again (its shows and lists moved to the kept film).
+  const movie = await Movie.findOne({ _id, ...ACTIVE_MOVIE_FILTER }, { title: 1 }).lean();
   if (!movie) throw NOT_FOUND();
   const result = await VendorMovie.updateOne(
     { vendorId: vendorObjectId(vendorId), movieId: _id },

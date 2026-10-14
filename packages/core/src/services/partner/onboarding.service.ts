@@ -7,7 +7,7 @@ import {
   type OnboardingDocumentKind,
 } from "@showbuzz/schemas/partner";
 import { REQUIRED_KYC_DOCUMENTS, vendorAddressSchema, vendorContactSchema } from "@showbuzz/schemas/vendor";
-import type { VendorKycView, VendorSummary } from "@showbuzz/schemas/types/vendor";
+import type { OnboardingState, OnboardingStep, OnboardingStepId } from "@showbuzz/schemas/types/vendor";
 import { connect } from "@showbuzz/db/connect";
 import { City } from "@showbuzz/db/models/City";
 import {
@@ -41,23 +41,7 @@ const STATUS_FOR: Record<KycEditPhase, VendorAttrs["onboardingStatus"]> = {
   profile: "complete",
 };
 
-export type OnboardingStepId = "business" | "tax" | "bank" | "documents" | "review";
-
-export interface OnboardingStep {
-  id: OnboardingStepId;
-  label: string;
-  done: boolean;
-}
-
-export interface OnboardingState {
-  vendor: VendorSummary;
-  /** The vendor's own KYC (whole account number: this is the vendor's own KYC screen). */
-  kyc: VendorKycView;
-  steps: OnboardingStep[];
-  /** First step not done yet ("review" when all are). */
-  nextStep: OnboardingStepId;
-  missingDocuments: OnboardingDocumentKind[];
-}
+export type { OnboardingState, OnboardingStep, OnboardingStepId };
 
 export interface CityOption {
   value: string;

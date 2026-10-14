@@ -1,7 +1,15 @@
 import "server-only";
-import { type Model, Schema, model, models } from "mongoose";
+import { type Model, Schema, type Types, model, models } from "mongoose";
 
 export type LeadType = "contact" | "corporate" | "show_submission";
+
+/** A staff note on a lead (admin list-your-show screen); newest last. */
+export interface LeadNote {
+  text: string;
+  staffId: Types.ObjectId;
+  staffName: string;
+  at: Date;
+}
 
 /**
  * An inbound enquiry from the contact, corporate or list-your-show form. `fields` is the form payload as
@@ -18,6 +26,9 @@ export interface LeadAttrs {
   status: "new" | "in_progress" | "closed";
   /** IP /24 (or /48) prefix only, for spam review. */
   ipPrefix?: string;
+  notes: LeadNote[];
+  /** Set when the super-admin created a vendor from this request. */
+  vendorId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,6 +43,16 @@ const leadSchema = new Schema<LeadAttrs>(
     fields: { type: Schema.Types.Mixed, required: true },
     status: { type: String, enum: ["new", "in_progress", "closed"], required: true, default: "new" },
     ipPrefix: String,
+    notes: {
+      type: [
+        new Schema(
+          { text: String, staffId: { type: Schema.Types.ObjectId, ref: "Staff" }, staffName: String, at: Date },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
   },
   { timestamps: true, versionKey: false, minimize: false },
 );

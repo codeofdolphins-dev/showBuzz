@@ -65,3 +65,22 @@ export interface BookingSettlement {
   commissionPaise: number;
   vendorSharePaise: number;
 }
+
+/** KYC onboarding (partner wizard, Business Profile and the super-admin's vendor screen). */
+export type OnboardingStepId = "business" | "tax" | "bank" | "documents" | "review";
+
+export interface OnboardingStep {
+  id: OnboardingStepId;
+  label: string;
+  done: boolean;
+}
+
+export interface OnboardingState {
+  vendor: VendorSummary;
+  /** Whole account number: only the vendor's own KYC screen and the super-admin's vendor detail get it. */
+  kyc: VendorKycView;
+  steps: OnboardingStep[];
+  /** First step not done yet ("review" when all are). */
+  nextStep: OnboardingStepId;
+  missingDocuments: Exclude<KycDocument["kind"], "other">[];
+}

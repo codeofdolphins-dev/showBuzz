@@ -3,13 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
-import { FileUpload } from "@showbuzz/console-ui/fields";
-import { Button } from "@showbuzz/console-ui/form";
-import { StatusBadge } from "@showbuzz/console-ui/StatusBadge";
-import { useToast } from "@showbuzz/console-ui/Toaster";
+import { FileUpload } from "../fields";
+import { Button } from "../form";
+import { StatusBadge } from "../StatusBadge";
+import { useToast } from "../Toaster";
+import { type StepMode, useKycActions } from "./KycActions";
 import type { OnboardingDocumentKind } from "@showbuzz/schemas/partner";
 import { KYC_DOCUMENT_LABELS, REQUIRED_KYC_DOCUMENTS, type KycDocument } from "@showbuzz/schemas/vendor";
-import { uploadKycDocumentAction } from "@/app/_actions/onboarding";
 
 const KINDS: { kind: OnboardingDocumentKind; hint: string }[] = [
   { kind: "gst_certificate", hint: "GST REG-06 registration certificate (all pages)." },
@@ -34,10 +34,11 @@ export function DocumentsStep({
   documents: KycDocument[];
   missing: OnboardingDocumentKind[];
   onContinue?: () => void;
-  mode?: "onboarding" | "profile";
+  mode?: StepMode;
 }) {
   const router = useRouter();
   const toast = useToast();
+  const actions = useKycActions();
   const [pending, startTransition] = useTransition();
   const [uploading, setUploading] = useState<OnboardingDocumentKind | null>(null);
   const [errors, setErrors] = useState<Partial<Record<OnboardingDocumentKind, string>>>({});
@@ -51,7 +52,7 @@ export function DocumentsStep({
       data.set("kind", kind);
       data.set("file", file);
       data.set("mode", mode);
-      const result = await uploadKycDocumentAction(data);
+      const result = await actions.uploadDocument(data);
       setUploading(null);
       if (!result.success) {
         setErrors((e) => ({ ...e, [kind]: result.error.message }));
@@ -67,8 +68,8 @@ export function DocumentsStep({
       <div className="border-b border-admin-border pb-4">
         <h2 className="text-base font-bold text-admin-dark">KYC documents</h2>
         <p className="text-xs text-admin-muted">
-          Upload clear scans or photos (PDF, JPEG or PNG, up to 4 MB each). Files are private: only you and the ShowBuzz
-          team can open them.
+          Upload clear scans or photos (PDF, JPEG or PNG, up to 4 MB each). Files are private: only the vendor and the
+          ShowBuzz team can open them.
         </p>
       </div>
       <ul className="space-y-4">
@@ -93,9 +94,7 @@ export function DocumentsStep({
                 hint={hint}
                 disabled={pending && uploading === kind}
                 current={
-                  current
-                    ? { filename: current.filename, href: `/api/v1/partner/documents/${current.fileId}` }
-                    : undefined
+                  current ? { filename: current.filename, href: actions.documentHref(current.fileId) } : undefined
                 }
                 error={errors[kind]}
                 onFileChange={(file) => upload(kind, file)}

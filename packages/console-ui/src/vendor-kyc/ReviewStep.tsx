@@ -2,10 +2,10 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { CheckCircle2, CircleAlert, Pencil, Rocket } from "lucide-react";
-import { Button, FormMessage } from "@showbuzz/console-ui/form";
-import type { OnboardingState, OnboardingStepId } from "@showbuzz/core/services/partner/onboarding.service";
+import type { OnboardingState, OnboardingStepId } from "@showbuzz/schemas/types/vendor";
+import { Button, FormMessage } from "../form";
+import { useKycActions } from "./KycActions";
 import { KYC_DOCUMENT_LABELS, VENDOR_BUSINESS_TYPE_LABELS, maskAccountNumber } from "@showbuzz/schemas/vendor";
-import { submitOnboardingAction } from "@/app/_actions/onboarding";
 
 /** Everything entered so far, with "Edit" per section, then the final submit (listings go live, no approval). */
 export function ReviewStep({
@@ -17,6 +17,8 @@ export function ReviewStep({
   cities: { value: string; label: string }[];
   onEdit: (step: OnboardingStepId) => void;
 }) {
+  const actions = useKycActions();
+  const staff = actions.audience === "staff";
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const { vendor, kyc, steps } = state;
@@ -27,7 +29,7 @@ export function ReviewStep({
   function submit() {
     setMessage(null);
     startTransition(async () => {
-      const result = await submitOnboardingAction();
+      const result = await actions.submit();
       if (result.success) {
         window.location.assign(result.data.next);
         return;
@@ -41,7 +43,9 @@ export function ReviewStep({
       <div className="border-b border-admin-border pb-4">
         <h2 className="text-base font-bold text-admin-dark">Review & submit</h2>
         <p className="text-xs text-admin-muted">
-          Check your details. Once you submit, your partner account is active and you can start adding venues and shows.
+          {staff
+            ? "Check the vendor's details. Once submitted, onboarding is complete and the vendor can list venues and shows."
+            : "Check your details. Once you submit, your partner account is active and you can start adding venues and shows."}
         </p>
       </div>
       {message ? <FormMessage tone="error">{message}</FormMessage> : null}
@@ -74,12 +78,13 @@ export function ReviewStep({
 
       <div className="flex flex-col gap-3 rounded-xl border border-admin-border bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] text-admin-muted">
-          You&apos;ll be billed on commission at the platform&apos;s standard rates; ShowBuzz will confirm your plan. By
-          submitting you confirm these details are correct.
+          {staff
+            ? "Billing starts on commission at the platform's standard rates; change it under Settings. Submitting confirms the KYC was checked."
+            : "You'll be billed on commission at the platform's standard rates; ShowBuzz will confirm your plan. By submitting you confirm these details are correct."}
         </p>
         <Button type="button" onClick={submit} disabled={!ready || pending} className="shrink-0">
           <Rocket className="h-4 w-4" aria-hidden />
-          {pending ? "Submitting…" : "Submit & go live"}
+          {pending ? "Submitting…" : staff ? "Complete onboarding" : "Submit & go live"}
         </Button>
       </div>
     </div>

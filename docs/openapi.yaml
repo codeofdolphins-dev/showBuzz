@@ -383,6 +383,38 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /admin/vendors/{vendorId}/documents/{fileId}:
+    get:
+      tags: [Admin]
+      summary: A vendor's KYC document, for staff (admin app)
+      description: |
+        Served by the admin app. Needs the `organisers:read` permission. Streams the file inline (PDF, JPEG or PNG;
+        `Cache-Control: private, no-store`). A file not listed on that vendor's KYC, or owned by another vendor,
+        answers 404.
+      security: [{ staffAccessCookie: [] }]
+      parameters:
+        - name: vendorId
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9a-f]{24}$" }
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9a-f]{24}$" }
+      responses:
+        "200":
+          description: The file.
+          content:
+            application/pdf: {}
+            image/jpeg: {}
+            image/png: {}
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Not found (`NOT_FOUND`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   /internal/revalidate:
     servers:
       - url: /api

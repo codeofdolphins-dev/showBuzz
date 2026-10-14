@@ -86,6 +86,13 @@ export interface BookingAttrs {
   checkedInAt?: Date;
   /** The vendor login that checked the ticket in. */
   checkedInBy?: Types.ObjectId;
+  /** The vendor payout that included this booking (set once, in the payout transaction). */
+  settlementId?: Types.ObjectId;
+  /**
+   * The later payout that took the vendor share back, because the booking was cancelled after a payout had
+   * already included it.
+   */
+  clawbackSettlementId?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -198,6 +205,8 @@ const bookingSchema = new Schema<BookingAttrs>(
     failureReason: String,
     checkedInAt: Date,
     checkedInBy: { type: Schema.Types.ObjectId, ref: "VendorUser" },
+    settlementId: { type: Schema.Types.ObjectId, ref: "Settlement" },
+    clawbackSettlementId: { type: Schema.Types.ObjectId, ref: "Settlement" },
   },
   { timestamps: true, versionKey: false },
 );
@@ -208,6 +217,8 @@ bookingSchema.index({ vendorId: 1, createdAt: -1 });
 // Partner bookings list by show date and the earnings report by confirmation time.
 bookingSchema.index({ vendorId: 1, startsAt: -1 });
 bookingSchema.index({ vendorId: 1, confirmedAt: 1 });
+// Payouts: a vendor's confirmed bookings not yet in a payout, by show date; and cancelled ones to claw back.
+bookingSchema.index({ vendorId: 1, status: 1, settlementId: 1, startsAt: 1 });
 // Finds orders whose payment window lapsed so their tier passes can be given back.
 bookingSchema.index({ status: 1, holdExpiresAt: 1 });
 

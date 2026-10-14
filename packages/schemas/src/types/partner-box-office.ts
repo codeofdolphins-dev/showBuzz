@@ -191,10 +191,15 @@ export interface PayoutRow {
   id: string;
   code: string;
   periodFrom: string;
+  /** Last moment of the payout period (its last IST day). */
   periodTo: string;
   grossSalesPaise: number;
   commissionPaise: number;
+  /** Counter sales the vendor collected itself (deducted: the money is already with the vendor). */
+  counterCollectedPaise: number;
+  /** Cancellation adjustments for bookings an earlier payout included (negative = given back). */
   refundsPaise: number;
+  /** Negative when the vendor owes ShowBuzz (counter commission). */
   netPayoutPaise: number;
   status: "pending" | "paid";
   reference?: string;

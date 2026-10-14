@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { requireVendorPage } from "@showbuzz/core/auth/partner/current-vendor";
 import { getOnboardingState, listCityOptions } from "@showbuzz/core/services/partner/onboarding.service";
-import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { OnboardingWizard } from "@showbuzz/console-ui/vendor-kyc/OnboardingWizard";
+import { PartnerKycActions } from "@/components/onboarding/PartnerKycActions";
 
 export const metadata: Metadata = { title: "Onboarding" };
 
@@ -30,7 +31,9 @@ export default async function OnboardingPage() {
           This account is suspended. You can finish onboarding, but listings stay offline until ShowBuzz reactivates it.
         </p>
       ) : null}
-      <OnboardingWizard state={state} cities={cities} />
+      <PartnerKycActions>
+        <OnboardingWizard state={state} cities={cities} />
+      </PartnerKycActions>
     </>
   );
 }

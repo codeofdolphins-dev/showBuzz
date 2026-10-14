@@ -160,7 +160,7 @@ function Report({ data }: { data: VendorEarnings }) {
         </div>
         <p className="border-t border-admin-border px-4 py-2 text-[11px] text-admin-muted">
           Sales are tickets + food before fees; convenience fees and their GST belong to ShowBuzz. Cancelled bookings
-          count in sales and refunds but earn no share. Who keeps cancellation fees is settled with payouts.
+          count in sales and refunds but earn no share; cancellation fees on online bookings stay with ShowBuzz.
         </p>
       </Card>
 
@@ -180,6 +180,10 @@ function Payouts({ payouts }: { payouts: PayoutRow[] }) {
         </p>
       ) : (
         <div className="overflow-x-auto">
+          <p className="mb-2 text-[11px] text-admin-muted">
+            A payout covers shows that have already taken place. Counter sales are already in your hands, so only their
+            commission is deducted; a booking cancelled after an earlier payout is adjusted in the next one.
+          </p>
           <table className="w-full text-left text-xs">
             <thead className="text-[11px] tracking-wider text-admin-muted uppercase">
               <tr>
@@ -187,7 +191,8 @@ function Payouts({ payouts }: { payouts: PayoutRow[] }) {
                 <Th>Cycle</Th>
                 <Th right>Gross</Th>
                 <Th right>Commission</Th>
-                <Th right>Refunds</Th>
+                <Th right>Collected at counter</Th>
+                <Th right>Cancellations</Th>
                 <Th right>Net payout</Th>
                 <Th>Status</Th>
               </tr>
@@ -206,10 +211,13 @@ function Payouts({ payouts }: { payouts: PayoutRow[] }) {
                     {money(p.commissionPaise)}
                   </Td>
                   <Td right mono>
+                    {money(p.counterCollectedPaise)}
+                  </Td>
+                  <Td right mono>
                     {money(p.refundsPaise)}
                   </Td>
                   <Td right mono strong>
-                    {money(p.netPayoutPaise)}
+                    {p.netPayoutPaise < 0 ? `You owe ${money(-p.netPayoutPaise)}` : money(p.netPayoutPaise)}
                   </Td>
                   <Td>
                     <StatusBadge tone={p.status === "paid" ? "success" : "warning"}>

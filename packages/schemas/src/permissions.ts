@@ -28,7 +28,10 @@ export const PERMISSION_RESOURCES = [
   "refunds",
   "settlements",
   "customers",
+  // "organisers" is the Vendors screen (kept as the resource name so roles already stored stay valid).
   "organisers",
+  "plans",
+  "invoices",
   "list-your-show",
   // Marketing
   "banners",
@@ -62,6 +65,8 @@ const EXTRA_PERMISSIONS = [
   "scan-qr:use",
   // Super Admin only: set a temporary password for another staff member (no email provider yet).
   "users:reset-password",
+  // Set a temporary password for a vendor's partner login (same stand-in as for staff).
+  "organisers:reset-password",
 ] as const;
 
 /** Every permission that exists, in a stable order (the role editor and the seed script use it). */
@@ -138,7 +143,8 @@ export const SYSTEM_ROLES: readonly SystemRoleDefinition[] = [
         "coupons",
         "gift-cards",
       ),
-      ...write("payments", "refunds", "settlements"),
+      ...read("plans"),
+      ...write("payments", "refunds", "settlements", "invoices"),
       "refunds:approve",
     ],
   },

@@ -1,5 +1,5 @@
 import "server-only";
-import { Movie } from "./models/Movie";
+import { ACTIVE_MOVIE_FILTER, Movie } from "./models/Movie";
 import { Show } from "./models/Show";
 import { Vendor } from "./models/Vendor";
 import { ACTIVE_VENUE_FILTER, Venue } from "./models/Venue";
@@ -57,7 +57,7 @@ export async function ensureMovieShows(dateKeys: string[]): Promise<number> {
       "showTemplates.0": { $exists: true },
       ...ACTIVE_VENUE_FILTER,
     }).lean(),
-    Movie.find({ status: "now-showing" }, { _id: 1, durationMinutes: 1 }).lean(),
+    Movie.find({ status: "now-showing", ...ACTIVE_MOVIE_FILTER }, { _id: 1, durationMinutes: 1 }).lean(),
   ]);
 
   const ops: Parameters<typeof Show.bulkWrite>[0] = [];

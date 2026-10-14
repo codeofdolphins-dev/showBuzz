@@ -68,14 +68,7 @@ export const NAV: NavGroup[] = [
       },
       { id: "bookings", label: "Bookings CRM", icon: "ticket", href: "/bookings", permission: "bookings:read" },
       { id: "payments", label: "Payment Gateway", icon: "credit-card", href: "/payments", permission: "payments:read" },
-      { id: "refunds", label: "Refund Requests", icon: "rotate-ccw", href: "/refunds", permission: "refunds:read" },
-      {
-        id: "settlements",
-        label: "Organiser Payouts",
-        icon: "wallet",
-        href: "/settlements",
-        permission: "settlements:read",
-      },
+      { id: "refunds", label: "Refunds", icon: "rotate-ccw", href: "/refunds", permission: "refunds:read" },
       {
         id: "customers",
         label: "Customers Database",
@@ -83,13 +76,30 @@ export const NAV: NavGroup[] = [
         href: "/customers",
         permission: "customers:read",
       },
+    ],
+  },
+  {
+    id: "vendors-group",
+    label: "Vendors & Billing",
+    icon: "briefcase",
+    children: [
+      // The resource stays "organisers" (the prototype's name) so roles already stored keep working.
+      { id: "vendors", label: "Vendors", icon: "briefcase", href: "/vendors", permission: "organisers:read" },
       {
-        id: "organisers",
-        label: "Event Organisers",
-        icon: "briefcase",
-        href: "/organisers",
-        permission: "organisers:read",
+        id: "settlements",
+        label: "Vendor Payouts",
+        icon: "wallet",
+        href: "/settlements",
+        permission: "settlements:read",
       },
+      {
+        id: "invoices",
+        label: "Subscription Invoices",
+        icon: "file-text",
+        href: "/invoices",
+        permission: "invoices:read",
+      },
+      { id: "plans", label: "Subscription Plans", icon: "layers", href: "/plans", permission: "plans:read" },
       {
         id: "list-your-show",
         label: "List Your Show Requests",

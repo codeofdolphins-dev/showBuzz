@@ -5,14 +5,14 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import { ArrowRight } from "lucide-react";
-import { SelectField, TextField } from "@showbuzz/console-ui/fields";
-import { Button, FormMessage } from "@showbuzz/console-ui/form";
-import { useToast } from "@showbuzz/console-ui/Toaster";
+import { applyActionError } from "../action-errors";
+import { SelectField, TextField } from "../fields";
+import { Button, FormMessage } from "../form";
+import { useToast } from "../Toaster";
+import { type StepMode, useKycActions } from "./KycActions";
 import { onboardingBankSchema, onboardingBusinessSchema, onboardingTaxSchema } from "@showbuzz/schemas/partner";
 import type { VendorKycView, VendorSummary } from "@showbuzz/schemas/types/vendor";
 import { VENDOR_BUSINESS_TYPE_LABELS } from "@showbuzz/schemas/vendor";
-import { saveBankAccountAction, saveBusinessDetailsAction, saveTaxIdsAction } from "@/app/_actions/onboarding";
-import { applyActionError } from "@/lib/action-errors";
 
 const BUSINESS_TYPES = Object.entries(VENDOR_BUSINESS_TYPE_LABELS).map(([value, label]) => ({ value, label }));
 
@@ -25,8 +25,7 @@ function StepHeader({ title, description }: { title: string; description: ReactN
   );
 }
 
-/** Onboarding wizard steps, also used by Business Profile (`mode="profile"`) once onboarding is complete. */
-export type StepMode = "onboarding" | "profile";
+export type { StepMode };
 
 function SaveBar({ pending, mode }: { pending: boolean; mode: StepMode }) {
   return (
@@ -57,6 +56,7 @@ export function BusinessStep({
   mode?: StepMode;
 }) {
   const toast = useToast();
+  const actions = useKycActions();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const form = useForm<BusinessInput, unknown, BusinessOutput>({
@@ -73,7 +73,7 @@ export function BusinessStep({
   const onSubmit = form.handleSubmit(() =>
     startTransition(async () => {
       setMessage(null);
-      const result = await saveBusinessDetailsAction(form.getValues(), mode);
+      const result = await actions.saveBusiness(form.getValues(), mode);
       if (!result.success) {
         setMessage(applyActionError(form, result.error));
         return;
@@ -167,6 +167,7 @@ export function TaxStep({
   mode?: StepMode;
 }) {
   const toast = useToast();
+  const actions = useKycActions();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const form = useForm<TaxInput, unknown, TaxOutput>({
@@ -178,7 +179,7 @@ export function TaxStep({
   const onSubmit = form.handleSubmit(() =>
     startTransition(async () => {
       setMessage(null);
-      const result = await saveTaxIdsAction(form.getValues(), mode);
+      const result = await actions.saveTax(form.getValues(), mode);
       if (!result.success) {
         setMessage(applyActionError(form, result.error));
         return;
@@ -237,6 +238,7 @@ export function BankStep({
   mode?: StepMode;
 }) {
   const toast = useToast();
+  const actions = useKycActions();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const form = useForm<BankInput, unknown, BankOutput>({
@@ -253,7 +255,7 @@ export function BankStep({
   const onSubmit = form.handleSubmit(() =>
     startTransition(async () => {
       setMessage(null);
-      const result = await saveBankAccountAction(form.getValues(), mode);
+      const result = await actions.saveBank(form.getValues(), mode);
       if (!result.success) {
         setMessage(applyActionError(form, result.error));
         return;

@@ -19,6 +19,10 @@ export interface SubscriptionInvoiceAttrs {
   dueAt: Date;
   paidAt?: Date;
   reference?: string;
+  /** Staff who generated it / recorded the payment / voided it. */
+  issuedBy?: Types.ObjectId;
+  paidBy?: Types.ObjectId;
+  voidReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +39,9 @@ const subscriptionInvoiceSchema = new Schema<SubscriptionInvoiceAttrs>(
     dueAt: { type: Date, required: true },
     paidAt: Date,
     reference: String,
+    issuedBy: { type: Schema.Types.ObjectId, ref: "Staff" },
+    paidBy: { type: Schema.Types.ObjectId, ref: "Staff" },
+    voidReason: String,
   },
   { timestamps: true, versionKey: false },
 );
@@ -42,6 +49,9 @@ const subscriptionInvoiceSchema = new Schema<SubscriptionInvoiceAttrs>(
 subscriptionInvoiceSchema.index({ code: 1 }, { unique: true });
 // Idempotent generation: one invoice per vendor and month.
 subscriptionInvoiceSchema.index({ vendorId: 1, month: 1 }, { unique: true });
+// The overdue view and the month filter.
+subscriptionInvoiceSchema.index({ status: 1, dueAt: 1 });
+subscriptionInvoiceSchema.index({ month: -1, status: 1 });
 
 export const SubscriptionInvoice: Model<SubscriptionInvoiceAttrs> =
   (models.SubscriptionInvoice as Model<SubscriptionInvoiceAttrs> | undefined) ??

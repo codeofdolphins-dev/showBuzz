@@ -59,6 +59,9 @@ export interface VendorAttrs {
    * (`ensureMovieShows`). Real vendors schedule every show themselves in the partner portal.
    */
   demoShowGeneration?: boolean;
+  /** When the super-admin suspended it, and why (staff only). Cleared on reactivation. */
+  suspendedAt?: Date;
+  suspendReason?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -116,12 +119,15 @@ const vendorSchema = new Schema<VendorAttrs>(
     },
     shareCustomerContact: { type: Boolean, default: false },
     demoShowGeneration: { type: Boolean, default: false },
+    suspendedAt: Date,
+    suspendReason: String,
   },
   { timestamps: true, versionKey: false },
 );
 
 vendorSchema.index({ slug: 1 }, { unique: true });
 vendorSchema.index({ status: 1, businessName: 1 });
+vendorSchema.index({ billingModel: 1, status: 1 });
 
 type LeanVendor = LeanDoc<VendorAttrs>;
 

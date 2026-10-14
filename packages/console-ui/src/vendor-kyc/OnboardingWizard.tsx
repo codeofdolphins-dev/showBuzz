@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
-import { Card } from "@showbuzz/console-ui/PageParts";
+import type { OnboardingState, OnboardingStepId } from "@showbuzz/schemas/types/vendor";
 import { cn } from "@showbuzz/utils/cn";
-import type { OnboardingState, OnboardingStepId } from "@showbuzz/core/services/partner/onboarding.service";
+import { Card } from "../PageParts";
 import { BankStep, BusinessStep, TaxStep } from "./DetailSteps";
 import { DocumentsStep } from "./DocumentsStep";
 import { ReviewStep } from "./ReviewStep";
