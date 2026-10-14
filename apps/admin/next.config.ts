@@ -25,7 +25,14 @@ export default function config(phase: string): NextConfig {
   const isDev = phase === PHASE_DEVELOPMENT_SERVER;
   return {
     // Shared workspace packages ship TypeScript source; Next compiles them like app code.
-    transpilePackages: ["@showbuzz/core", "@showbuzz/db", "@showbuzz/runtime", "@showbuzz/schemas", "@showbuzz/utils"],
+    transpilePackages: [
+      "@showbuzz/console-ui",
+      "@showbuzz/core",
+      "@showbuzz/db",
+      "@showbuzz/runtime",
+      "@showbuzz/schemas",
+      "@showbuzz/utils",
+    ],
     turbopack: {
       rules: {
         "*.css": {

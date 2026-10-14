@@ -9,6 +9,7 @@ import {
   type VendorContact,
   type VendorOnboardingStatus,
   type VendorStatus,
+  kycDocumentKindSchema,
   maskAccountNumber,
 } from "@showbuzz/schemas/vendor";
 import type { VendorKycView, VendorPublic, VendorSummary } from "@showbuzz/schemas/types/vendor";
@@ -60,7 +61,7 @@ export interface VendorAttrs {
 const kycDocumentSchema = new Schema<StoredKycDocument>(
   {
     fileId: { type: Schema.Types.ObjectId, required: true },
-    kind: { type: String, enum: ["gst_certificate", "pan_card", "cancelled_cheque", "other"], required: true },
+    kind: { type: String, enum: kycDocumentKindSchema.options, required: true },
     filename: { type: String, required: true },
     contentType: { type: String, enum: ["application/pdf", "image/jpeg", "image/png"], required: true },
     size: { type: Number, required: true, min: 1 },

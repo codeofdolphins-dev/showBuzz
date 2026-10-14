@@ -14,6 +14,8 @@ export const settingsSchema = z.object({
     .max(7 * 24 * 60),
   cancellationFeePaise: paiseSchema,
   seatHoldMinutes: z.int().min(1).max(60),
+  /** Commission for new commission-billed vendors (each vendor then has its own rate). */
+  defaultCommissionBps: z.int().min(0).max(10_000),
 });
 
 export const SETTINGS_DEFAULTS: Settings = {
@@ -23,6 +25,7 @@ export const SETTINGS_DEFAULTS: Settings = {
   cancellationCutoffMinutes: CANCELLATION_CUTOFF_MINUTES,
   cancellationFeePaise: PRICING_DEFAULTS.cancellationFeePaise,
   seatHoldMinutes: SEAT_HOLD_MINUTES,
+  defaultCommissionBps: PRICING_DEFAULTS.commissionBps,
 };
 
 export type Settings = z.infer<typeof settingsSchema>;

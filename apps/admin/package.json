@@ -19,6 +19,7 @@
     "db:seed-demo-admin": "tsx --env-file-if-exists=.env.local --tsconfig tsconfig.scripts.json scripts/seed-demo-admin.ts"
   },
   "dependencies": {
+    "@showbuzz/console-ui": "workspace:*",
     "@showbuzz/core": "workspace:*",
     "@showbuzz/db": "workspace:*",
     "@showbuzz/runtime": "workspace:*",

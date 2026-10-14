@@ -17,12 +17,23 @@ export function Input({ className, ...props }: ComponentProps<"input">) {
     <input
       className={cn(
         "w-full rounded-md border border-admin-border bg-white px-3 py-2 text-base text-admin-text placeholder:text-admin-subtle focus:border-admin-indigo focus:ring-3 focus:ring-admin-indigo/15 focus:outline-none sm:text-xs",
-        "aria-invalid:border-admin-danger read-only:bg-slate-50",
+        "read-only:bg-slate-50 aria-invalid:border-admin-danger",
         className,
       )}
       {...props}
     />
   );
+}
+
+const controlClass =
+  "w-full rounded-md border border-admin-border bg-white px-3 py-2 text-base text-admin-text placeholder:text-admin-subtle focus:border-admin-indigo focus:ring-3 focus:ring-admin-indigo/15 focus:outline-none disabled:bg-slate-50 disabled:text-admin-muted aria-invalid:border-admin-danger sm:text-xs";
+
+export function Select({ className, ...props }: ComponentProps<"select">) {
+  return <select className={cn(controlClass, "pr-8", className)} {...props} />;
+}
+
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
+  return <textarea className={cn(controlClass, "min-h-24 read-only:bg-slate-50", className)} {...props} />;
 }
 
 export function FieldError({ id, messages }: { id: string; messages?: string[] }) {
@@ -37,6 +48,8 @@ export function FieldError({ id, messages }: { id: string; messages?: string[] }
 const buttonStyles = {
   primary: "border-admin-indigo bg-admin-indigo text-white hover:border-admin-indigo-hover hover:bg-admin-indigo-hover",
   secondary: "border-admin-border bg-white text-admin-text hover:border-slate-300 hover:bg-slate-50",
+  danger: "border-admin-danger bg-admin-danger text-white hover:border-red-700 hover:bg-red-700",
+  ghost: "border-transparent bg-transparent text-admin-muted hover:bg-slate-100 hover:text-admin-dark",
 } as const;
 
 export function Button({

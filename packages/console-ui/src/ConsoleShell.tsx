@@ -4,16 +4,43 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, Search, Ticket, UserRound, X } from "lucide-react";
-import type { StaffSnapshot } from "@showbuzz/schemas/staff";
 import { cn } from "@showbuzz/utils/cn";
-import { flattenNav, type NavGroup, type NavItem } from "@/lib/nav";
+import { flattenNav, type NavGroup, type NavItem } from "./nav";
 import { CommandPalette } from "./CommandPalette";
 import { NAV_ICONS } from "./icons";
+import { ToastProvider } from "./Toaster";
 
-interface ConsoleShellProps {
-  staff: StaffSnapshot;
-  /** Already filtered to what this staff member may open. */
+export interface ConsoleBranding {
+  /** Product name in the top bar ("ShowBuzz"). */
+  name: string;
+  /** Small caps line under the name ("Admin Console"). */
+  tagline: string;
+  /** Desktop footer line. */
+  footer: string;
+}
+
+export interface ConsoleUser {
+  name: string;
+  /** Role or business name under the user name. */
+  subtitle: string;
+  email: string;
+}
+
+export interface ConsoleShellProps {
+  branding: ConsoleBranding;
+  user: ConsoleUser;
+  /** Already filtered to what this user may open. */
   nav: NavGroup[];
+  /** POST here to end the session (the only route that receives the refresh cookie). */
+  logoutPath: string;
+  /** Where the browser goes after signing out. */
+  loginPath: string;
+  /** Menu item ids shown as bottom tabs on mobile, after Home. */
+  tabIds?: string[];
+  /** Bell link; omitted when the console has no notifications page. */
+  notificationsHref?: string;
+  /** Shown above every page (e.g. "account suspended"). */
+  banner?: ReactNode;
   children: ReactNode;
 }
 
@@ -23,7 +50,17 @@ const isActive = (pathname: string, href: string) => pathname === href || pathna
  * Console chrome from the prototype (admin/assets/js/app.js): top bar with brand, search (Ctrl+K), notifications
  * and profile menu; a second row of dropdown menus on desktop; a drawer and bottom tab bar on mobile.
  */
-export function ConsoleShell({ staff, nav, children }: ConsoleShellProps) {
+export function ConsoleShell({
+  branding,
+  user,
+  nav,
+  logoutPath,
+  loginPath,
+  tabIds = [],
+  notificationsHref,
+  banner,
+  children,
+}: ConsoleShellProps) {
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Open state remembers the path it was opened on, so navigating closes it without an effect.
@@ -43,82 +80,89 @@ export function ConsoleShell({ staff, nav, children }: ConsoleShellProps) {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col pb-16 lg:pb-0">
-      <header className="sticky top-0 z-40 border-b border-admin-border bg-white/95 backdrop-blur-md">
-        <div className="flex h-16 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4 lg:px-8">
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-admin-indigo text-white shadow-sm sm:h-9 sm:w-9">
-              <Ticket className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
-            </span>
-            <span className="flex flex-col leading-tight">
-              <span className="text-sm font-black tracking-tight text-admin-dark sm:text-base">ShowBuzz</span>
-              <span className="mt-0.5 text-[9px] font-bold tracking-wider whitespace-nowrap text-admin-coral uppercase sm:text-[10px]">
-                Admin Console
+    <ToastProvider>
+      <div className="flex min-h-screen flex-col pb-16 lg:pb-0">
+        <header className="sticky top-0 z-40 border-b border-admin-border bg-white/95 backdrop-blur-md">
+          <div className="flex h-16 items-center justify-between gap-2 px-3 sm:gap-4 sm:px-4 lg:px-8">
+            <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-admin-indigo text-white shadow-sm sm:h-9 sm:w-9">
+                <Ticket className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
               </span>
-            </span>
-          </Link>
+              <span className="flex flex-col leading-tight">
+                <span className="text-sm font-black tracking-tight text-admin-dark sm:text-base">{branding.name}</span>
+                <span className="mt-0.5 text-[9px] font-bold tracking-wider whitespace-nowrap text-admin-coral uppercase sm:text-[10px]">
+                  {branding.tagline}
+                </span>
+              </span>
+            </Link>
 
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            className="mx-4 hidden max-w-md flex-1 items-center gap-2 rounded-xl border border-admin-border bg-slate-50 px-3 py-2 text-left text-xs text-admin-subtle hover:border-slate-300 md:flex"
-          >
-            <Search className="h-4 w-4" aria-hidden />
-            <span className="flex-1">Search pages…</span>
-            <kbd className="rounded border border-admin-border bg-white px-1.5 py-0.5 font-sans text-[10px] font-bold text-admin-muted">
-              Ctrl K
-            </kbd>
-          </button>
-
-          <div className="flex items-center gap-1 sm:gap-2">
             <button
               type="button"
               onClick={() => setPaletteOpen(true)}
-              className="rounded-xl p-2 text-admin-muted hover:bg-slate-100 hover:text-admin-dark md:hidden"
-              aria-label="Search"
+              className="mx-4 hidden max-w-md flex-1 items-center gap-2 rounded-xl border border-admin-border bg-slate-50 px-3 py-2 text-left text-xs text-admin-subtle hover:border-slate-300 md:flex"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4" aria-hidden />
+              <span className="flex-1">Search pages…</span>
+              <kbd className="rounded border border-admin-border bg-white px-1.5 py-0.5 font-sans text-[10px] font-bold text-admin-muted">
+                Ctrl K
+              </kbd>
             </button>
-            <Link
-              href="/notifications"
-              className="relative rounded-xl p-2 text-admin-muted hover:bg-slate-100 hover:text-admin-dark"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-            </Link>
-            <ProfileMenu staff={staff} />
-            <button
-              type="button"
-              onClick={() => setDrawerPath(pathname)}
-              className="rounded-xl p-2 text-admin-muted hover:bg-slate-100 hover:text-admin-dark lg:hidden"
-              aria-label="Open menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
+
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="rounded-xl p-2 text-admin-muted hover:bg-slate-100 hover:text-admin-dark md:hidden"
+                aria-label="Search"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+              {notificationsHref ? (
+                <Link
+                  href={notificationsHref}
+                  className="relative rounded-xl p-2 text-admin-muted hover:bg-slate-100 hover:text-admin-dark"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-5 w-5" />
+                </Link>
+              ) : null}
+              <ProfileMenu user={user} logoutPath={logoutPath} loginPath={loginPath} />
+              <button
+                type="button"
+                onClick={() => setDrawerPath(pathname)}
+                className="rounded-xl p-2 text-admin-muted hover:bg-slate-100 hover:text-admin-dark lg:hidden"
+                aria-label="Open menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
 
-        <nav aria-label="Main" className="hidden border-t border-slate-100 px-4 lg:block lg:px-8">
-          <ul className="flex items-center gap-1 py-1.5">
-            {nav.map((group) => (
-              <li key={group.id}>
-                <TopNavGroup group={group} pathname={pathname} />
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </header>
+          <nav aria-label="Main" className="hidden border-t border-slate-100 px-4 lg:block lg:px-8">
+            <ul className="flex items-center gap-1 py-1.5">
+              {nav.map((group) => (
+                <li key={group.id}>
+                  <TopNavGroup group={group} pathname={pathname} />
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </header>
 
-      <main className="w-full flex-1 space-y-5 overflow-x-hidden p-3.5 sm:space-y-6 sm:p-6 lg:p-8">{children}</main>
+        <main className="w-full flex-1 space-y-5 overflow-x-hidden p-3.5 sm:space-y-6 sm:p-6 lg:p-8">
+          {banner}
+          {children}
+        </main>
 
-      <footer className="hidden border-t border-admin-border bg-white px-8 py-4 text-[11px] text-admin-subtle lg:block">
-        ShowBuzz Admin · Staff-only console
-      </footer>
+        <footer className="hidden border-t border-admin-border bg-white px-8 py-4 text-[11px] text-admin-subtle lg:block">
+          {branding.footer}
+        </footer>
 
-      <MobileTabBar pages={pages} pathname={pathname} onMenu={() => setDrawerPath(pathname)} />
-      <MobileDrawer open={drawerOpen} nav={nav} pathname={pathname} onClose={() => setDrawerPath(null)} />
-      <CommandPalette open={paletteOpen} pages={pages} onClose={() => setPaletteOpen(false)} />
-    </div>
+        <MobileTabBar pages={pages} tabIds={tabIds} pathname={pathname} onMenu={() => setDrawerPath(pathname)} />
+        <MobileDrawer open={drawerOpen} nav={nav} pathname={pathname} onClose={() => setDrawerPath(null)} />
+        <CommandPalette open={paletteOpen} pages={pages} onClose={() => setPaletteOpen(false)} />
+      </div>
+    </ToastProvider>
   );
 }
 
@@ -198,11 +242,11 @@ function DropdownLink({ item, active }: { item: NavItem; active: boolean }) {
   );
 }
 
-function ProfileMenu({ staff }: { staff: StaffSnapshot }) {
+function ProfileMenu({ user, logoutPath, loginPath }: { user: ConsoleUser; logoutPath: string; loginPath: string }) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const initials = staff.name
+  const initials = user.name
     .split(/\s+/)
     .map((part) => part[0])
     .join("")
@@ -221,9 +265,9 @@ function ProfileMenu({ staff }: { staff: StaffSnapshot }) {
   const signOut = useCallback(async () => {
     setSigningOut(true);
     // Only this route can revoke the session (the refresh cookie never reaches pages or actions).
-    await fetch("/api/v1/admin/auth/logout", { method: "POST" }).catch(() => undefined);
-    window.location.assign("/login");
-  }, []);
+    await fetch(logoutPath, { method: "POST" }).catch(() => undefined);
+    window.location.assign(loginPath);
+  }, [logoutPath, loginPath]);
 
   return (
     <div ref={ref} className="relative">
@@ -238,16 +282,16 @@ function ProfileMenu({ staff }: { staff: StaffSnapshot }) {
           {initials}
         </span>
         <span className="hidden text-left lg:block">
-          <span className="block text-xs leading-tight font-bold text-admin-dark">{staff.name}</span>
-          <span className="block text-[10px] text-admin-subtle">{staff.role.name}</span>
+          <span className="block text-xs leading-tight font-bold text-admin-dark">{user.name}</span>
+          <span className="block text-[10px] text-admin-subtle">{user.subtitle}</span>
         </span>
         <ChevronDown className="hidden h-3 w-3 text-admin-subtle lg:block" aria-hidden />
       </button>
       {open ? (
         <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-admin-border bg-white p-1.5 text-xs shadow-dropdown">
           <div className="border-b border-slate-100 px-3 py-2">
-            <div className="truncate font-bold text-admin-dark">{staff.name}</div>
-            <div className="truncate text-[11px] text-admin-subtle">{staff.email}</div>
+            <div className="truncate font-bold text-admin-dark">{user.name}</div>
+            <div className="truncate text-[11px] text-admin-subtle">{user.email}</div>
           </div>
           <Link
             href="/profile"
@@ -270,11 +314,19 @@ function ProfileMenu({ staff }: { staff: StaffSnapshot }) {
   );
 }
 
-/** Prototype bottom tabs: Dashboard, Movies, Bookings, Shows (those the role can open) + Menu. */
-const TAB_IDS = ["movies", "bookings", "shows"];
-
-function MobileTabBar({ pages, pathname, onMenu }: { pages: NavItem[]; pathname: string; onMenu: () => void }) {
-  const tabs = TAB_IDS.flatMap((id) => pages.filter((page) => page.id === id));
+/** Prototype bottom tabs: Home, the app's chosen pages (those the user can open) and Menu. */
+function MobileTabBar({
+  pages,
+  tabIds,
+  pathname,
+  onMenu,
+}: {
+  pages: NavItem[];
+  tabIds: string[];
+  pathname: string;
+  onMenu: () => void;
+}) {
+  const tabs = tabIds.flatMap((id) => pages.filter((page) => page.id === id));
   const tabClass = (active: boolean) =>
     cn(
       "flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium text-admin-muted",
@@ -356,7 +408,9 @@ function MobileDrawer({
             }
             return (
               <div key={group.id} className="space-y-2">
-                <div className="px-2 text-[10px] font-bold tracking-wider text-admin-subtle uppercase">{group.label}</div>
+                <div className="px-2 text-[10px] font-bold tracking-wider text-admin-subtle uppercase">
+                  {group.label}
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   {group.children.map((item) => {
                     const ItemIcon = NAV_ICONS[item.icon];

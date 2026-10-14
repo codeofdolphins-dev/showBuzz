@@ -18,6 +18,7 @@ import type { SearchEntry } from "@showbuzz/schemas/types/catalog";
 import type { VendorPublic } from "@showbuzz/schemas/types/vendor";
 import { type CancellationPolicy, describeCutoff } from "@showbuzz/schemas/vendor";
 import type { Cinema, Screen } from "@showbuzz/schemas/venue";
+import { CATALOG_TAGS, type CatalogTag } from "./catalog-tags";
 
 /**
  * Read access to the catalogue in MongoDB. Every read is a cached function (`use cache`) tagged per
@@ -32,20 +33,7 @@ export const EVENT_SECTION_PATH: Record<EventKind, string> = {
   activity: "/activities",
 };
 
-export const CATALOG_TAGS = {
-  cities: "catalog:cities",
-  movies: "catalog:movies",
-  venues: "catalog:venues",
-  events: "catalog:events",
-  streamTitles: "catalog:stream-titles",
-  coupons: "catalog:coupons",
-  foodItems: "catalog:food-items",
-  giftCardDesigns: "catalog:gift-card-designs",
-  shows: "catalog:shows",
-  vendors: "catalog:vendors",
-} as const;
-
-export type CatalogTag = (typeof CATALOG_TAGS)[keyof typeof CATALOG_TAGS];
+export { CATALOG_TAGS, type CatalogTag };
 
 /**
  * Marks a collection's cached reads stale (served once more, then refetched). Works inside this app only:

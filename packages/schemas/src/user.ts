@@ -5,7 +5,17 @@ import { E164_INDIAN_PHONE, objectIdSchema, personNameSchema } from "./common";
 
 export const userStatusSchema = z.enum(["active", "blocked", "deleted"]);
 export const otpChannelSchema = z.enum(["sms", "email"]);
-export const otpPurposeSchema = z.enum(["sign_in", "change_contact", "delete_account", "reauthenticate"]);
+export const otpPurposeSchema = z.enum([
+  "sign_in",
+  "change_contact",
+  "delete_account",
+  "reauthenticate",
+  // Partner signup: proves the mobile number before a vendor account exists (no user behind it).
+  "vendor_signup",
+]);
+
+/** Purposes issued before any customer account is involved, so the challenge has no userId. */
+export const OTP_PURPOSES_WITHOUT_USER: readonly OtpPurpose[] = ["sign_in", "vendor_signup"];
 
 /** What the browser may know about the signed-in customer. Never includes sessions or hashes. */
 export const customerSnapshotSchema = z.object({
@@ -35,7 +45,7 @@ export const otpChallengeInputSchema = z
     expiresAt: z.date(),
     ipPrefix: z.string().optional(),
   })
-  .refine((c) => c.purpose === "sign_in" || c.userId !== undefined, {
+  .refine((c) => OTP_PURPOSES_WITHOUT_USER.includes(c.purpose) || c.userId !== undefined, {
     message: "A contact change challenge needs the user it belongs to",
     path: ["userId"],
   })

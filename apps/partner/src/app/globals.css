@@ -1,0 +1,6 @@
+@import "tailwindcss";
+/* Same design system as the admin console (packages/console-ui/src/theme.css). */
+@import "../../../../packages/console-ui/src/theme.css";
+/* Shared components from packages/ui and packages/console-ui (outside this app, so not scanned automatically). */
+@source "../../../../packages/ui/src";
+@source "../../../../packages/console-ui/src";

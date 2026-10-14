@@ -15,6 +15,8 @@ export const PRICING_DEFAULTS = {
   gstBps: 1800,
   convenienceFeeBps: 850,
   cancellationFeePaise: 5000,
+  // Commission for new commission-billed vendors (agreed 2026-10-14; editable in Settings from admin prompt 7).
+  commissionBps: 1000,
 } as const;
 
 // Open question (CLAUDE.md §12): the public seat page enforces 8, admin settings say 10.
@@ -56,6 +58,23 @@ export const ADMIN_AUTH = {
   loginMaxPerIp: 20,
   // Current-password checks on /profile (same guessing risk as login).
   passwordChangeMaxPerWindow: 5,
+} as const;
+
+/**
+ * Vendor logins (partner app): same token lifetimes, password rules and sign-in limits as staff, own keys and
+ * audience (PARTNER_JWT_* in runtime/partner-auth-env).
+ */
+export const PARTNER_AUTH = {
+  accessTokenTtlSec: ADMIN_AUTH.accessTokenTtlSec,
+  refreshTokenTtlSec: ADMIN_AUTH.refreshTokenTtlSec,
+  maxSessionsPerVendorUser: 5,
+  bcryptCost: ADMIN_AUTH.bcryptCost,
+  loginWindowSec: ADMIN_AUTH.loginWindowSec,
+  loginMaxPerEmail: ADMIN_AUTH.loginMaxPerEmail,
+  loginMaxPerIp: ADMIN_AUTH.loginMaxPerIp,
+  passwordChangeMaxPerWindow: ADMIN_AUTH.passwordChangeMaxPerWindow,
+  // Self-service signups per IP per hour (each also needs a verified mobile number).
+  signupMaxPerIpPerHour: 5,
 } as const;
 
 /** Display name for accounts created from the sign-in tab, where no name is asked for. */

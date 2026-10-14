@@ -1,7 +1,7 @@
 import "server-only";
 import { type HydratedDocument, type Model, Schema, type Types, model, models } from "mongoose";
 import { AUTH } from "@showbuzz/schemas/constants";
-import type { OtpChannel, OtpPurpose } from "@showbuzz/schemas/user";
+import { OTP_PURPOSES_WITHOUT_USER, otpPurposeSchema, type OtpChannel, type OtpPurpose } from "@showbuzz/schemas/user";
 import { serialisationOptions } from "./transforms";
 
 export interface OtpChallengeAttrs {
@@ -33,7 +33,7 @@ const otpChallengeSchema = new Schema<OtpChallengeAttrs>(
   {
     channel: { type: String, enum: ["sms", "email"], required: true },
     identifier: { type: String, required: true },
-    purpose: { type: String, enum: ["sign_in", "change_contact", "delete_account", "reauthenticate"], required: true },
+    purpose: { type: String, enum: otpPurposeSchema.options, required: true },
     userId: { type: Schema.Types.ObjectId, ref: "User" },
     pendingName: { type: String, trim: true, minlength: 2, maxlength: 80 },
     codeHash: { type: String, required: true },
@@ -55,7 +55,7 @@ otpChallengeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 otpChallengeSchema.index({ identifier: 1, purpose: 1, createdAt: -1 });
 
 otpChallengeSchema.pre("validate", function requireUserForContactChange() {
-  if (this.purpose !== "sign_in" && !this.userId) {
+  if (!OTP_PURPOSES_WITHOUT_USER.includes(this.purpose) && !this.userId) {
     this.invalidate("userId", "A contact change challenge needs the user it belongs to");
   }
 });

@@ -18,6 +18,7 @@ const settingsSchema = new Schema<SettingsAttrs>(
     cancellationCutoffMinutes: { type: Number, default: SETTINGS_DEFAULTS.cancellationCutoffMinutes },
     cancellationFeePaise: { type: Number, default: SETTINGS_DEFAULTS.cancellationFeePaise },
     seatHoldMinutes: { type: Number, default: SETTINGS_DEFAULTS.seatHoldMinutes },
+    defaultCommissionBps: { type: Number, default: SETTINGS_DEFAULTS.defaultCommissionBps },
   },
   { timestamps: true, versionKey: false },
 );

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowRight, Eye, EyeOff } from "lucide-react";
-import { Button, FieldError, FormMessage, Input, Label } from "@/components/ui/form";
+import { Button, FieldError, FormMessage, Input, Label } from "@showbuzz/console-ui/form";
 
 interface LoginFormProps {
   /** Already validated by the page (safeNextPath). */

@@ -3,7 +3,12 @@ import Link from "next/link";
 import { Construction, FlaskConical, Lock } from "lucide-react";
 
 /** Breadcrumb + title row used at the top of console pages (prototype profile.html / dashboard.html). */
-export function PageHeader({ title, subtitle, crumb, actions }: {
+export function PageHeader({
+  title,
+  subtitle,
+  crumb,
+  actions,
+}: {
   title: string;
   subtitle?: string;
   crumb?: string;
@@ -62,8 +67,14 @@ export function ComingSoon({ title, children }: { title: string; children?: Reac
   );
 }
 
-/** Shown when the staff member's role doesn't grant the page (the server decides; the link may still be typed). */
-export function NoAccess({ title }: { title: string }) {
+/** Shown when the user's role doesn't grant the page (the server decides; the link may still be typed). */
+export function NoAccess({
+  title,
+  hint = "Ask a Super Admin if your role should include it.",
+}: {
+  title: string;
+  hint?: string;
+}) {
   return (
     <>
       <PageHeader title={title} crumb={title} />
@@ -72,7 +83,7 @@ export function NoAccess({ title }: { title: string }) {
           <Lock className="h-6 w-6" aria-hidden />
         </span>
         <h2 className="text-base font-bold text-admin-dark">You don&apos;t have access to this page</h2>
-        <p className="max-w-md text-xs text-admin-muted">Ask a Super Admin if your role should include it.</p>
+        <p className="max-w-md text-xs text-admin-muted">{hint}</p>
       </Card>
     </>
   );

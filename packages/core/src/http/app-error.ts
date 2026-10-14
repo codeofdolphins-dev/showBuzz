@@ -16,6 +16,8 @@ export type AppErrorCode =
   | "RATE_LIMITED"
   | "NOT_CONFIGURED"
   | "STEP_UP_REQUIRED"
+  | "VENDOR_SUSPENDED"
+  | "ONBOARDING_INCOMPLETE"
   | "INTERNAL";
 
 /**

@@ -15,6 +15,12 @@ tags:
     description: Phone/email one-time-code sign-in and cookie sessions.
   - name: Staff auth
     description: Admin console (admin.showbuzz.com) email + password sign-in and cookie sessions.
+  - name: Partner auth
+    description: Partner portal (partner.showbuzz.com) vendor email + password sign-in and cookie sessions.
+  - name: Partner
+    description: Partner portal resources, always scoped to the signed-in vendor.
+  - name: Internal
+    description: Server-to-server calls between the ShowBuzz apps (not for browsers).
   - name: System
 
 paths:
@@ -274,6 +280,151 @@ paths:
               schema: { $ref: "#/components/schemas/StaffSessionEnvelope" }
         "401": { $ref: "#/components/responses/Unauthenticated" }
 
+  /partner/auth/login:
+    post:
+      tags: [Partner auth]
+      summary: Vendor sign-in (email + password)
+      description: |
+        Served by the partner app. Same rules as staff sign-in: wrong email, wrong password and disabled logins all
+        answer 401 "Invalid email or password."; 5 attempts per email and 20 per IP per 15 minutes. A suspended
+        vendor can sign in (the portal shows a notice and refuses listing changes). Sets the partner cookies (sbp_*).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: Signed in.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/PartnerSessionCookies" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PartnerLoginEnvelope" }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /partner/auth/refresh:
+    post:
+      tags: [Partner auth]
+      summary: Rotate the vendor session
+      description: Uses the partner refresh cookie (path /api/v1/partner/auth). A replayed old token revokes the session.
+      security: [{ partnerRefreshCookie: [] }]
+      responses:
+        "200":
+          description: New token pair.
+          headers:
+            Set-Cookie: { $ref: "#/components/headers/PartnerSessionCookies" }
+        "401":
+          description: Session ended; partner cookies are cleared.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    get:
+      tags: [Partner auth]
+      summary: Rotate and redirect (page navigations from proxy.ts)
+      security: [{ partnerRefreshCookie: [] }]
+      parameters:
+        - name: next
+          in: query
+          schema: { type: string }
+          description: Local path to return to; anything else falls back to /dashboard.
+      responses:
+        "303":
+          description: To `next` with new cookies, or to /login?next= with cleared cookies.
+  /partner/auth/logout:
+    post:
+      tags: [Partner auth]
+      summary: End this device's vendor session
+      responses:
+        "200":
+          description: Signed out (idempotent); partner cookies cleared.
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /partner/auth/me:
+    get:
+      tags: [Partner auth]
+      summary: The signed-in vendor user and their vendor
+      description: Customer and staff tokens never verify here (different audience and keys). Bank account masked.
+      security: [{ partnerAccessCookie: [] }]
+      responses:
+        "200":
+          description: Current vendor user and vendor summary.
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+  /partner/documents/{fileId}:
+    get:
+      tags: [Partner]
+      summary: One of the signed-in vendor's own KYC documents
+      description: |
+        Streams the file inline (PDF, JPEG or PNG; `Cache-Control: private, no-store`). A file that belongs to
+        another vendor, or is no longer on this vendor's KYC, answers 404 like a missing one.
+      security: [{ partnerAccessCookie: [] }]
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9a-f]{24}$" }
+      responses:
+        "200":
+          description: The file.
+          content:
+            application/pdf: {}
+            image/jpeg: {}
+            image/png: {}
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "404":
+          description: Not found (`NOT_FOUND`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /internal/revalidate:
+    servers:
+      - url: /api
+    post:
+      tags: [Internal]
+      summary: Refresh the public site's cached catalogue
+      description: |
+        Served by the public app at /api/internal/revalidate. Called by the admin and partner apps
+        (`revalidateWeb(tags)`) after an edit; marks the given catalogue cache tags stale. Requires
+        `Authorization: Bearer <REVALIDATE_SECRET>` (compared in constant time); no cookies, no origin check.
+      security: [{ internalBearer: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tags]
+              properties:
+                tags:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: string
+                    enum:
+                      - catalog:cities
+                      - catalog:movies
+                      - catalog:venues
+                      - catalog:events
+                      - catalog:stream-titles
+                      - catalog:coupons
+                      - catalog:food-items
+                      - catalog:gift-card-designs
+                      - catalog:shows
+                      - catalog:vendors
+      responses:
+        "200":
+          description: Tags revalidated (`data.revalidated`).
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+
 components:
   securitySchemes:
     accessCookie:
@@ -298,6 +449,21 @@ components:
       name: __Secure-sba_rt
       description: Staff refresh JWT (7 days, sliding), sent only to /api/v1/admin/auth. Named `sba_rt` outside production.
 
+    partnerAccessCookie:
+      type: apiKey
+      in: cookie
+      name: __Host-sbp_at
+      description: Vendor-user access JWT (15 min, aud showbuzz-partner). Named `sbp_at` outside production.
+    partnerRefreshCookie:
+      type: apiKey
+      in: cookie
+      name: __Secure-sbp_rt
+      description: Vendor-user refresh JWT (7 days, sliding), sent only to /api/v1/partner/auth. Named `sbp_rt` outside production.
+    internalBearer:
+      type: http
+      scheme: bearer
+      description: The shared REVALIDATE_SECRET (server-to-server only).
+
   headers:
     SessionCookies:
       description: |
@@ -310,6 +476,12 @@ components:
       description: |
         `__Host-sba_at` (Path=/; Max-Age=900), `__Secure-sba_rt` (Path=/api/v1/admin/auth; Max-Age=604800) and
         `__Host-sba_has_session=1`. All HttpOnly; Secure; SameSite=Lax; host-only (no Domain attribute).
+      schema: { type: string }
+
+    PartnerSessionCookies:
+      description: |
+        `__Host-sbp_at` (Path=/; Max-Age=900), `__Secure-sbp_rt` (Path=/api/v1/partner/auth; Max-Age=604800) and
+        `__Host-sbp_has_session=1`. All HttpOnly; Secure; SameSite=Lax; host-only (no Domain attribute).
       schema: { type: string }
 
   responses:
@@ -387,6 +559,8 @@ components:
         - RATE_LIMITED
         - NOT_CONFIGURED
         - STEP_UP_REQUIRED
+        - VENDOR_SUSPENDED
+        - ONBOARDING_INCOMPLETE
         - INTERNAL
 
     CustomerSnapshot:
@@ -456,4 +630,31 @@ components:
               required: [staff, accessExpiresAt]
               properties:
                 staff: { $ref: "#/components/schemas/StaffSnapshot" }
+                accessExpiresAt: { type: string, format: date-time }
+
+    VendorUserSnapshot:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [owner] }
+        lastLoginAt: { type: string, format: date-time }
+
+    PartnerLoginEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/SuccessEnvelope"
+        - properties:
+            data:
+              type: object
+              required: [vendorUser, vendor, accessExpiresAt]
+              properties:
+                vendorUser: { $ref: "#/components/schemas/VendorUserSnapshot" }
+                vendor:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    businessName: { type: string }
+                    onboardingStatus: { type: string, enum: [incomplete, complete] }
                 accessExpiresAt: { type: string, format: date-time }

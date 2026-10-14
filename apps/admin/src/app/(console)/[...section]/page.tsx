@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
 import { hasPermission } from "@showbuzz/schemas/permissions";
-import { ComingSoon, NoAccess } from "@/components/console/PageParts";
+import { ComingSoon, NoAccess } from "@showbuzz/console-ui/PageParts";
 import { findNavItem } from "@/lib/nav";
 
 /**

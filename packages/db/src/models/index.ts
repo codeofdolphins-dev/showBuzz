@@ -1,4 +1,5 @@
 import "server-only";
+import { ActivityLog } from "./ActivityLog";
 import { Booking } from "./Booking";
 import { City } from "./City";
 import { Coupon } from "./Coupon";
@@ -54,4 +55,5 @@ export const allModels = [
   Lead,
   WishlistItem,
   GiftCard,
+  ActivityLog,
 ];

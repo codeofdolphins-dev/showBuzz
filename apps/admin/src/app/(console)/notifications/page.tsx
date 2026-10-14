@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
-import { ComingSoon } from "@/components/console/PageParts";
+import { ComingSoon } from "@showbuzz/console-ui/PageParts";
 
 export const metadata: Metadata = { title: "Notifications" };
 

@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
-import { Card, PageHeader } from "@/components/console/PageParts";
+import { Card, PageHeader } from "@showbuzz/console-ui/PageParts";
 import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
-import { Input, Label } from "@/components/ui/form";
+import { Input, Label } from "@showbuzz/console-ui/form";
 
 export const metadata: Metadata = { title: "My Profile" };
 
-const dateTime = new Intl.DateTimeFormat("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "medium", timeStyle: "short" });
+const dateTime = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 /** Own details (read-only for now: a Super Admin edits staff records) and password change. */
 export default async function ProfilePage() {

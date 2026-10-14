@@ -4,12 +4,12 @@ import { useMemo, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { CornerDownLeft, Search } from "lucide-react";
 import { cn } from "@showbuzz/utils/cn";
-import type { NavItem } from "@/lib/nav";
+import type { NavItem } from "./nav";
 import { NAV_ICONS } from "./icons";
 
 interface CommandPaletteProps {
   open: boolean;
-  /** Pages the staff member can open (already permission-filtered). */
+  /** Pages the signed-in user can open (already filtered). */
   pages: NavItem[];
   onClose: () => void;
 }
@@ -52,7 +52,12 @@ function PaletteDialog({ pages, onClose }: Omit<CommandPaletteProps, "open">) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Search pages">
+    <div
+      className="fixed inset-0 z-[60] flex items-start justify-center p-4 pt-[12vh]"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search pages"
+    >
       <button type="button" className="absolute inset-0 bg-slate-900/40" aria-label="Close search" onClick={onClose} />
       <div className="relative w-full max-w-lg overflow-hidden rounded-2xl border border-admin-border bg-white shadow-modal">
         <div className="flex items-center gap-2 border-b border-admin-border px-4">
@@ -72,7 +77,9 @@ function PaletteDialog({ pages, onClose }: Omit<CommandPaletteProps, "open">) {
             aria-controls="palette-results"
             className="h-12 flex-1 bg-transparent text-sm text-admin-text outline-none placeholder:text-admin-subtle"
           />
-          <kbd className="rounded border border-admin-border px-1.5 py-0.5 text-[10px] font-bold text-admin-muted">Esc</kbd>
+          <kbd className="rounded border border-admin-border px-1.5 py-0.5 text-[10px] font-bold text-admin-muted">
+            Esc
+          </kbd>
         </div>
         <ul id="palette-results" role="listbox" className="max-h-80 overflow-y-auto p-2">
           {results.length === 0 ? (

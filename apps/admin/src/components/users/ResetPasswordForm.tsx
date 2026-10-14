@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { resetStaffPasswordAction } from "@/app/_actions/staff";
-import { Button, FieldError, FormMessage, Input, Label } from "@/components/ui/form";
+import { Button, FieldError, FormMessage, Input, Label } from "@showbuzz/console-ui/form";
 
 export function ResetPasswordForm() {
   const [pending, startTransition] = useTransition();

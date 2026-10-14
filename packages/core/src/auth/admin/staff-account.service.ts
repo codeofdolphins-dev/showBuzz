@@ -1,50 +1,27 @@
 import "server-only";
-import { ADMIN_AUTH } from "@showbuzz/schemas/constants";
 import { SUPER_ADMIN_ROLE, SYSTEM_ROLES } from "@showbuzz/schemas/permissions";
-import { changePasswordSchema, newStaffSchema, resetStaffPasswordSchema } from "@showbuzz/schemas/staff";
+import { newStaffSchema, resetStaffPasswordSchema } from "@showbuzz/schemas/staff";
 import { connect } from "@showbuzz/db/connect";
 import { Role } from "@showbuzz/db/models/Role";
 import { Staff } from "@showbuzz/db/models/Staff";
 import { log } from "@showbuzz/runtime/log";
 import { AppError } from "../../http/app-error";
-import { consumeRateLimit } from "../../security/rate-limit";
-import { generateTemporaryPassword, hashPassword, verifyPassword } from "./password";
+import { generateTemporaryPassword, hashPassword } from "../password";
+import { changeAccountPassword } from "../password-change";
 import { staffSessions } from "./sessions";
 
 /** Staff account management: own password, Super Admin resets, role seeding and first-admin creation. */
 
 /**
  * Changes the signed-in staff member's password. Needs the current password; signs out every other device
- * (this one stays signed in).
+ * (this one stays signed in). Shared rules: ../password-change.ts.
  */
 export async function changeOwnPassword(actor: { staffId: string; sid: string }, input: unknown, now = new Date()) {
-  const { currentPassword, newPassword } = changePasswordSchema.parse(input);
-  const limit = await consumeRateLimit(`staff-password:${actor.staffId}`, {
-    limit: ADMIN_AUTH.passwordChangeMaxPerWindow,
-    windowSec: ADMIN_AUTH.loginWindowSec,
+  await changeAccountPassword(
+    { model: Staff, sessions: staffSessions, label: "staff", accountId: actor.staffId, sid: actor.sid },
+    input,
     now,
-  });
-  if (!limit.allowed) {
-    throw new AppError("RATE_LIMITED", "Too many attempts. Please try again later.", 429, {
-      retryAfterSec: limit.retryAfterSec,
-    });
-  }
-
-  await connect();
-  const staff = await Staff.findById(actor.staffId);
-  if (!staff || staff.status !== "active") throw new AppError("UNAUTHENTICATED", "Please sign in to continue.", 401);
-  if (!(await verifyPassword(currentPassword, staff.passwordHash))) {
-    throw new AppError("VALIDATION_FAILED", "Your current password is incorrect.", 422, {
-      fieldErrors: { currentPassword: ["Your current password is incorrect."] },
-    });
-  }
-
-  await Staff.updateOne(
-    { _id: staff._id },
-    { $set: { passwordHash: await hashPassword(newPassword), passwordChangedAt: now } },
   );
-  await staffSessions.revokeAllSessions(actor.staffId, actor.sid);
-  log.info("Staff password changed", { event: "staff.password_changed", staffId: actor.staffId });
 }
 
 /**

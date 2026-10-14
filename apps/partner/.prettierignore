@@ -1,0 +1,9 @@
+.next
+coverage
+public
+# Generated files
+AGENTS.md
+next-env.d.ts
+*.tsbuildinfo
+test-results
+playwright-report

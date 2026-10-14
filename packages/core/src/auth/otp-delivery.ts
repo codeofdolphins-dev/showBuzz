@@ -1,6 +1,6 @@
 import "server-only";
 import { isDemoMode } from "@showbuzz/runtime/env";
-import { customerAuthEnv } from "@showbuzz/runtime/customer-auth-env";
+import { otpEnv } from "@showbuzz/runtime/otp-env";
 import type { OtpChannel, OtpPurpose } from "@showbuzz/schemas/user";
 import { log } from "@showbuzz/runtime/log";
 
@@ -43,5 +43,5 @@ export class LogOtpSender implements OtpSender {
 }
 
 export function getOtpSender(): OtpSender {
-  return customerAuthEnv.OTP_PROVIDER === "dev" ? new DevOtpSender() : new LogOtpSender();
+  return otpEnv.OTP_PROVIDER === "dev" ? new DevOtpSender() : new LogOtpSender();
 }

@@ -1,0 +1,39 @@
+/*
+ * Console design system shared by apps/admin and apps/partner, from the prototype
+ * (showBuzz_HTML/admin/tailwind.config.js). Each app imports this after "tailwindcss" and adds an @source line for
+ * packages/console-ui/src so the kit's classes are generated.
+ */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-admin-indigo: #4f46e5;
+  --color-admin-indigo-hover: #4338ca;
+  --color-admin-dark: #312e81;
+  --color-admin-coral: #f15b6c;
+  --color-admin-teal: #168aad;
+  --color-admin-active: #eef2ff;
+
+  --color-admin-success: #16a66a;
+  --color-admin-warning: #f5a524;
+  --color-admin-danger: #dc3545;
+  --color-admin-info: #168aad;
+
+  --color-admin-surface: #f5f7fb;
+  --color-admin-card: #ffffff;
+  --color-admin-border: #e3e8ef;
+
+  --color-admin-text: #172033;
+  --color-admin-muted: #667085;
+  --color-admin-subtle: #98a2b3;
+
+  --shadow-card: 0 1px 3px 0 rgb(23 32 51 / 0.05), 0 1px 2px 0 rgb(23 32 51 / 0.03);
+  --shadow-dropdown: 0 10px 25px -5px rgb(23 32 51 / 0.1), 0 8px 10px -6px rgb(23 32 51 / 0.08);
+  --shadow-modal: 0 20px 25px -5px rgb(23 32 51 / 0.15), 0 10px 10px -5px rgb(23 32 51 / 0.04);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-admin-surface);
+    color: var(--color-admin-text);
+  }
+}

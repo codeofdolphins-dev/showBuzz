@@ -1,70 +1,11 @@
+import { filterNav, findNavItemIn, type NavGroup, type NavItem } from "@showbuzz/console-ui/nav";
 import { hasPermission } from "@showbuzz/schemas/permissions";
 
 /**
- * The console menu, grouped like the prototype (showBuzz_HTML/admin/assets/js/app.js). Plain data (icons are
- * names, mapped to lucide components in the client shell) so the server can filter it by permission and pass
- * it to client components. An item without `permission` is open to every signed-in staff member.
+ * The admin console menu, grouped like the prototype (showBuzz_HTML/admin/assets/js/app.js). Plain data (types in
+ * @showbuzz/console-ui/nav) so the server can filter it by permission and pass it to client components. An item
+ * without `permission` is open to every signed-in staff member.
  */
-
-export type NavIcon =
-  | "layout-dashboard"
-  | "film"
-  | "calendar-days"
-  | "theater"
-  | "trophy"
-  | "compass"
-  | "tv"
-  | "grid"
-  | "video"
-  | "monitor"
-  | "map-pin"
-  | "armchair"
-  | "clock"
-  | "ticket"
-  | "qr-code"
-  | "plus-circle"
-  | "credit-card"
-  | "rotate-ccw"
-  | "wallet"
-  | "users"
-  | "briefcase"
-  | "send"
-  | "tag"
-  | "image"
-  | "percent"
-  | "gift"
-  | "star"
-  | "bar-chart"
-  | "trending-up"
-  | "settings"
-  | "globe"
-  | "languages"
-  | "layers"
-  | "folder"
-  | "file-text"
-  | "search"
-  | "user-check"
-  | "shield-check"
-  | "scroll-text"
-  | "database";
-
-export interface NavItem {
-  id: string;
-  label: string;
-  icon: NavIcon;
-  href: string;
-  permission?: string;
-}
-
-export interface NavGroup {
-  id: string;
-  label: string;
-  icon: NavIcon;
-  /** A single link (Dashboard, Show Scheduling) instead of a dropdown. */
-  href?: string;
-  permission?: string;
-  children?: NavItem[];
-}
 
 export const NAV: NavGroup[] = [
   { id: "dashboard", label: "Dashboard", icon: "layout-dashboard", href: "/dashboard" },
@@ -223,25 +164,12 @@ export const NAV: NavGroup[] = [
   },
 ];
 
-const canSee = (granted: readonly string[], permission?: string) => !permission || hasPermission(granted, permission);
-
 /** The menu with every item the staff member can't open removed (and groups left empty dropped). */
 export function navFor(permissions: readonly string[]): NavGroup[] {
-  return NAV.flatMap((group) => {
-    if (!group.children) return canSee(permissions, group.permission) ? [group] : [];
-    const children = group.children.filter((item) => canSee(permissions, item.permission));
-    return children.length ? [{ ...group, children }] : [];
-  });
-}
-
-/** Flat list of pages (command palette, coming-soon routing). */
-export function flattenNav(groups: NavGroup[]): NavItem[] {
-  return groups.flatMap((group) =>
-    group.children ?? (group.href ? [{ id: group.id, label: group.label, icon: group.icon, href: group.href, ...(group.permission ? { permission: group.permission } : {}) }] : []),
-  );
+  return filterNav(NAV, (permission) => !permission || hasPermission(permissions, permission));
 }
 
 /** The menu item for a path such as "/movies" or "/bookings/new", if any. */
 export function findNavItem(pathname: string): NavItem | undefined {
-  return flattenNav(NAV).find((item) => item.href === pathname);
+  return findNavItemIn(NAV, pathname);
 }

@@ -2,7 +2,7 @@ import "server-only";
 import { createHmac, randomInt, timingSafeEqual } from "node:crypto";
 import { Types } from "@showbuzz/db/mongoose";
 import { AUTH, DEFAULT_CUSTOMER_NAME } from "@showbuzz/schemas/constants";
-import { customerAuthEnv } from "@showbuzz/runtime/customer-auth-env";
+import { otpEnv } from "@showbuzz/runtime/otp-env";
 import {
   otpRequestSchema,
   otpVerifySchema,
@@ -250,7 +250,7 @@ function expired() {
 
 /** HMAC over challenge id + code, so a stored hash only ever matches its own challenge. */
 function hashCode(challengeId: string, code: string): string {
-  return createHmac("sha256", customerAuthEnv.OTP_HASH_SECRET).update(`${challengeId}:${code}`).digest("hex");
+  return createHmac("sha256", otpEnv.OTP_HASH_SECRET).update(`${challengeId}:${code}`).digest("hex");
 }
 
 function codesMatch(storedHex: string, candidateHex: string): boolean {

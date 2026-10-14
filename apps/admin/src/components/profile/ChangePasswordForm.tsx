@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { changePasswordAction } from "@/app/_actions/staff";
-import { Button, FieldError, FormMessage, Input, Label } from "@/components/ui/form";
+import { Button, FieldError, FormMessage, Input, Label } from "@showbuzz/console-ui/form";
 
 export function ChangePasswordForm() {
   const formRef = useRef<HTMLFormElement>(null);

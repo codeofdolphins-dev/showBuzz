@@ -1,13 +1,13 @@
 # CLAUDE.md
 
 > Project instructions for Claude Code. Keep this file accurate: outdated info is worse than none.
-> Last reviewed: 2026-10-13 (monorepo conversion). Library versions below are the latest stable releases on npm as of 2026-10-10; installed versions are pinned in the pnpm catalog (`pnpm-workspace.yaml`).
+> Last reviewed: 2026-10-14 (partner portal, console kit). Library versions below are the latest stable releases on npm as of 2026-10-10; installed versions are pinned in the pnpm catalog (`pnpm-workspace.yaml`).
 
 ## 1. Project Overview
 
 - **Name:** ShowBuzz (repo/folder: `showBuzz`)
 - **Purpose:** A multi-city entertainment discovery and ticket-booking platform (in the style of BookMyShow) for movies, live events, plays, sports, activities and streaming, with a full back-office console for operators, cinema managers, event organisers and finance staff.
-- **Type:** Full-stack web app in a pnpm + Turborepo monorepo. `apps/web` is the public site + its REST API (showbuzz.com); `apps/admin` is the operations console (admin.showbuzz.com). Shared code lives in `packages/*`.
+- **Type:** Full-stack web app in a pnpm + Turborepo monorepo. `apps/web` is the public site + its REST API (showbuzz.com); `apps/admin` is the super-admin console (admin.showbuzz.com); `apps/partner` is the vendor portal (partner.showbuzz.com). Shared code lives in `packages/*`.
 - **Status:** Prototype → production rebuild. A static HTML/Tailwind/Vanilla-JS prototype exists in `showBuzz_HTML/` and is the **design and behaviour reference**. The Next.js app is being built from it.
 - **Market defaults:** India. Currency INR (₹), timezone `Asia/Kolkata` (IST), default city Kolkata. GST and convenience fees apply to every order.
 
@@ -38,9 +38,9 @@ Treat the prototype as read-only reference. Do not edit it while building the Ne
 | Forms           | React Hook Form + `@hookform/resolvers` (Zod)                                         | 7.89.x / 5.9.x                                                  |
 | Testing         | Vitest, Testing Library, Playwright, mongodb-memory-server                            | 5.0.x / 16.3.x / 1.64.x / 11.3.x                                |
 | Lint / format   | ESLint (flat config) + `eslint-config-next`, Prettier + `prettier-plugin-tailwindcss` | 10.12.x / 16.4.x, 3.9.x / 0.8.x                                 |
-| Package manager | pnpm (workspaces + catalog), pinned via `packageManager`                             | 12.11.x                                                         |
+| Package manager | pnpm (workspaces + catalog), pinned via `packageManager`                              | 12.11.x                                                         |
 | Monorepo tasks  | Turborepo                                                                             | 2.11.x                                                          |
-| Hosting / CI    | Vercel (one project per app; preview per PR, production on `main`)                   | —                                                               |
+| Hosting / CI    | Vercel (one project per app; preview per PR, production on `main`)                    | —                                                               |
 
 **State management decision:** Zustand is the client-state library. Redux Toolkit (2.13.x) is _not_ used; do not add it unless explicitly agreed. Server data is fetched in Server Components; Zustand holds only client/UI state (selected city, seat selection, cart, auth snapshot, UI toggles).
 
@@ -74,7 +74,7 @@ Candidate libraries for prototype features (ask before installing):
 
 pnpm + Turborepo monorepo: **apps** are deployable Next.js apps, **packages** are shared TypeScript source
 (no build step; apps compile them via `transpilePackages`). Dependency direction, never reversed:
-`schemas → utils → runtime → db → core → apps` (Turbo rejects cycles). Packages never import from `apps/`.
+`schemas → utils → runtime → db → core → apps` (Turbo rejects cycles); the UI packages (`ui`, `console-ui`) depend on `utils` only and are used by apps. Packages never import from `apps/`.
 
 ```
 showBuzz/
@@ -91,6 +91,7 @@ showBuzz/
 │   │   │   │   │                         # booking/ (food, checkout, payment, success, failure), account/,
 │   │   │   │   │                         # list-your-show/ corporate/ contact/ faq/ about/ privacy/ terms/
 │   │   │   │   ├── api/v1/               # auth/ (customer OTP, refresh, logout, me), health/; later public/, webhooks/
+│   │   │   │   ├── api/internal/revalidate/ # POST, REVALIDATE_SECRET: consoles refresh the catalogue cache
 │   │   │   │   ├── globals.css           # Tailwind v4 import + @theme tokens; @source for packages/ui
 │   │   │   │   ├── layout.tsx            # Root layout (fonts, metadata)
 │   │   │   │   └── not-found.tsx
@@ -103,16 +104,25 @@ showBuzz/
 │   │   ├── public/                       # Static assets
 │   │   ├── .env.example / .env.local     # This app's env (its Vercel project has its own)
 │   │   └── next.config.ts, playwright.config.ts, vitest.config.mts, tsconfig.json, eslint/prettier configs
-│   └── admin/                            # @showbuzz/admin: operations console (admin.showbuzz.com), dev :3001
-│       ├── src/app/(auth)/               # /login, /forgot-password (no console chrome)
-│       ├── src/app/(console)/            # Shell layout (menu filtered by permission): dashboard/, profile/, users/,
-│       │                                 # notifications/, [...section]/ (every other menu page: "Coming soon")
-│       ├── src/app/api/v1/admin/auth/    # login, refresh (POST + GET bounce), logout, me
-│       ├── src/app/_actions/             # Server Actions (change own password, Super Admin password reset)
-│       ├── src/proxy.ts                  # Staff JWT pre-check on every page → refresh bounce → /login?next=
-│       ├── src/lib/nav.ts                # Console menu (prototype groups) + permission per item
-│       ├── src/components/               # shell/ (top bar, menus, drawer, Ctrl+K palette), auth/, ui/, ...
-│       └── scripts/                      # seed-roles.ts, create-admin.ts (tsx, reads apps/admin/.env.local)
+│   ├── admin/                            # @showbuzz/admin: operations console (admin.showbuzz.com), dev :3001
+│   │   ├── src/app/(auth)/               # /login, /forgot-password (no console chrome)
+│   │   ├── src/app/(console)/            # Shell layout (menu filtered by permission): dashboard/, profile/, users/,
+│   │   │                                 # notifications/, [...section]/ (every other menu page: "Coming soon")
+│   │   ├── src/app/api/v1/admin/auth/    # login, refresh (POST + GET bounce), logout, me
+│   │   ├── src/app/_actions/             # Server Actions (change own password, Super Admin password reset)
+│   │   ├── src/proxy.ts                  # Staff JWT pre-check on every page → refresh bounce → /login?next=
+│   │   ├── src/lib/nav.ts                # Console menu (prototype groups) + permission per item
+│   │   ├── src/components/               # auth/, profile/, users/ (the shell and kit come from packages/console-ui)
+│   │   └── scripts/                      # seed-roles.ts, create-admin.ts (tsx, reads apps/admin/.env.local)
+│   └── partner/                          # @showbuzz/partner: vendor portal (partner.showbuzz.com), dev :3002
+│       ├── src/app/(auth)/               # /login, /signup (mobile OTP), /forgot-password (stand-in)
+│       ├── src/app/(setup)/onboarding/   # Mandatory KYC steps; the only page until onboarding is complete
+│       ├── src/app/(console)/            # Shell layout: dashboard/, profile/, [...section]/ ("Coming soon")
+│       ├── src/app/api/v1/partner/       # auth/ (login, refresh POST + GET bounce, logout, me), documents/[fileId]
+│       ├── src/app/_actions/             # signup, onboarding steps, change own password
+│       ├── src/proxy.ts                  # Vendor JWT pre-check on every page → refresh bounce → /login?next=
+│       ├── src/lib/nav.ts                # Portal menu
+│       └── scripts/                      # create-vendor-user.ts, seed-demo-vendors.ts (reads apps/partner/.env.local)
 ├── packages/
 │   ├── schemas/   # @showbuzz/schemas: Zod schemas, constants.ts (business constants), types/ (derived types)
 │   ├── utils/     # @showbuzz/utils: framework-agnostic helpers (money, dates, cn, safe-next, user-agent, payment, schedule)
@@ -120,9 +130,12 @@ showBuzz/
 │   ├── db/        # @showbuzz/db: connect.ts, models/ (+ index.ts), mongoose.ts (re-exports), shows.ts (show
 │   │              #   generator), storage/file-storage.ts (FileStorage, GridFS), scripts/ (seed.ts + seed-data.ts,
 │   │              #   sync-indexes.ts). The only package that depends on mongoose.
-│   ├── core/      # @showbuzz/core: services/, http/ (apiHandler, AppError, responses, request), auth/
-│   │              #   (jwt, session, cookies, otp, customer-auth, current-customer, route-guard), security/rate-limit
+│   ├── core/      # @showbuzz/core: services/ (+ partner/), http/ (apiHandler, AppError, responses, request,
+│   │              #   internal-auth), auth/ (jwt, session, cookies, otp, customer-auth, current-customer,
+│   │              #   route-guard, password*, console-route-guard, admin/, partner/), security/rate-limit
 │   ├── ui/        # @showbuzz/ui: shared UI primitives (Modal)
+│   ├── console-ui/ # @showbuzz/console-ui: back-office kit for admin + partner (ConsoleShell, PageParts, form, fields,
+│   │              #   DataTable, FilterBar, ConfirmDialog, StatusBadge, Toaster, nav, search-params, theme.css)
 │   └── config/    # @showbuzz/config: tsconfig bases, ESLint flat config, Prettier options, Vitest preset + stubs
 ├── docs/                                 # roadmap.md, auth.md, openapi.yaml
 ├── pnpm-workspace.yaml                   # workspaces, catalog (shared versions), allowBuilds
@@ -145,6 +158,10 @@ export source by path: `@showbuzz/core/http/api-handler`, `@showbuzz/db/models/U
 
 - New public page → `apps/web/src/app/(public)/(site)/<route>/page.tsx`; its components → `apps/web/src/components/public/<feature>/`.
 - New admin page → `apps/admin/src/app/...` (from the admin batch on); admin-only components stay in `apps/admin`.
+- New partner page → `apps/partner/src/app/(console)/<route>/page.tsx` (guard: `requireVendorPage`); its data access →
+  `packages/core/src/services/partner/` (always scoped by the session's vendor id).
+- Component used by both consoles → `packages/console-ui/src/` (props only, no app imports). Lists use `DataTable` +
+  `FilterBar` with `parseListParams()` from `@showbuzz/console-ui/search-params`.
 - New API endpoint → `apps/<app>/src/app/api/v1/{auth|public|admin|webhooks}/<resource>/route.ts`. Keep handlers thin: parse with Zod → call a service → return the response envelope.
 - New collection → `packages/db/src/models/<Name>.ts` (register it in `models/index.ts`) + Zod schema in `packages/schemas/src/<name>.ts` + seed data. Add indexes in the model file.
 - Business rules → `packages/core/src/services/`, never in components or route handlers.
@@ -178,7 +195,7 @@ Run from the repo root; the root scripts call Turborepo, which runs the task in 
 # Install (Node >= 24; pnpm version comes from "packageManager")
 pnpm install
 
-# Development (Turbopack); web on http://localhost:3000, admin on http://localhost:3001
+# Development (Turbopack); web on http://localhost:3000, admin on http://localhost:3001, partner on http://localhost:3002
 pnpm dev
 
 # Build / start
@@ -207,6 +224,8 @@ pnpm --filter @showbuzz/web exec playwright install chromium   # once per machin
 pnpm db:sync-indexes         # build/drop indexes to match the models (run before deploying index changes)
 pnpm db:seed-roles           # create the 5 system roles (idempotent; Super Admin re-synced to every permission)
 pnpm db:create-admin --email you@showbuzz.com --name "Your Name"   # first Super Admin; prompts for the password
+pnpm db:create-vendor-user --vendor <slug> --email owner@biz.com --name "Owner"   # owner login for an existing vendor
+pnpm db:seed-demo-vendors    # dev only: logins for the 3 seeded vendors (screens@ / palace@ / events@showbuzz.test, 12345678)
 pnpm db:seed                 # catalogue + settings + shows for the next 7 days (idempotent upserts by slug/code; never deletes)
 # Run db:seed before the first `pnpm build` against a new database: the build prerenders catalogue pages from MongoDB.
 
@@ -224,8 +243,8 @@ Always run **lint, typecheck and build** before declaring a task complete. Tests
 - Env vars are parsed with Zod in two files in `@showbuzz/runtime`; never read `process.env` anywhere else (exceptions: build tooling and test setup):
   - `packages/runtime/src/env.ts` (`import "server-only"`): server variables, validated when first imported, so a missing or malformed variable fails boot and `next build` (the error names the variable, never its value). Exports `env`, `isProduction`, `isDemoMode`. Add a variable here (and to `.env.example`) when the code that needs it lands.
   - `packages/runtime/src/public-env.ts`: `NEXT_PUBLIC_*` only, safe for client components (`publicEnv.NEXT_PUBLIC_APP_URL`, `publicEnv.appOrigin`). `NEXT_PUBLIC_APP_URL` is required in production and defaults to `http://localhost:3000` otherwise.
-- The env is split so each app only needs its own secrets: `env.ts` (both apps: `NODE_ENV`, `MONGODB_*`, `VERCEL_*`), `customer-auth-env.ts` (web: `OTP_*`, `JWT_*`), `admin-auth-env.ts` (admin: `ADMIN_JWT_ACCESS_SECRET` / `ADMIN_JWT_REFRESH_SECRET`, ≥32 chars, must differ). `apps/admin/.env.example` lists the admin set; admin's `NEXT_PUBLIC_APP_URL` is its own origin (`http://localhost:3001` locally, `https://admin.showbuzz.com` in production).
-- Validated today: `MONGODB_URI`, `MONGODB_DB`, `OTP_HASH_SECRET` (≥32 chars), `OTP_PROVIDER` (optional: `none` default | `dev`, not allowed in production), `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` (≥32 chars each, must differ), `NEXT_PUBLIC_APP_URL` (+ Vercel's own `VERCEL_URL` / `VERCEL_BRANCH_URL`, used to accept preview deployment origins), `PAYMENT_PROVIDER` (optional, `simulated` default and only value; allowed in production until a real gateway is chosen, agreed 2026-10-13), `QR_SIGNING_SECRET` (≥32 chars, `ticket-env.ts`). `next build` validates them too, so any build environment needs real or placeholder values; tests set their own (see §12).
+- The env is split so each app only needs its own secrets: `env.ts` (every app: `NODE_ENV`, `MONGODB_*`, `VERCEL_*`), `otp-env.ts` (web and partner: `OTP_HASH_SECRET`, `OTP_PROVIDER`; each app may use its own hash secret), `customer-auth-env.ts` (web: the OTP env + `JWT_*`), `admin-auth-env.ts` (admin: `ADMIN_JWT_ACCESS_SECRET` / `ADMIN_JWT_REFRESH_SECRET`, ≥32 chars, must differ), `partner-auth-env.ts` (partner: `PARTNER_JWT_ACCESS_SECRET` / `PARTNER_JWT_REFRESH_SECRET`, same rules), `revalidate-env.ts` (all three: `REVALIDATE_SECRET`, ≥32 chars, **same value in every app**) and `web-app-env.ts` (admin and partner: `WEB_APP_URL`, the public app's origin for server-to-server calls; required in production, defaults to `http://localhost:3000`). Each app's `.env.example` lists its set; `NEXT_PUBLIC_APP_URL` is each app's own origin (`:3001` admin, `:3002` partner locally; `https://admin.showbuzz.com`, `https://partner.showbuzz.com` in production).
+- Validated today: `MONGODB_URI`, `MONGODB_DB`, `OTP_HASH_SECRET` (≥32 chars), `OTP_PROVIDER` (optional: `none` default | `dev`, not allowed in production), `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` (≥32 chars each, must differ), `NEXT_PUBLIC_APP_URL` (+ Vercel's own `VERCEL_URL` / `VERCEL_BRANCH_URL`, used to accept preview deployment origins), `PAYMENT_PROVIDER` (optional, `simulated` default and only value; allowed in production until a real gateway is chosen, agreed 2026-10-13), `QR_SIGNING_SECRET` (≥32 chars, `ticket-env.ts`), `REVALIDATE_SECRET`, `WEB_APP_URL`, `PARTNER_JWT_*`. `next build` validates them too, so any build environment needs real or placeholder values; tests set their own (see §12).
 - Required variables (full list, also in `.env.example`):
   - `MONGODB_URI`: MongoDB Atlas connection string (replica set; needed for transactions).
   - `MONGODB_DB`: database name (e.g. `showbuzz_dev`, `showbuzz_prod`).
@@ -233,6 +252,9 @@ Always run **lint, typecheck and build** before declaring a task complete. Tests
   - `JWT_REFRESH_SECRET`: ≥32-byte secret for refresh tokens (different from access).
   - `QR_SIGNING_SECRET`: HMAC-SHA256 key for signing ticket QR payloads (≥32 chars, `packages/runtime/src/ticket-env.ts`; the admin app needs the same value for scan-qr). Required by the ticket pages: set it on Vercel.
   - `NEXT_PUBLIC_APP_URL`: canonical site URL (used for cookies, links, SEO).
+  - `REVALIDATE_SECRET`: shared by web, admin and partner; authorises `POST /api/internal/revalidate` on web.
+  - `WEB_APP_URL` (admin, partner): the public app's origin for that call (`https://showbuzz.com`).
+  - `PARTNER_JWT_ACCESS_SECRET`, `PARTNER_JWT_REFRESH_SECRET` (partner): vendor-user tokens.
   - `PAYMENT_KEY_ID`, `PAYMENT_KEY_SECRET`, `PAYMENT_WEBHOOK_SECRET`: payment gateway credentials (gateway TBD: Razorpay or Cashfree).
   - `OTP_HASH_SECRET`: HMAC key for OTP codes at rest.
   - `OTP_PROVIDER` + `OTP_PROVIDER_*`: SMS/email OTP delivery (provider TBD; until then `none` logs the code, see §12).
@@ -275,6 +297,9 @@ Always run **lint, typecheck and build** before declaring a task complete. Tests
   - **Built (batch 1.7):** account management in `packages/core/src/services/account.service.ts` behind Server Actions in `apps/web/src/app/(public)/_actions/account.ts`; every action starts with `requireCustomerSession()` (customer + current `sid`, session checked live in the DB). Profile page loads `getAccountProfile()` (snapshot, verified flags, sessions with device label from `packages/utils/src/user-agent.ts`) and passes it as props. Name is the only directly editable field (the prototype profile has only name/email/phone). Email/phone change only after verifying a code sent to the new identifier (`purpose: "change_contact"`, bound to `userId`; an identifier owned by another account → 409 `CONFLICT` with a neutral message, checked before sending and again via the unique index on confirm); the last identifier can't be removed (atomic guard). Sessions: list, revoke one (revoking this device clears cookies = sign-out), sign out all other devices. Account deletion (decided 2026-10-13: anonymise): fresh `delete_account` code, then `status: "deleted"`, name `"Deleted user"`, `deletedAt`, phone/email/verified dates unset, all sessions revoked; the document and `_id` stay so bookings/payments keep their link for GST; the old phone/email can sign up afresh. The OTP service exposes `issueChallenge()` / `consumeChallenge()` for any purpose (same limits; a code for another purpose or user is rejected as expired).
   - **Built (batch 1.9):** full write-up in `docs/auth.md` (flows, cookies, claims, rate limits, threat model, provider guide, production checklist). Step-up: `startContactChange` / `removeContact` need this session to be created or re-confirmed within `AUTH.stepUpWindowSec` (10 min), else `403 STEP_UP_REQUIRED`; the profile UI then sends a `purpose: "reauthenticate"` code to the customer's own phone/email (`startReauthAction` / `confirmReauthAction`), which sets `sessions.$.reauthenticatedAt` for this device only and retries. Contact-change starts are limited per user (5/h) and per IP (20/h) before the "taken" check. `getCurrentSession()` calls `connection()` before reading the clock (partial prefetch otherwise fails with "unstable value"). E2E: `apps/web/tests/e2e/auth.spec.ts`.
   - **RBAC:** roles from the prototype matrix: Super Admin, Cinema Manager, Event Manager, Finance, Support. Permissions are `resource:action` strings (e.g. `movies:write`, `refunds:approve`) checked with `requirePermission()` in `packages/core/src/auth/admin/current-staff.ts`. The catalogue (`PERMISSIONS`: `<menu resource>:read|write` plus `refunds:approve`, `refunds:request`, `scan-qr:use`, `users:reset-password`) and the seeded `SYSTEM_ROLES` live in `packages/schemas/src/permissions.ts`; the matrix in the prototype covers only 5 modules, the rest was agreed 2026-10-13. Roles are data (`roles` collection, edited later at `/roles`), not hard-coded checks. Data scoping ("cinema only", "events only") is not enforced yet. The console menu (`apps/admin/src/lib/nav.ts`) hides what the role can't open; pages and actions still check.
+  - **Vendor logins (built, back-office prompt 2, 2026-10-14):** same factories as staff, new instances in `packages/core/src/auth/partner/`: `tokens.ts` (aud `showbuzz-partner`, `PARTNER_JWT_*`), `cookies.ts` (`sbp_at` / `sbp_rt` path `/api/v1/partner/auth` / `sbp_has_session`, host-only), `sessions.ts` (`vendorUsers.sessions[]`, max 5 devices), `route-guard.ts` (`decidePartnerRoute`, open: /login, /signup, /forgot-password, /robots.txt). Shared with staff: `auth/password.ts` (bcrypt helpers; `admin/password.ts` re-exports), `auth/password-sign-in.ts` (`checkPasswordSignIn`: one message, dummy compare, per-email/per-IP limits; `PARTNER_AUTH` = the `ADMIN_AUTH` values), `auth/password-change.ts` (`changeAccountPassword`) and `auth/console-route-guard.ts` (`createConsoleRouteGuard`; `decideStaffRoute` is an instance). `vendor-auth.service.ts`: `signInVendorUser`, `startVendorSession`, `refreshVendorSession`, `currentVendor` (login + its vendor read per request), `signOutVendorUser`, `changeOwnVendorPassword`. `current-vendor.ts`: `getCurrentVendor()` / `requireVendor()` (401) → `{ vendorUser, vendor: VendorSummary, sid }`; `requireListingAccess()` (403 `ONBOARDING_INCOMPLETE` / `VENDOR_SUSPENDED`: every listing mutation in prompts 3–5 must call it); `requireVendorPage(path, { stage })` (console pages redirect to `/onboarding` until onboarding is complete; onboarding redirects finished vendors to `/dashboard`). A disabled login can't sign in; a suspended vendor can, sees a notice and can't change listings. Partner data scoping lives in `packages/core/src/services/partner/` and always takes the vendor id from the session.
+  - **Vendor signup and onboarding (built, prompt 2):** `/signup` (`services/partner/signup.service.ts`): business name/type, contact, email, mobile, city, password; the mobile gets a code (`issueChallenge` purpose `vendor_signup`, no user behind it; logged like customer codes) and the final submit consumes it, checks it was sent to that number, then creates the vendor (`onboardingStatus: incomplete`, active, commission billing, `defaultCommissionBps`/fee/GST/cancellation from Settings) and its owner login in one transaction and signs in. 5 signups per IP per hour; a taken email answers a neutral 409. `/onboarding` (`services/partner/onboarding.service.ts`): business details → GSTIN + PAN (format + check digit; PAN must equal GSTIN characters 3–12) → bank account (typed twice) → documents (GST certificate, PAN card, cancelled cheque required; business registration optional; kind `business_registration` added) → review & submit (re-validates every step, then `complete`: listings live, no approval). Progress is derived from saved data; steps are editable only while incomplete; replacing a document deletes the old file; `GET /api/v1/partner/documents/[fileId]` serves the vendor's own files only. Every step is logged (`logActivity`, field names only; bank changes as `bank_account_change`). A super-admin-created vendor (prompt 6) gets a login with `createVendorUser()` (`auth/partner/vendor-user-account.service.ts`) and goes through the same steps.
+  - **Activity log (built, prompt 2):** `activityLogs` (`packages/db/src/models/ActivityLog.ts`, Zod `packages/schemas/src/activity-log.ts`): `actorType` staff | vendor, `actorId`, `vendorId?`, `action` (snake_case), `resource`, `resourceId?`, `summary`, `changedFields` (names only, never values), `ipPrefix`, `createdAt`. `logActivity(actor, entry)` (`services/activity-log.service.ts`) reads the IP from `headers()` and never fails the save it records (errors are logged). Every console mutation calls it after the change.
 - **Domain model (MongoDB collections):** `users` (customers), `staff`, `roles`, `vendors`, `vendorUsers`, `plans`, `cities`, `languages`, `genres`, `movies`, `events` (one collection with `kind: concert | comedy | play | sport | activity | stream ...`), `venues` (cinemas, stadiums, grounds), `screens`, `seatLayouts`, `shows`, `seatHolds`, `bookings`, `payments`, `refunds`, `organisers`, `settlements`, `showSubmissions` (list-your-show), `offers`, `coupons`, `giftCards`, `foodItems`, `banners`, `reviews`, `notifications`, `pages`, `seoMeta`, `mediaAssets`, `activityLogs`, `settings` (single document), `leads` (corporate/contact).
   - Built so far (models in `packages/db/src/models/`, Zod in `packages/schemas/src/user.ts` and `staff.ts`):
     - `staff`: admin accounts. `email` (lowercase, unique), `passwordHash` (bcrypt), `roleId`, `status` active | disabled, `lastLoginAt`, `passwordChangedAt`, `sessions[]` (same sub-schema as users, `models/session.ts`). Serialisation drops sessions and hashes; `StaffSnapshot` (`{ id, name, email, role, permissions, lastLoginAt? }`) is the only staff shape sent to the browser.
@@ -287,9 +312,9 @@ Always run **lint, typecheck and build** before declaring a task complete. Tests
     - `venues`: `kind` cinema | stadium | venue, unique `slug`. **Screens and seat layouts are embedded** (`screens[{ id, name, layoutType, zones[{ id, name, accent, recliner, rows[{ row, count, aisleAfter, accessibleSeats }] }] }]`): a layout is small, always read with its venue and edited with it. Cinemas also hold `showTemplates` (daily slots). Event venues are created from each event's `venueName`.
     - `events`: `kind` event | play | sport | activity, unique `{ kind, slug }`, `schedule` stored with real Dates, optional `venueId`.
     - `shows`: `movieId` or `eventId`, `venueId`, `screenId`/`screenName`, `startsAt` (UTC), format, language, availability, `pricePaise` (top zone) and `zones[{ zoneId, name, description, pricePaise }]`. Unique `{ venueId, screenId, startsAt, movieId, eventId }`: `movieId` is part of the key because the demo screens every now-showing movie in every template slot (decided 2026-10-13). Show ids (`showIdSchema` = ObjectId) are what the seat page and the cart use.
-    - `settings`: one document `{ key: "global" }` with `gstBps`, `convenienceFeeBps`, `maxTicketsPerOrder` (8), `cancellationCutoffMinutes` (20), `cancellationFeePaise` (5000), `seatHoldMinutes` (10); Zod in `packages/schemas/src/settings.ts` (`SETTINGS_DEFAULTS` = the constants). `getSettings()` (`packages/core/src/services/settings.service.ts`, React `cache()` = once per request, defaults if missing/invalid) feeds pricing (max tickets; fees now come from the vendor, Settings fees are the defaults for new vendors), seat holds (max tickets, hold minutes; the seat page gets the limit as a prop) and booking (cutoff and fee only for bookings made before vendor policies; My Bookings gets them as props). Static copy (FAQ, terms, footer, PriceBreakdown labels) still uses the constants.
+    - `settings`: one document `{ key: "global" }` with `gstBps`, `convenienceFeeBps`, `maxTicketsPerOrder` (8), `cancellationCutoffMinutes` (20), `cancellationFeePaise` (5000), `seatHoldMinutes` (10), `defaultCommissionBps` (1000 = 10%, for new commission vendors; added 2026-10-14); Zod in `packages/schemas/src/settings.ts` (`SETTINGS_DEFAULTS` = the constants). `getSettings()` (`packages/core/src/services/settings.service.ts`, React `cache()` = once per request, defaults if missing/invalid) feeds pricing (max tickets; fees now come from the vendor, Settings fees are the defaults for new vendors), seat holds (max tickets, hold minutes; the seat page gets the limit as a prop) and booking (cutoff and fee only for bookings made before vendor policies; My Bookings gets them as props). Static copy (FAQ, terms, footer, PriceBreakdown labels) still uses the constants.
   - **Show generation:** `ensureMovieShows(dateKeys)` (`packages/db/src/shows.ts`) upserts with `$setOnInsert` every cinema template × now-showing movie for the given IST dates (one `bulkWrite`, duplicate-key races ignored). It runs lazily from `listShowtimes` once per date per server instance (memoised on `globalThis`), and `pnpm db:seed` runs it for the 7-day window, so the demo never runs out of shows and no cron is needed. Sports fixtures get one seeded Show at their stadium (zones named and priced from the event's first three tiers); `getShowIdForEvent()` gives the sports page its seat-map link. Movie zone prices: top zone = template price, then −₹180 (floor ₹180) and −₹300 (floor ₹150).
-  - **Catalogue caching:** every read in `catalog.service.ts` is `"use cache"` with `cacheTag(CATALOG_TAGS.<collection>)` and `cacheLife("hours")` (cities and gift-card designs `"days"`). Showtimes, show details and seat maps are uncached (time/availability-dependent). `revalidateCatalog(tag)` wraps `revalidateTag(tag, "max")`; it only affects the web app, so the admin app will need a protected revalidate route on web. Header search is a Server Action (`searchCatalogAction` → `searchCatalog(q)`: escaped case-insensitive substring match on titles, genres/languages, categories and venue names, 6 per type), debounced in `use-catalog-search.ts`.
+  - **Catalogue caching:** every read in `catalog.service.ts` is `"use cache"` with `cacheTag(CATALOG_TAGS.<collection>)` and `cacheLife("hours")` (cities and gift-card designs `"days"`). Showtimes, show details and seat maps are uncached (time/availability-dependent). `revalidateCatalog(tag)` wraps `revalidateTag(tag, "max")`; it only affects the web app. The consoles call `revalidateWeb(tags)` (`packages/core/src/services/web-revalidate.service.ts`): it POSTs to web's `/api/internal/revalidate` with `Authorization: Bearer <REVALIDATE_SECRET>` (constant-time compare, `http/internal-auth.ts`) inside `after()`, 5 s timeout, failures logged and never thrown, so a save never waits or fails on it. Tag names live in `services/catalog-tags.ts` (importable without the `"use cache"` reads). Header search is a Server Action (`searchCatalogAction` → `searchCatalog(q)`: escaped case-insensitive substring match on titles, genres/languages, categories and venue names, 6 per type), debounced in `use-catalog-search.ts`.
   - **Customer data (built, Prompt C, 2026-10-13):**
     - `reviews`: `{ movieId, userId, authorName, rating 1–5 (prototype stars), text, status published | hidden, timestamps }`, unique `{ movieId, userId }`: submitting again updates the review. `review.service.addMovieReview` upserts the review and `$inc`s the movie's `userRatingCount` / `userRatingSum` in one transaction (+1 and +rating when new, +(new − old) when edited); `toMovie` exposes `userRating { average, count }` (absent until the first review), shown next to the catalogue /10 score on the movie page and cards. `submitReviewAction` calls `updateTag(CATALOG_TAGS.movies)` so the new average shows at once. Author name comes from the session. The movie page lists published reviews, then the catalogue's editorial seed reviews (still embedded on the movie).
     - `leads`: `{ type contact | corporate | show_submission, reference (unique, TKT-/CORP-/LYS-#####), name, email, phone?, fields (validated form payload), status new | in_progress | closed, ipPrefix, timestamps }`. `lead.service`: 5 submissions per IP prefix per hour (`consumeRateLimit`, 429 `RATE_LIMITED`); a hidden `website` honeypot in all three forms (filled → normal-looking reference, nothing stored). `listLeads({ type?, status?, page, limit })` is for the admin app (nothing else reads leads).
@@ -410,7 +435,9 @@ Always run **lint, typecheck and build** before declaring a task complete. Tests
 - **Admin password recovery is a stand-in:** no email provider yet, so `/forgot-password` says "Ask a Super Admin to reset your password". A Super Admin (`users:reset-password`) sets a temporary password from `/users` (shown once, target signed out everywhere); the staff member then changes it at `/profile`. Replace with an emailed reset link when an email provider is chosen. The admin dashboard shows labelled sample figures and every unbuilt menu page renders "Coming soon".
 - **KYC file storage is a stand-in:** no media provider yet, so KYC documents live in MongoDB GridFS (bucket `files`) behind the `FileStorage` interface (`packages/db/src/storage/file-storage.ts`: `put/get/delete`, PDF/JPEG/PNG checked by their first bytes, max 4 MB for Vercel's body limit, owner in file metadata). Files are private: whoever serves one must check the owner first. Swap the implementation for S3 / Vercel Blob when `MEDIA_STORAGE_*` is decided. The seed stores generated "DEMO DOCUMENT" PDFs for the three demo vendors.
 - **Demo vendors (seed):** Kolkata Screens Pvt Ltd (commission 10%, fee 8.5%, cancel up to 20 min, ₹50; PVR INOX Quest, Cinépolis Acropolis, PVR ICON Mumbai), Bengal Picture Palace LLP (subscription on "Demo Monthly" ₹9,999, fee 6%, 2 h, ₹30; INOX Insignia, Miraj), Festive Nights Entertainment Pvt Ltd (commission 12%, fee 10%, 24 h, ₹100; every event, play, sport, activity and their venues). Fictional businesses, fake but valid-format KYC; vendor rates/policy/KYC are set on first insert only. The seed also backfills `vendorId` + settlement on older bookings (fees at the Settings rates), payments and refunds, and drops the old unique `code_1` index on `foodItems`. Run `pnpm db:seed` after pulling this change: until then shows have no vendor and can't be booked.
-- **Admin app rendering:** `apps/admin` does not use Cache Components; its root layout sets `dynamic = "force-dynamic"`, so no admin page is prerendered or cached. Pages get `robots: noindex` metadata, an `X-Robots-Tag` header and a disallow-all `robots.txt`.
+- **Partner portal stand-ins (prompt 2):** signup verifies only the mobile number (OTP logged as for customers, `devCode` on screen outside production); the email is not verified until an email provider exists. `/forgot-password` says to ask the ShowBuzz account manager (vendor password reset arrives with the admin vendor screen, prompt 6). Dev-only demo logins: `pnpm db:seed-demo-vendors` (after `pnpm db:seed`) → `screens@showbuzz.test` (Kolkata Screens), `palace@showbuzz.test` (Bengal Picture Palace), `events@showbuzz.test` (Festive Nights), password `12345678`; refuses to run in production. Partner pages not built yet render "Coming soon"; the dashboard shows the vendor's name, status and billing terms only (sales figures in prompt 8).
+- **Console kit:** `packages/console-ui` holds the shell and kit both consoles use; its Prettier config sorts classes against `apps/admin/src/app/globals.css` (theme tokens come from `src/theme.css`, imported by each app). The shell's `useEffect` dependency warning (`setOpen`) predates the move.
+- **Admin and partner app rendering:** `apps/admin` and `apps/partner` do not use Cache Components (so they must not call the `"use cache"` reads in `catalog.service.ts`); their root layouts set `dynamic = "force-dynamic"`, so no console page is prerendered or cached. The partner app allows 5 MB Server Action bodies (KYC uploads). Pages get `robots: noindex` metadata, an `X-Robots-Tag` header and a disallow-all `robots.txt`.
 
 ### Monorepo (pnpm + Turborepo) gotchas
 
@@ -437,16 +464,18 @@ Always run **lint, typecheck and build** before declaring a task complete. Tests
 
 ### Vercel (one project per app)
 
-| Project       | Root Directory | Domain               | Install command | Build command                  | Ignored build step  |
-| ------------- | -------------- | -------------------- | --------------- | ------------------------------ | ------------------- |
-| showbuzz-web   | `apps/web`     | `showbuzz.com`       | `pnpm install`  | default (`next build`)         | `npx turbo-ignore`  |
-| showbuzz-admin | `apps/admin`   | `admin.showbuzz.com` | `pnpm install`  | default (`next build`)         | `npx turbo-ignore`  |
+| Project          | Root Directory | Domain                 | Install command | Build command          | Ignored build step |
+| ---------------- | -------------- | ---------------------- | --------------- | ---------------------- | ------------------ |
+| showbuzz-web     | `apps/web`     | `showbuzz.com`         | `pnpm install`  | default (`next build`) | `npx turbo-ignore` |
+| showbuzz-admin   | `apps/admin`   | `admin.showbuzz.com`   | `pnpm install`  | default (`next build`) | `npx turbo-ignore` |
+| showbuzz-partner | `apps/partner` | `partner.showbuzz.com` | `pnpm install`  | default (`next build`) | `npx turbo-ignore` |
 
 - Keep "Include files outside the Root Directory" on (packages are outside the app folder). Vercel detects pnpm from
   `pnpm-lock.yaml` + `packageManager` at the repo root.
 - `turbo-ignore` skips a deployment when nothing the app depends on changed, so a web-only change doesn't rebuild admin.
-- Env vars are set per project and per environment; the admin app gets its own secrets (no shared cookies or Domain
-  attribute between the two hosts).
+- Env vars are set per project and per environment; admin and partner get their own secrets (no shared cookies or
+  Domain attribute between the hosts). `REVALIDATE_SECRET` must be the same in all three projects, and admin/partner
+  need `WEB_APP_URL=https://showbuzz.com`.
 
 ## 13. Useful References
 

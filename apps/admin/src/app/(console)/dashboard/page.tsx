@@ -12,7 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
-import { Card, PageHeader, SampleBadge } from "@/components/console/PageParts";
+import { Card, PageHeader, SampleBadge } from "@showbuzz/console-ui/PageParts";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -31,11 +31,37 @@ interface Kpi {
 }
 
 const KPIS: Kpi[] = [
-  { label: "Gross Value", value: "₹18,42,600", note: "+18.4% vs last week", icon: IndianRupee, tone: "bg-indigo-50 text-admin-indigo", trend: true },
-  { label: "Tickets Sold", value: "6,284", note: "+12.6% growth", icon: Ticket, tone: "bg-rose-50 text-admin-coral", trend: true },
-  { label: "Orders", value: "2,915", note: "98.2% payment success", icon: ShoppingBag, tone: "bg-teal-50 text-teal-600" },
+  {
+    label: "Gross Value",
+    value: "₹18,42,600",
+    note: "+18.4% vs last week",
+    icon: IndianRupee,
+    tone: "bg-indigo-50 text-admin-indigo",
+    trend: true,
+  },
+  {
+    label: "Tickets Sold",
+    value: "6,284",
+    note: "+12.6% growth",
+    icon: Ticket,
+    tone: "bg-rose-50 text-admin-coral",
+    trend: true,
+  },
+  {
+    label: "Orders",
+    value: "2,915",
+    note: "98.2% payment success",
+    icon: ShoppingBag,
+    tone: "bg-teal-50 text-teal-600",
+  },
   { label: "Active Shows", value: "148", note: "Across 20 cinemas", icon: Clock, tone: "bg-amber-50 text-amber-600" },
-  { label: "Concerts & Gigs", value: "24", note: "8 stadium venues", icon: Calendar, tone: "bg-purple-50 text-purple-600" },
+  {
+    label: "Concerts & Gigs",
+    value: "24",
+    note: "8 stadium venues",
+    icon: Calendar,
+    tone: "bg-purple-50 text-purple-600",
+  },
   { label: "Now Showing", value: "18", note: "5 languages", icon: Film, tone: "bg-slate-100 text-slate-700" },
 ];
 
@@ -64,10 +90,38 @@ const CITIES = [
   { label: "Pune", value: 950 },
 ];
 const RECENT = [
-  { id: "SB-883921", customer: "Ananya Sen", content: "Chrono Nexus: Origins · INOX Quest Mall", time: "Today, 06:15 PM", total: "₹1,240", status: "Confirmed" },
-  { id: "SB-883917", customer: "Rohit Verma", content: "Sunburn EDM Arena · Salt Lake Stadium", time: "Sat, 05:00 PM", total: "₹4,500", status: "Confirmed" },
-  { id: "SB-883904", customer: "Priya Nair", content: "Macbeth · Academy of Fine Arts", time: "Sun, 07:30 PM", total: "₹900", status: "Pending" },
-  { id: "SB-883899", customer: "Arjun Das", content: "Shadows of Varanasi · PVR Mani Square", time: "Today, 09:45 PM", total: "₹620", status: "Refunded" },
+  {
+    id: "SB-883921",
+    customer: "Ananya Sen",
+    content: "Chrono Nexus: Origins · INOX Quest Mall",
+    time: "Today, 06:15 PM",
+    total: "₹1,240",
+    status: "Confirmed",
+  },
+  {
+    id: "SB-883917",
+    customer: "Rohit Verma",
+    content: "Sunburn EDM Arena · Salt Lake Stadium",
+    time: "Sat, 05:00 PM",
+    total: "₹4,500",
+    status: "Confirmed",
+  },
+  {
+    id: "SB-883904",
+    customer: "Priya Nair",
+    content: "Macbeth · Academy of Fine Arts",
+    time: "Sun, 07:30 PM",
+    total: "₹900",
+    status: "Pending",
+  },
+  {
+    id: "SB-883899",
+    customer: "Arjun Das",
+    content: "Shadows of Varanasi · PVR Mani Square",
+    time: "Today, 09:45 PM",
+    total: "₹620",
+    status: "Refunded",
+  },
 ];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -99,7 +153,9 @@ export default async function DashboardPage() {
               </span>
             </div>
             <p className="text-xl font-black tracking-tight text-admin-dark">{value}</p>
-            <p className={`flex items-center gap-1 text-[10px] ${trend ? "font-bold text-emerald-600" : "text-admin-subtle"}`}>
+            <p
+              className={`flex items-center gap-1 text-[10px] ${trend ? "font-bold text-emerald-600" : "text-admin-subtle"}`}
+            >
               {trend ? <TrendingUp className="h-3 w-3" aria-hidden /> : null}
               {note}
             </p>
@@ -109,12 +165,22 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="space-y-4 overflow-hidden p-4 sm:p-5 lg:col-span-2">
-          <SectionTitle title="Ticket Sales & Revenue Growth Trend" subtitle="Gross monthly box office collections (INR lakhs)" />
-          <div className="flex h-64 items-end gap-3 border-b border-admin-border pb-2" role="img" aria-label="Monthly revenue, sample data">
+          <SectionTitle
+            title="Ticket Sales & Revenue Growth Trend"
+            subtitle="Gross monthly box office collections (INR lakhs)"
+          />
+          <div
+            className="flex h-64 items-end gap-3 border-b border-admin-border pb-2"
+            role="img"
+            aria-label="Monthly revenue, sample data"
+          >
             {MONTHLY_REVENUE.map((m) => (
               <div key={m.label} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
                 <span className="text-[10px] font-bold text-admin-muted">{m.value}</span>
-                <div className="w-full rounded-t-md bg-admin-indigo/85" style={{ height: `${(m.value / maxRevenue) * 85}%` }} />
+                <div
+                  className="w-full rounded-t-md bg-admin-indigo/85"
+                  style={{ height: `${(m.value / maxRevenue) * 85}%` }}
+                />
                 <span className="text-[10px] text-admin-subtle">{m.label}</span>
               </div>
             ))}
@@ -160,8 +226,14 @@ export default async function DashboardPage() {
 
         <Card className="overflow-hidden lg:col-span-2">
           <div className="flex items-center justify-between border-b border-admin-border bg-slate-50/50 p-4">
-            <SectionTitle title="Recent Box Office Bookings" subtitle="Customer transactions across cinemas and venues" />
-            <Link href="/bookings" className="flex items-center gap-1 text-xs font-bold text-admin-indigo hover:underline">
+            <SectionTitle
+              title="Recent Box Office Bookings"
+              subtitle="Customer transactions across cinemas and venues"
+            />
+            <Link
+              href="/bookings"
+              className="flex items-center gap-1 text-xs font-bold text-admin-indigo hover:underline"
+            >
               View All <ChevronRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </div>
@@ -186,7 +258,9 @@ export default async function DashboardPage() {
                     <td className="px-4 py-3 whitespace-nowrap text-admin-muted">{row.time}</td>
                     <td className="px-4 py-3 font-bold text-admin-dark">{row.total}</td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLES[row.status] ?? ""}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLES[row.status] ?? ""}`}
+                      >
                         {row.status}
                       </span>
                     </td>

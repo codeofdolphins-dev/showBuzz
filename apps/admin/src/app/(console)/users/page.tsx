@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
 import { hasPermission } from "@showbuzz/schemas/permissions";
-import { Card, ComingSoon, NoAccess } from "@/components/console/PageParts";
+import { Card, ComingSoon, NoAccess } from "@showbuzz/console-ui/PageParts";
 import { ResetPasswordForm } from "@/components/users/ResetPasswordForm";
 
 export const metadata: Metadata = { title: "Staff & Operators" };
@@ -21,8 +21,8 @@ export default async function UsersPage() {
           <div>
             <h2 className="text-sm font-bold text-admin-dark">Reset a staff password</h2>
             <p className="text-[11px] text-admin-subtle">
-              Sets a temporary password and signs that person out everywhere. Share it privately; they should
-              change it from their profile after signing in.
+              Sets a temporary password and signs that person out everywhere. Share it privately; they should change it
+              from their profile after signing in.
             </p>
           </div>
           <ResetPasswordForm />

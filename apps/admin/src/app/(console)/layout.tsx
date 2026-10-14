@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
-import { ConsoleShell } from "@/components/shell/ConsoleShell";
+import { ConsoleShell } from "@showbuzz/console-ui/ConsoleShell";
 import { navFor } from "@/lib/nav";
+
+const BRANDING = { name: "ShowBuzz", tagline: "Admin Console", footer: "ShowBuzz Admin · Staff-only console" };
+
+/** Prototype bottom tabs: Dashboard, Movies, Bookings, Shows (those the role can open) + Menu. */
+const TAB_IDS = ["movies", "bookings", "shows"];
 
 /**
  * Authenticated console chrome. The menu is filtered here, on the server, from the staff member's role; pages
@@ -10,7 +15,15 @@ import { navFor } from "@/lib/nav";
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const { staff } = await requireStaffPage("/dashboard");
   return (
-    <ConsoleShell staff={staff} nav={navFor(staff.permissions)}>
+    <ConsoleShell
+      branding={BRANDING}
+      user={{ name: staff.name, subtitle: staff.role.name, email: staff.email }}
+      nav={navFor(staff.permissions)}
+      logoutPath="/api/v1/admin/auth/logout"
+      loginPath="/login"
+      tabIds={TAB_IDS}
+      notificationsHref="/notifications"
+    >
       {children}
     </ConsoleShell>
   );

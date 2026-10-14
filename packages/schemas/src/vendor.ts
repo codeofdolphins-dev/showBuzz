@@ -10,7 +10,35 @@ export const vendorBusinessTypeSchema = z.enum(["cinema_chain", "event_organiser
 export const vendorOnboardingStatusSchema = z.enum(["incomplete", "complete"]);
 export const vendorStatusSchema = z.enum(["active", "suspended"]);
 export const billingModelSchema = z.enum(["subscription", "commission"]);
-export const kycDocumentKindSchema = z.enum(["gst_certificate", "pan_card", "cancelled_cheque", "other"]);
+export const kycDocumentKindSchema = z.enum([
+  "gst_certificate",
+  "pan_card",
+  "cancelled_cheque",
+  // Certificate of incorporation / partnership deed / shop & establishment licence (optional: proprietors may have none).
+  "business_registration",
+  "other",
+]);
+
+/** Documents onboarding can't complete without (business registration is optional). */
+export const REQUIRED_KYC_DOCUMENTS = ["gst_certificate", "pan_card", "cancelled_cheque"] as const;
+
+export const KYC_DOCUMENT_LABELS: Record<z.infer<typeof kycDocumentKindSchema>, string> = {
+  gst_certificate: "GST registration certificate",
+  pan_card: "PAN card",
+  cancelled_cheque: "Cancelled cheque",
+  business_registration: "Business registration certificate",
+  other: "Other document",
+};
+
+export const VENDOR_BUSINESS_TYPE_LABELS: Record<
+  "cinema_chain" | "event_organiser" | "venue_operator" | "other",
+  string
+> = {
+  cinema_chain: "Cinema / multiplex chain",
+  event_organiser: "Event organiser",
+  venue_operator: "Venue operator",
+  other: "Other",
+};
 
 const GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 

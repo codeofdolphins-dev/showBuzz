@@ -2,6 +2,7 @@ import {
   Armchair,
   BarChart3,
   Briefcase,
+  Building2,
   CalendarDays,
   Clock,
   Compass,
@@ -38,10 +39,11 @@ import {
   Tv,
   UserCheck,
   Users,
+  Utensils,
   Video,
   Wallet,
 } from "lucide-react";
-import type { NavIcon } from "@/lib/nav";
+import type { NavIcon } from "./nav";
 
 /** Menu icon names (plain data from lib/nav) → lucide components. */
 export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
@@ -85,4 +87,6 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   "shield-check": ShieldCheck,
   "scroll-text": ScrollText,
   database: Database,
+  utensils: Utensils,
+  building: Building2,
 };

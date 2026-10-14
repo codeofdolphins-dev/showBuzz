@@ -4,12 +4,10 @@ import { staffLoginSchema, type StaffSnapshot } from "@showbuzz/schemas/staff";
 import { connect } from "@showbuzz/db/connect";
 import { Role } from "@showbuzz/db/models/Role";
 import { Staff, type StaffDocument } from "@showbuzz/db/models/Staff";
-import { log } from "@showbuzz/runtime/log";
 import { AppError } from "../../http/app-error";
-import { consumeRateLimit } from "../../security/rate-limit";
 import type { AuthRequestContext } from "../context";
 import type { SessionTokens } from "../session-store";
-import { burnPasswordCheck, verifyPassword } from "./password";
+import { checkPasswordSignIn } from "../password-sign-in";
 import { staffSessions } from "./sessions";
 import { adminTokens } from "./tokens";
 
@@ -29,29 +27,26 @@ export interface CurrentStaff {
   accessExpiresAt: Date;
 }
 
-/** One message for unknown email, wrong password and disabled account: no account enumeration. */
-const INVALID_CREDENTIALS = "Invalid email or password.";
 const NOT_SIGNED_IN = "Please sign in to continue.";
 
-/** Checks email + password and starts a session on this device. */
+/** Checks email + password (shared rules: ../password-sign-in.ts) and starts a session on this device. */
 export async function signInStaff(input: unknown, ctx: AuthRequestContext): Promise<SignedInStaff> {
   const { email, password } = staffLoginSchema.parse(input);
-
-  await limitLogin(`staff-login:email:${email}`, ADMIN_AUTH.loginMaxPerEmail, ctx.now);
-  if (ctx.ip !== "unknown") await limitLogin(`staff-login:ip:${ctx.ip}`, ADMIN_AUTH.loginMaxPerIp, ctx.now);
-
-  await connect();
-  const staff = await Staff.findOne({ email });
-  if (!staff) {
-    await burnPasswordCheck(password);
-    throw invalidCredentials();
-  }
-  // The password is checked before the status, so a disabled account answers exactly like a wrong password.
-  const passwordOk = await verifyPassword(password, staff.passwordHash);
-  if (!passwordOk || staff.status !== "active") {
-    if (passwordOk) log.info("Disabled staff account tried to sign in", { event: "staff.login_disabled", staffId: staff.id });
-    throw invalidCredentials();
-  }
+  const staff = await checkPasswordSignIn<StaffDocument>({
+    email,
+    password,
+    ctx,
+    label: "staff",
+    limits: {
+      windowSec: ADMIN_AUTH.loginWindowSec,
+      maxPerEmail: ADMIN_AUTH.loginMaxPerEmail,
+      maxPerIp: ADMIN_AUTH.loginMaxPerIp,
+    },
+    findAccount: async (address) => {
+      await connect();
+      return Staff.findOne({ email: address });
+    },
+  });
 
   const snapshot = await toSnapshot(staff, ctx.now);
   const tokens = await staffSessions.createSession(staff, ctx);
@@ -110,22 +105,6 @@ export async function toSnapshot(staff: StaffDocument, lastLoginAt?: Date): Prom
     permissions: role ? [...role.permissions] : [],
     ...(loginAt ? { lastLoginAt: loginAt.toISOString() } : {}),
   };
-}
-
-async function limitLogin(key: string, limit: number, now: Date): Promise<void> {
-  const result = await consumeRateLimit(key, { limit, windowSec: ADMIN_AUTH.loginWindowSec, now });
-  if (result.allowed) return;
-  const minutes = Math.max(1, Math.ceil(result.retryAfterSec / 60));
-  throw new AppError(
-    "RATE_LIMITED",
-    `Too many sign-in attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
-    429,
-    { retryAfterSec: result.retryAfterSec },
-  );
-}
-
-function invalidCredentials() {
-  return new AppError("UNAUTHENTICATED", INVALID_CREDENTIALS, 401);
 }
 
 function notSignedIn() {
