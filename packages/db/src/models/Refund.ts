@@ -7,6 +7,8 @@ export interface RefundAttrs {
   /** Missing when a gift card paid the whole order (nothing went through the gateway). */
   paymentId?: Types.ObjectId;
   userId: Types.ObjectId;
+  /** The booking's vendor (absent for gift card purchases). */
+  vendorId?: Types.ObjectId;
   provider: "simulated";
   providerRef: string;
   /** Refunded through the payment gateway. */
@@ -27,6 +29,7 @@ const refundSchema = new Schema<RefundAttrs>(
     bookingId: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
     paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
     provider: { type: String, enum: ["simulated"], required: true },
     providerRef: { type: String, required: true },
     amountPaise: { type: Number, required: true, min: 0 },
@@ -40,6 +43,7 @@ const refundSchema = new Schema<RefundAttrs>(
 );
 
 refundSchema.index({ bookingId: 1 }, { unique: true });
+refundSchema.index({ vendorId: 1, createdAt: -1 });
 
 export const Refund: Model<RefundAttrs> =
   (models.Refund as Model<RefundAttrs> | undefined) ?? model<RefundAttrs>("Refund", refundSchema, "refunds");

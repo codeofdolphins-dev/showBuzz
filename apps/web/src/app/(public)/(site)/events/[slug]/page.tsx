@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { CalendarDays, Clock, MapPin, Navigation, Ticket } from "lucide-react";
+import { CalendarDays, Clock, MapPin, Navigation, Ticket, UserRound } from "lucide-react";
 import { tierPriceRange } from "@/components/public/cards/EventCard";
 import { WishlistButton } from "@/components/public/common/WishlistButton";
 import { LiveTierPicker } from "@/components/public/event/LiveTierPicker";
@@ -60,6 +60,11 @@ export default async function EventDetailsPage({ params }: PageProps<"/events/[s
               <p className="flex items-center gap-1.5 text-xs font-medium text-slate-300 sm:text-sm">
                 <MapPin className="h-3.5 w-3.5 text-rose-400" /> {event.venueName}
               </p>
+              {event.organiserName && (
+                <p className="flex items-center gap-1.5 text-xs font-medium text-slate-300 sm:text-sm">
+                  <UserRound className="h-3.5 w-3.5 text-rose-400" /> Organised by {event.organiserName}
+                </p>
+              )}
               <div className="flex items-center gap-3 pt-2">
                 <a
                   href="#ticket-tiers"

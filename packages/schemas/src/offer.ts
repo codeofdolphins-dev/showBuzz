@@ -1,10 +1,12 @@
 import { z } from "zod";
-import { idSchema, isoDateTimeSchema, paiseSchema } from "./common";
+import { idSchema, isoDateTimeSchema, objectIdSchema, paiseSchema } from "./common";
 
 export const offerIconSchema = z.enum(["tags", "credit-card", "smartphone", "popcorn", "crown"]);
 
 export const couponSchema = z.object({
   id: idSchema,
+  /** Vendor coupons only (valid on that vendor's shows); absent = platform coupon, valid everywhere. */
+  vendorId: objectIdSchema.optional(),
   code: z.string().regex(/^[A-Z0-9]{3,20}$/),
   title: z.string().min(1),
   category: z.string().min(1),

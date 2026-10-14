@@ -16,10 +16,14 @@ import { PAYMENT_METHOD_LABELS, paymentLabel } from "@showbuzz/utils/payment";
 import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { toast } from "@/stores/ui";
 import type { BookingView } from "@showbuzz/schemas/types/booking";
+import { describeCutoff } from "@showbuzz/schemas/vendor";
 
 interface BookingsListProps {
   bookings: BookingView[];
-  /** From Settings, for the cancellation dialog (the server applies the same values). */
+  /**
+   * From Settings: the cancellation terms for bookings made before vendor policies existed. Newer bookings carry
+   * their vendor's policy (`cancellationPolicy`), which the server applies the same way.
+   */
   cancellation: { feePaise: number; cutoffMinutes: number };
   /** Server-rendered QR SVGs for upcoming confirmed bookings, by booking code. */
   qrCodes: Record<string, string>;
@@ -35,6 +39,7 @@ export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListPr
   const [tab, setTab] = useState<"active" | "past">("active");
   const [confirming, setConfirming] = useState<BookingView | null>(null);
   const [openQr, setOpenQr] = useState<string | null>(null);
+  const policy = confirming?.cancellationPolicy ?? cancellation;
   const [isPending, startTransition] = useTransition();
 
   const visible = bookings.filter((b) => (tab === "active" ? b.phase === "upcoming" : b.phase !== "upcoming"));
@@ -192,16 +197,15 @@ export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListPr
           <>
             <p className="text-xs leading-relaxed text-slate-600">
               Booking <strong>{confirming.code}</strong> will be cancelled. A cancellation fee of{" "}
-              {formatINR(cancellation.feePaise)} applies; you&apos;ll receive{" "}
+              {formatINR(policy.feePaise)} applies; you&apos;ll receive{" "}
               <strong>
-                {formatINR(Math.max(0, confirming.amounts.totalPaise - cancellation.feePaise), { exact: true })}
+                {formatINR(Math.max(0, confirming.amounts.totalPaise - policy.feePaise), { exact: true })}
               </strong>{" "}
               back{" "}
               {confirming.amounts.giftCardPaise > 0
-                ? `(${formatINR(giftCardReturn(confirming, cancellation.feePaise), { exact: true })} to your gift card, the rest to ${PAYMENT_METHOD_LABELS[confirming.paymentMethod]})`
+                ? `(${formatINR(giftCardReturn(confirming, policy.feePaise), { exact: true })} to your gift card, the rest to ${PAYMENT_METHOD_LABELS[confirming.paymentMethod]})`
                 : `to ${PAYMENT_METHOD_LABELS[confirming.paymentMethod]}`}
-              . Cancellations close {cancellation.cutoffMinutes} minutes
-              before the show.
+              . Cancellation is possible {describeCutoff(policy.cutoffMinutes)}.
             </p>
             <div className="mt-5 flex gap-2">
               <button type="button" onClick={() => setConfirming(null)} className="flex-1 rounded-xl bg-slate-100 py-2.5 text-xs font-bold text-slate-600">

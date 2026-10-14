@@ -1,16 +1,21 @@
 import "server-only";
-import { type Model, Schema, model, models } from "mongoose";
+import { type Model, Schema, type Types, model, models } from "mongoose";
 import type { Coupon as CouponShape } from "@showbuzz/schemas/offer";
 import { type LeanDoc, sortOrderField } from "./transforms";
 
-/** A promo code shown on /offers and applied at checkout. `code` is upper case and unique. */
-export interface CouponAttrs extends Omit<CouponShape, "id" | "validUntil"> {
+/**
+ * A promo code applied at checkout. `code` is upper case and unique. `vendorId` null = platform coupon (valid on
+ * every show, listed on /offers); a vendor coupon applies only to that vendor's shows.
+ */
+export interface CouponAttrs extends Omit<CouponShape, "id" | "validUntil" | "vendorId"> {
+  vendorId: Types.ObjectId | null;
   validUntil: Date;
   sortOrder: number;
 }
 
 const couponSchema = new Schema<CouponAttrs>(
   {
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor", default: null },
     code: { type: String, required: true, uppercase: true, trim: true },
     title: { type: String, required: true },
     category: { type: String, required: true },
@@ -35,6 +40,7 @@ const couponSchema = new Schema<CouponAttrs>(
 );
 
 couponSchema.index({ code: 1 }, { unique: true });
+couponSchema.index({ vendorId: 1, sortOrder: 1 });
 
 /** Drops keys that Mongo returns as null/missing so the object matches the Zod shape. */
 function defined<T extends object>(obj: T): T {
@@ -44,6 +50,7 @@ function defined<T extends object>(obj: T): T {
 export function toCoupon(doc: LeanDoc<CouponAttrs>): CouponShape {
   return defined({
     id: doc._id.toString(),
+    vendorId: doc.vendorId?.toString(),
     code: doc.code,
     title: doc.title,
     category: doc.category,

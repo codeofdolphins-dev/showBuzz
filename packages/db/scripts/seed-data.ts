@@ -8,6 +8,13 @@ import { movieSchema } from "@showbuzz/schemas/movie";
 import { couponSchema } from "@showbuzz/schemas/offer";
 import { streamTitleSchema } from "@showbuzz/schemas/stream";
 import { cinemaSchema } from "@showbuzz/schemas/venue";
+import {
+  type BillingModel,
+  type CancellationPolicy,
+  type VendorBusinessType,
+  type VendorKyc,
+  gstinCheckDigit,
+} from "@showbuzz/schemas/vendor";
 
 /**
  * Catalogue ported from the prototype (showBuzz_HTML/assets/js/data.js), normalised to the
@@ -927,3 +934,100 @@ export const giftCardDesigns = z.array(giftCardDesignSchema).parse([
   { id: "gc-indigo", name: "Live Concerts Pass", gradient: "from-blue-600 to-indigo-700" },
   { id: "gc-emerald", name: "Corporate Recognition", gradient: "from-emerald-500 to-teal-700" },
 ]);
+
+/**
+ * Demo marketplace (fictional businesses with fake but valid-format KYC; no real chain is implied). Two cinema
+ * chains on different billing models and rates, and one organiser for every event, play, sport and activity.
+ * GSTINs are built from the PAN (characters 3-12) with the real check digit.
+ */
+const gstin = (state: string, pan: string) => `${state}${pan}1Z${gstinCheckDigit(`${state}${pan}1Z`)}`;
+
+export type SeedVendorKey = "kolkata-screens" | "bengal-picture-palace" | "festive-nights";
+
+export interface SeedVendor {
+  key: SeedVendorKey;
+  businessName: string;
+  businessType: VendorBusinessType;
+  contact: { name: string; email: string; phone: string };
+  address: { line: string; cityId: string; pincode: string };
+  kyc: Omit<VendorKyc, "documents">;
+  billingModel: BillingModel;
+  /** Subscription vendors: the seeded plan's name. */
+  planName?: string;
+  commissionBps: number;
+  convenienceFeeBps: number;
+  gstBps: number;
+  cancellation: CancellationPolicy;
+}
+
+export const DEMO_PLAN = { name: "Demo Monthly", monthlyFeePaise: 999_900, active: true };
+
+export const vendors: SeedVendor[] = [
+  {
+    key: "kolkata-screens",
+    businessName: "Kolkata Screens Pvt Ltd",
+    businessType: "cinema_chain",
+    contact: { name: "Arindam Sen", email: "partners+kolkata-screens@example.com", phone: "+919830012345" },
+    address: { line: "4th Floor, 12 Park Street, Kolkata", cityId: "kolkata", pincode: "700016" },
+    kyc: {
+      gstin: gstin("19", "AAKCK4821M"),
+      pan: "AAKCK4821M",
+      bankAccount: { holderName: "Kolkata Screens Pvt Ltd", accountNumber: "50100234567891", ifsc: "HDFC0000123" },
+    },
+    billingModel: "commission",
+    commissionBps: 1000,
+    convenienceFeeBps: 850,
+    gstBps: 1800,
+    cancellation: { allowed: true, cutoffMinutes: 20, feePaise: 5000 },
+  },
+  {
+    key: "bengal-picture-palace",
+    businessName: "Bengal Picture Palace LLP",
+    businessType: "cinema_chain",
+    contact: { name: "Moumita Ghosh", email: "partners+picture-palace@example.com", phone: "+919831098765" },
+    address: { line: "Block DN, Sector V, Salt Lake, Kolkata", cityId: "kolkata", pincode: "700091" },
+    kyc: {
+      gstin: gstin("19", "AAQFB7314R"),
+      pan: "AAQFB7314R",
+      bankAccount: { holderName: "Bengal Picture Palace LLP", accountNumber: "002301567890", ifsc: "ICIC0000456" },
+    },
+    billingModel: "subscription",
+    planName: DEMO_PLAN.name,
+    commissionBps: 0,
+    convenienceFeeBps: 600,
+    gstBps: 1800,
+    cancellation: { allowed: true, cutoffMinutes: 120, feePaise: 3000 },
+  },
+  {
+    key: "festive-nights",
+    businessName: "Festive Nights Entertainment Pvt Ltd",
+    businessType: "event_organiser",
+    contact: { name: "Rahul Agarwal", email: "partners+festive-nights@example.com", phone: "+919874011223" },
+    address: { line: "22 Camac Street, Kolkata", cityId: "kolkata", pincode: "700017" },
+    kyc: {
+      gstin: gstin("19", "AAHCF2956K"),
+      pan: "AAHCF2956K",
+      bankAccount: {
+        holderName: "Festive Nights Entertainment Pvt Ltd",
+        accountNumber: "38291045672",
+        ifsc: "SBIN0001789",
+      },
+    },
+    billingModel: "commission",
+    commissionBps: 1200,
+    convenienceFeeBps: 1000,
+    gstBps: 1800,
+    cancellation: { allowed: true, cutoffMinutes: 1440, feePaise: 10_000 },
+  },
+];
+
+/** Which chain runs each seeded cinema (by slug). Events, plays, sports and activities all go to the organiser. */
+export const cinemaOperators: Record<string, SeedVendorKey> = {
+  "pvr-inox-quest-mall-park-circus": "kolkata-screens",
+  "cinepolis-acropolis-mall-kasba": "kolkata-screens",
+  "pvr-icon-phoenix-palladium-lower-parel": "kolkata-screens",
+  "inox-insignia-south-city-mall": "bengal-picture-palace",
+  "miraj-cinemas-salt-lake-city-center": "bengal-picture-palace",
+};
+export const EVENT_ORGANISER: SeedVendorKey = "festive-nights";
+export const FOOD_MENU_VENDORS: SeedVendorKey[] = ["kolkata-screens", "bengal-picture-palace"];

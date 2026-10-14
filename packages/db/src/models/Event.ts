@@ -13,8 +13,10 @@ interface StoredSchedule {
 }
 
 /** Every non-movie listing (one collection, `kind` picks the public section). Slugs are unique per kind. */
-export interface EventAttrs extends Omit<EventListing, "id" | "schedule"> {
+export interface EventAttrs extends Omit<EventListing, "id" | "schedule" | "vendorId" | "organiserName"> {
   schedule: StoredSchedule;
+  /** The organiser selling this listing. */
+  vendorId: Types.ObjectId;
   /** The venue document behind `venueName`; stadium fixtures have a Show there. */
   venueId?: Types.ObjectId;
   sortOrder: number;
@@ -38,6 +40,7 @@ const scheduleSchema = new Schema(
 
 const eventSchema = new Schema<EventAttrs>(
   {
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor", required: true },
     slug: { type: String, required: true, trim: true },
     kind: { type: String, enum: ["event", "play", "sport", "activity"], required: true },
     title: { type: String, required: true, trim: true },
@@ -62,6 +65,7 @@ const eventSchema = new Schema<EventAttrs>(
 
 eventSchema.index({ kind: 1, slug: 1 }, { unique: true });
 eventSchema.index({ kind: 1, sortOrder: 1 });
+eventSchema.index({ vendorId: 1, kind: 1 });
 
 function toSchedule(s: StoredSchedule): EventListing["schedule"] {
   if (s.type === "daily") return { type: "daily", opensAt: s.opensAt ?? "00:00", closesAt: s.closesAt ?? "23:59" };
@@ -80,6 +84,7 @@ function opt<K extends string>(key: K, value: string | null | undefined): Partia
 export function toEvent(doc: LeanDoc<EventAttrs>): EventListing {
   return {
     id: doc._id.toString(),
+    ...(doc.vendorId ? { vendorId: doc.vendorId.toString() } : {}),
     slug: doc.slug,
     kind: doc.kind,
     title: doc.title,

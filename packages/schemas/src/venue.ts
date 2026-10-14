@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idSchema, paiseSchema, slugSchema, wallClockTimeSchema } from "./common";
+import { idSchema, objectIdSchema, paiseSchema, slugSchema, wallClockTimeSchema } from "./common";
 
 export const showAvailabilitySchema = z.enum(["available", "fast-filling", "almost-full"]);
 
@@ -16,6 +16,10 @@ export const showTemplateSchema = z.object({
 
 export const cinemaSchema = z.object({
   id: idSchema,
+  /** The vendor operating the cinema (filled from the database; seed data has none). */
+  vendorId: objectIdSchema.optional(),
+  /** The vendor's business name, shown as "by …". */
+  operatorName: z.string().optional(),
   slug: slugSchema,
   name: z.string().min(1),
   cityId: idSchema,

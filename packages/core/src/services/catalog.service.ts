@@ -9,12 +9,15 @@ import { GiftCardDesign, toGiftCardDesign } from "@showbuzz/db/models/GiftCardDe
 import { Movie, toMovie } from "@showbuzz/db/models/Movie";
 import { Show } from "@showbuzz/db/models/Show";
 import { StreamTitle, toStreamTitle } from "@showbuzz/db/models/StreamTitle";
+import { Vendor, toVendorPublic } from "@showbuzz/db/models/Vendor";
 import { Venue, toCinema } from "@showbuzz/db/models/Venue";
 import { objectIdSchema } from "@showbuzz/schemas/common";
 import type { EventKind, EventListing } from "@showbuzz/schemas/event";
 import type { Movie as MovieShape } from "@showbuzz/schemas/movie";
 import type { SearchEntry } from "@showbuzz/schemas/types/catalog";
-import type { Screen } from "@showbuzz/schemas/venue";
+import type { VendorPublic } from "@showbuzz/schemas/types/vendor";
+import { type CancellationPolicy, describeCutoff } from "@showbuzz/schemas/vendor";
+import type { Cinema, Screen } from "@showbuzz/schemas/venue";
 
 /**
  * Read access to the catalogue in MongoDB. Every read is a cached function (`use cache`) tagged per
@@ -39,6 +42,7 @@ export const CATALOG_TAGS = {
   foodItems: "catalog:food-items",
   giftCardDesigns: "catalog:gift-card-designs",
   shows: "catalog:shows",
+  vendors: "catalog:vendors",
 } as const;
 
 export type CatalogTag = (typeof CATALOG_TAGS)[keyof typeof CATALOG_TAGS];
@@ -52,6 +56,42 @@ export function revalidateCatalog(tag: CatalogTag): void {
 }
 
 const isObjectId = (id: string) => objectIdSchema.safeParse(id).success;
+
+/** Vendor names and policies for display ("by …", "Organised by …", cancellation labels). Never KYC. */
+export async function listVendorsPublic(): Promise<VendorPublic[]> {
+  "use cache";
+  cacheTag(CATALOG_TAGS.vendors);
+  cacheLife("hours");
+  await connect();
+  const docs = await Vendor.find().sort({ businessName: 1 }).lean();
+  return docs.map(toVendorPublic);
+}
+
+async function vendorsById(): Promise<Map<string, VendorPublic>> {
+  return new Map((await listVendorsPublic()).map((v) => [v.id, v]));
+}
+
+/** Cancellable only when the vendor's policy and the venue both allow it. */
+export function cancellationLabel(venueAllows: boolean, policy: CancellationPolicy): Cinema["cancellation"] {
+  if (!venueAllows || !policy.allowed) return { allowed: false, label: "Non-Cancellable" };
+  const cutoff = describeCutoff(policy.cutoffMinutes);
+  return { allowed: true, label: `Cancellation Available (${cutoff.charAt(0).toUpperCase()}${cutoff.slice(1)})` };
+}
+
+function withOperator(cinema: Cinema, vendors: Map<string, VendorPublic>): Cinema {
+  const vendor = cinema.vendorId ? vendors.get(cinema.vendorId) : undefined;
+  if (!vendor) return cinema;
+  return {
+    ...cinema,
+    operatorName: vendor.businessName,
+    cancellation: cancellationLabel(cinema.cancellation.allowed, vendor.cancellation),
+  };
+}
+
+function withOrganiser(event: EventListing, vendors: Map<string, VendorPublic>): EventListing {
+  const vendor = event.vendorId ? vendors.get(event.vendorId) : undefined;
+  return vendor ? { ...event, organiserName: vendor.businessName } : event;
+}
 
 export async function listCities() {
   "use cache";
@@ -90,13 +130,16 @@ export async function getMovieById(id: string): Promise<MovieShape | undefined> 
   return doc ? toMovie(doc) : undefined;
 }
 
-export async function listCinemas() {
+export async function listCinemas(): Promise<Cinema[]> {
   "use cache";
-  cacheTag(CATALOG_TAGS.venues);
+  cacheTag(CATALOG_TAGS.venues, CATALOG_TAGS.vendors);
   cacheLife("hours");
   await connect();
-  const docs = await Venue.find({ kind: "cinema" }).sort({ sortOrder: 1 }).lean();
-  return docs.map(toCinema);
+  const [docs, vendors] = await Promise.all([
+    Venue.find({ kind: "cinema" }).sort({ sortOrder: 1 }).lean(),
+    vendorsById(),
+  ]);
+  return docs.map((doc) => withOperator(toCinema(doc), vendors));
 }
 
 export async function getCinemaById(id: string) {
@@ -135,30 +178,30 @@ export async function getScreen(venueId: string, screenId: string): Promise<Scre
 
 export async function listEvents(kind: EventKind): Promise<EventListing[]> {
   "use cache";
-  cacheTag(CATALOG_TAGS.events);
+  cacheTag(CATALOG_TAGS.events, CATALOG_TAGS.vendors);
   cacheLife("hours");
   await connect();
-  const docs = await Event.find({ kind }).sort({ sortOrder: 1 }).lean();
-  return docs.map(toEvent);
+  const [docs, vendors] = await Promise.all([Event.find({ kind }).sort({ sortOrder: 1 }).lean(), vendorsById()]);
+  return docs.map((doc) => withOrganiser(toEvent(doc), vendors));
 }
 
 export async function getEventBySlug(kind: EventKind, slug: string): Promise<EventListing | undefined> {
   "use cache";
-  cacheTag(CATALOG_TAGS.events);
+  cacheTag(CATALOG_TAGS.events, CATALOG_TAGS.vendors);
   cacheLife("hours");
   await connect();
-  const doc = await Event.findOne({ kind, slug }).lean();
-  return doc ? toEvent(doc) : undefined;
+  const [doc, vendors] = await Promise.all([Event.findOne({ kind, slug }).lean(), vendorsById()]);
+  return doc ? withOrganiser(toEvent(doc), vendors) : undefined;
 }
 
 export async function getEventById(id: string): Promise<EventListing | undefined> {
   "use cache";
-  cacheTag(CATALOG_TAGS.events);
+  cacheTag(CATALOG_TAGS.events, CATALOG_TAGS.vendors);
   cacheLife("hours");
   if (!isObjectId(id)) return undefined;
   await connect();
-  const doc = await Event.findById(id).lean();
-  return doc ? toEvent(doc) : undefined;
+  const [doc, vendors] = await Promise.all([Event.findById(id).lean(), vendorsById()]);
+  return doc ? withOrganiser(toEvent(doc), vendors) : undefined;
 }
 
 /** The bookable stadium Show for a sports fixture (its seat map), if one exists. */
@@ -181,16 +224,28 @@ export async function listCoupons() {
   return docs.map(toCoupon);
 }
 
+/** Platform coupons for /offers. Vendor coupons apply at checkout but aren't listed there yet (partner offers). */
+export async function listPlatformCoupons() {
+  return (await listCoupons()).filter((c) => !c.vendorId);
+}
+
 export async function getCouponByCode(code: string) {
   return (await listCoupons()).find((c) => c.code === code.toUpperCase());
 }
 
-export async function listFoodItems() {
+/** The menu of one vendor's cinema: that vendor's items for every venue, plus those limited to this venue. */
+export async function listFoodItemsFor(vendorId: string, venueId: string) {
   "use cache";
   cacheTag(CATALOG_TAGS.foodItems);
   cacheLife("hours");
+  if (!isObjectId(vendorId) || !isObjectId(venueId)) return [];
   await connect();
-  const docs = await FoodItem.find().sort({ sortOrder: 1 }).lean();
+  const docs = await FoodItem.find({
+    vendorId,
+    $or: [{ venueIds: { $size: 0 } }, { venueIds: { $exists: false } }, { venueIds: venueId }],
+  })
+    .sort({ sortOrder: 1 })
+    .lean();
   return docs.map(toFoodItem);
 }
 

@@ -20,6 +20,7 @@ const quote: OrderQuote = {
   ticketCount: 1,
   food: [],
   foodAllowed: false,
+  rates: { convenienceFeeBps: 850, gstBps: 1800 },
   amounts: {
     ticketsPaise: 99_900,
     foodPaise: 0,

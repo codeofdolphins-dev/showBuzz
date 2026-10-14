@@ -98,7 +98,7 @@ export function SeatSelector({ show, seatMap, maxTickets, focusTier }: SeatSelec
         { kind: "show", showId: show.id, seatIds },
         { expiresAt: result.data.expiresAt, seatsHref: `/booking/${show.id}/seats` },
       );
-      router.push(show.kind === "movie" ? "/booking/food" : "/booking/checkout");
+      router.push(show.kind === "movie" ? `/booking/food?show=${show.id}` : "/booking/checkout");
     });
 
   const start = new Date(show.startsAt);
@@ -128,7 +128,9 @@ export function SeatSelector({ show, seatMap, maxTickets, focusTier }: SeatSelec
                 </span>
               </div>
               <p className="truncate text-xs font-medium text-slate-500">
-                {show.venueName} &bull; {formatDateLong(start)} &bull; {formatTime(start)}
+                {show.venueName}
+                {show.operatorName && <span className="hidden sm:inline"> (by {show.operatorName})</span>} &bull;{" "}
+                {formatDateLong(start)} &bull; {formatTime(start)}
               </p>
             </div>
           </div>

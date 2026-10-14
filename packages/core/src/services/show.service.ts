@@ -10,7 +10,8 @@ import { SHOW_DATE_WINDOW_DAYS } from "@showbuzz/schemas/constants";
 import type { Show, ShowDetails } from "@showbuzz/schemas/types/catalog";
 import type { Cinema } from "@showbuzz/schemas/venue";
 import { addDaysToKey, istDateKey, istDateTime } from "@showbuzz/utils/dates";
-import { EVENT_SECTION_PATH, getEventById, getMovieById, listCinemas } from "./catalog.service";
+import type { FoodItem } from "@showbuzz/schemas/food";
+import { EVENT_SECTION_PATH, getEventById, getMovieById, listCinemas, listFoodItemsFor } from "./catalog.service";
 
 /**
  * Showtimes are real `shows` documents. They are created lazily: the first showtimes request for a date
@@ -102,7 +103,10 @@ export async function getShowDetails(showId: string, now: Date): Promise<ShowDet
   // Seat-map shows only (movie shows and stadium fixtures); pass shows have no seat map.
   // Shows created before tier inventory existed have no `inventory` field (lean reads skip defaults).
   if (!show?.startsAt || show.startsAt <= now || (show.inventory ?? []).length > 0) return undefined;
+  // Shows from before the marketplace change have no vendor until the database is re-seeded: not bookable.
+  if (!show.vendorId) return undefined;
   const startsAt = show.startsAt.toISOString();
+  const owner = { vendorId: show.vendorId.toString(), venueId: show.venueId.toString() };
 
   if (show.eventId) {
     const event = await getEventById(show.eventId.toString());
@@ -110,6 +114,8 @@ export async function getShowDetails(showId: string, now: Date): Promise<ShowDet
     return {
       id: showId,
       kind: "sport",
+      ...owner,
+      ...(event.organiserName ? { operatorName: event.organiserName } : {}),
       title: event.title,
       poster: event.poster,
       category: event.category,
@@ -130,6 +136,8 @@ export async function getShowDetails(showId: string, now: Date): Promise<ShowDet
   return {
     id: showId,
     kind: "movie",
+    ...owner,
+    ...(cinema.operatorName ? { operatorName: cinema.operatorName } : {}),
     title: movie.title,
     poster: movie.poster,
     certificate: movie.certificate,
@@ -142,6 +150,13 @@ export async function getShowDetails(showId: string, now: Date): Promise<ShowDet
     cancellationAllowed: cinema.cancellation.allowed,
     backHref: `/cinemas?movie=${movie.slug}&date=${dateKey}`,
   };
+}
+
+/** The food menu offered with a show: its vendor's items for that venue (empty for unknown shows). */
+export async function getFoodMenuForShow(showId: string): Promise<FoodItem[]> {
+  const show = await findShow(showId);
+  if (!show?.vendorId) return [];
+  return listFoodItemsFor(show.vendorId.toString(), show.venueId.toString());
 }
 
 /** The pass show (tier inventory) for an event, play or activity. */

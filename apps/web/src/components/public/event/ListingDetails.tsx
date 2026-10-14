@@ -47,6 +47,11 @@ export function ListingDetails({ listing, section, seatMapShowId }: ListingDetai
               <MapPin className={cn("h-3.5 w-3.5", a.text)} /> {listing.venueName}
               {listing.language && <> &bull; Language: {listing.language}</>}
             </p>
+            {listing.organiserName && (
+              <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                <UserRound className={cn("h-3.5 w-3.5", a.text)} /> Organised by {listing.organiserName}
+              </p>
+            )}
             {listing.director && (
               <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                 <UserRound className={cn("h-3.5 w-3.5", a.text)} /> Directed by: {listing.director}

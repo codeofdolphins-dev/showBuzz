@@ -153,6 +153,9 @@ export function ShowtimeBrowser({ showtimes, cinemaFilter }: ShowtimeBrowserProp
             >
               <div className="border-b border-slate-100 pb-3">
                 <h3 className="text-sm font-black text-slate-900 sm:text-base">{cinema.name}</h3>
+                {cinema.operatorName && (
+                  <p className="text-[10px] font-semibold text-slate-400">by {cinema.operatorName}</p>
+                )}
                 <p className="mt-0.5 text-[11px] text-slate-500">
                   {cinema.address} &bull; <span className="font-semibold text-blue-600">{cinema.distanceLabel}</span>
                 </p>

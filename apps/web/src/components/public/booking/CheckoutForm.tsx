@@ -32,6 +32,7 @@ export function CheckoutForm() {
   const openAuthModal = useUiStore((s) => s.openAuthModal);
   const savedContact = useBookingCart((s) => s.contact);
   const couponCode = useBookingCart((s) => s.couponCode);
+  const cartTickets = useBookingCart((s) => s.tickets);
   const setCoupon = useBookingCart((s) => s.setCoupon);
   const setContact = useBookingCart((s) => s.setContact);
   const [couponInput, setCouponInput] = useState("");
@@ -84,7 +85,9 @@ export function CheckoutForm() {
     router.push("/booking/payment");
   });
 
-  const backToFood = quote.foodAllowed ? "/booking/food" : undefined;
+  // The food page lists the menu of the show's vendor and cinema, so it needs the show.
+  const backToFood =
+    quote.foodAllowed && cartTickets?.kind === "show" ? `/booking/food?show=${cartTickets.showId}` : undefined;
 
   return (
     <form onSubmit={proceed} noValidate className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3 xl:grid-cols-4">

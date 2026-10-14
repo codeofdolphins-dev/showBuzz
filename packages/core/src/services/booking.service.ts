@@ -12,6 +12,7 @@ import { log } from "@showbuzz/runtime/log";
 import { placeOrderSchema, type PlaceOrderInput } from "@showbuzz/schemas/booking";
 import type { BookingRecord, BookingStatus, BookingView } from "@showbuzz/schemas/types/booking";
 import type { CustomerSnapshot } from "@showbuzz/schemas/user";
+import type { CancellationPolicy } from "@showbuzz/schemas/vendor";
 import { AppError } from "../http/app-error";
 import { getPaymentGateway, type SimulatedOutcome } from "../payments/gateway";
 import { generateGiftCardCode, getIssuedGiftCards, giftCardExpiry } from "./gift-card.service";
@@ -28,8 +29,11 @@ import { findPassShow, getShowDetails } from "./show.service";
  * confirmPayment: asks the gateway (never the client) whether the payment succeeded, then in one transaction
  *                 confirms the booking, turns holds into sold seats (or counts passes sold), spends the gift card
  *                 share (conditional $inc), issues a purchased gift card and marks the payment.
- * cancelBooking:  until the Settings cutoff; one transaction frees the inventory, returns the gift card share and
- *                 records the Refund.
+ * cancelBooking:  until the cutoff of the vendor policy frozen on the booking (Settings for older bookings); one
+ *                 transaction frees the inventory, returns the gift card share and records the Refund.
+ *
+ * Every vendor order stores its seller (`vendorId`), the money split (`settlement`) and the cancellation policy
+ * at purchase; gift card purchases are platform sales and have none of them.
  *
  * Every state change is conditional on the current status, so repeating a call (double click, retry, two tabs)
  * changes nothing the second time. Another customer's booking answers exactly like a missing one (NOT_FOUND).
@@ -46,10 +50,22 @@ function isDuplicateKey(err: unknown, field: string): boolean {
   return e.code === 11000 && !!e.keyPattern && field in e.keyPattern;
 }
 
-function canCancel(record: BookingRecord, now: Date, cutoffMinutes: number): boolean {
+type PolicyFallback = Pick<CancellationPolicy, "cutoffMinutes" | "feePaise">;
+
+/** The policy the booking was sold under; bookings from before the marketplace change use Settings. */
+function policyOf(record: Pick<BookingRecord, "cancellationPolicy">, fallback: PolicyFallback): PolicyFallback {
+  return record.cancellationPolicy ?? fallback;
+}
+
+function canCancel(record: BookingRecord, now: Date, fallback: PolicyFallback): boolean {
   if (record.status !== "confirmed" || !record.cancellable || !record.startsAt) return false;
-  const cutoff = new Date(record.startsAt).getTime() - cutoffMinutes * 60_000;
+  const cutoff = new Date(record.startsAt).getTime() - policyOf(record, fallback).cutoffMinutes * 60_000;
   return now.getTime() < cutoff;
+}
+
+async function policyFallback(): Promise<PolicyFallback> {
+  const { cancellationCutoffMinutes, cancellationFeePaise } = await getSettings();
+  return { cutoffMinutes: cancellationCutoffMinutes, feePaise: cancellationFeePaise };
 }
 
 /** The record without its owner id, which never leaves the server. */
@@ -59,13 +75,13 @@ function withoutOwner(record: BookingRecord): Omit<BookingRecord, "userId"> {
   return copy as Omit<BookingRecord, "userId">;
 }
 
-function toView(doc: LeanBooking, now: Date, cutoffMinutes: number): BookingView {
+function toView(doc: LeanBooking, now: Date, fallback: PolicyFallback): BookingView {
   const record = toBookingRecord(doc);
   const past = record.startsAt ? new Date(record.startsAt) <= now : false;
   return {
     ...withoutOwner(record),
     phase: record.status === "cancelled" ? "cancelled" : past ? "past" : "upcoming",
-    canCancel: canCancel(record, now, cutoffMinutes),
+    canCancel: canCancel(record, now, fallback),
   };
 }
 
@@ -152,7 +168,7 @@ export async function placeOrder(
   for (const booking of open)
     await closeOrder(booking, "expired", "Replaced by a newer order.", { releaseSeats: false });
 
-  const { quote, giftCardId } = await priceOrder(order, now, {
+  const { quote, giftCardId, seller } = await priceOrder(order, now, {
     strictCoupon: true,
     holderKey,
     giftCardContext: { userId: customer.id, ip },
@@ -161,7 +177,8 @@ export async function placeOrder(
   const bookingId = new Types.ObjectId();
   let holdExpiresAt = new Date(now.getTime() + settings.seatHoldMinutes * 60_000);
   let showId: Types.ObjectId | undefined;
-  let cancellable = quote.kind !== "gift-card";
+  // Cancellable only when the vendor's policy allows it (and, for cinemas, the venue too; see below).
+  let cancellable = seller?.cancellationPolicy.allowed ?? false;
   let releaseReservation = async () => {};
 
   if (tickets.kind === "show") {
@@ -177,7 +194,7 @@ export async function placeOrder(
     const earliest = await SeatHold.findOne({ bookingId }, { expiresAt: 1 }).sort({ expiresAt: 1 }).lean();
     holdExpiresAt = earliest?.expiresAt ?? holdExpiresAt;
     showId = new Types.ObjectId(tickets.showId);
-    cancellable = show.cancellationAllowed;
+    cancellable = cancellable && show.cancellationAllowed;
   } else if (tickets.kind === "event") {
     const passShow = await findPassShow(tickets.eventId);
     if (!passShow) throw new AppError("NOT_FOUND", "This ticket option is no longer available.", 404);
@@ -211,6 +228,9 @@ export async function placeOrder(
     code = await insertWithUniqueCode({
       _id: bookingId,
       userId: new Types.ObjectId(customer.id),
+      ...(seller
+        ? { vendorId: seller.vendorId, settlement: seller.settlement, cancellationPolicy: seller.cancellationPolicy }
+        : {}),
       status: "pending_payment",
       kind: quote.kind,
       showId,
@@ -261,6 +281,7 @@ export async function placeOrder(
   await Payment.create({
     bookingId,
     userId: customer.id,
+    ...(seller ? { vendorId: seller.vendorId } : {}),
     provider: gateway.provider,
     providerRef,
     amountPaise: payablePaise,
@@ -446,6 +467,7 @@ export async function confirmPayment(
           $setOnInsert: {
             paymentId: payment._id,
             userId: booking.userId,
+            ...(booking.vendorId ? { vendorId: booking.vendorId } : {}),
             provider: gateway.provider,
             providerRef: refund.providerRef,
             amountPaise: payment.amountPaise,
@@ -478,17 +500,16 @@ export async function confirmPayment(
 export async function getBooking(code: string, userId: string, now: Date): Promise<BookingView | undefined> {
   const booking = await findOwned(code, userId);
   if (!booking || (booking.status !== "confirmed" && booking.status !== "cancelled")) return undefined;
-  const { cancellationCutoffMinutes } = await getSettings();
-  const [view] = await withIssuedGiftCards([booking], now, cancellationCutoffMinutes);
+  const [view] = await withIssuedGiftCards([booking], now, await policyFallback());
   return view;
 }
 
 /** Views, with the card a gift card purchase issued attached (shown to its buyer instead of a QR). */
-async function withIssuedGiftCards(docs: LeanBooking[], now: Date, cutoffMinutes: number): Promise<BookingView[]> {
+async function withIssuedGiftCards(docs: LeanBooking[], now: Date, fallback: PolicyFallback): Promise<BookingView[]> {
   const purchases = docs.filter((b) => b.kind === "gift-card" && b.status === "confirmed").map((b) => b._id);
   const issued = await getIssuedGiftCards(purchases, now);
   return docs.map((b) => {
-    const view = toView(b, now, cutoffMinutes);
+    const view = toView(b, now, fallback);
     const card = issued.get(b._id.toString());
     return card ? { ...view, issuedGiftCard: card } : view;
   });
@@ -498,14 +519,14 @@ async function withIssuedGiftCards(docs: LeanBooking[], now: Date, cutoffMinutes
 export async function listBookings(userId: string, now: Date): Promise<BookingView[]> {
   if (!Types.ObjectId.isValid(userId)) return [];
   await connect();
-  const [docs, { cancellationCutoffMinutes }] = await Promise.all([
+  const [docs, fallback] = await Promise.all([
     Booking.find({ userId, status: { $in: ["confirmed", "cancelled"] } })
       .sort({ createdAt: -1 })
       .limit(100)
       .lean(),
-    getSettings(),
+    policyFallback(),
   ]);
-  return withIssuedGiftCards(docs, now, cancellationCutoffMinutes);
+  return withIssuedGiftCards(docs, now, fallback);
 }
 
 export interface OrderOutcome {
@@ -528,7 +549,7 @@ export async function getOrderOutcome(code: string, userId: string): Promise<Ord
 }
 
 /**
- * Cancels a confirmed booking before the Settings cutoff and refunds the amount paid minus the cancellation fee
+ * Cancels a confirmed booking before its policy's cutoff and refunds the amount paid minus the cancellation fee
  * (never negative): the gift card part goes back to the card, the rest through the gateway. Cancelling an
  * already-cancelled booking returns the same refund and changes nothing.
  */
@@ -537,11 +558,15 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
   if (!booking) throw new AppError("NOT_FOUND", "Booking not found.", 404);
   if (booking.status === "cancelled") return { refundPaise: booking.refundPaise ?? 0 };
 
-  const { cancellationCutoffMinutes, cancellationFeePaise } = await getSettings();
-  if (!canCancel(toBookingRecord(booking), now, cancellationCutoffMinutes)) {
+  const record = toBookingRecord(booking);
+  const fallback = await policyFallback();
+  const { cutoffMinutes, feePaise: cancellationFeePaise } = policyOf(record, fallback);
+  if (!canCancel(record, now, fallback)) {
     throw new AppError(
       "BOOKING_NOT_CANCELLABLE",
-      `This booking can no longer be cancelled (cut-off is ${cancellationCutoffMinutes} minutes before the show).`,
+      record.cancellable
+        ? `This booking can no longer be cancelled (cut-off is ${cutoffMinutes} minutes before the show).`
+        : "This booking can't be cancelled.",
       409,
     );
   }
@@ -602,6 +627,7 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
           bookingId: booking._id,
           ...(payment ? { paymentId: payment._id } : {}),
           userId: booking.userId,
+          ...(booking.vendorId ? { vendorId: booking.vendorId } : {}),
           provider: gateway.provider,
           providerRef: gatewayRefundPaise > 0 ? "pending" : "none",
           amountPaise: gatewayRefundPaise,

@@ -1,17 +1,23 @@
 import "server-only";
-import { type Model, Schema, model, models } from "mongoose";
+import { type Model, Schema, type Types, model, models } from "mongoose";
 import type { Movie as MovieShape, MovieReview } from "@showbuzz/schemas/movie";
 import { type LeanDoc, sortOrderField } from "./transforms";
 
 type StoredReview = Omit<MovieReview, "createdAt"> & { createdAt: Date };
 
-/** A film. Fields follow `movieSchema`; `releaseDate` stays a calendar date string ("2026-08-14", IST). */
+/**
+ * A film. Fields follow `movieSchema`; `releaseDate` stays a calendar date string ("2026-08-14", IST).
+ * Movies are one shared catalogue (one page per film, every vendor's cinemas listed on it); Shows link a movie
+ * to a vendor's venue.
+ */
 export interface MovieAttrs extends Omit<MovieShape, "id" | "reviews" | "userRating"> {
   /** Editorial reviews shipped with the catalogue; customer reviews get their own collection (batch 4.1). */
   reviews: StoredReview[];
   /** Customer review totals, changed only with $inc by review.service (in the same transaction as the review). */
   userRatingCount: number;
   userRatingSum: number;
+  /** The vendor that added it (it and the super-admin may edit it); null = platform catalogue. */
+  createdByVendorId: Types.ObjectId | null;
   sortOrder: number;
 }
 
@@ -46,12 +52,14 @@ const movieSchema = new Schema<MovieAttrs>(
     reviews: { type: [reviewSchema], default: [] },
     userRatingCount: { type: Number, default: 0, min: 0 },
     userRatingSum: { type: Number, default: 0, min: 0 },
+    createdByVendorId: { type: Schema.Types.ObjectId, ref: "Vendor", default: null },
     sortOrder: sortOrderField,
   },
   { timestamps: true, versionKey: false },
 );
 
 movieSchema.index({ slug: 1 }, { unique: true });
+movieSchema.index({ createdByVendorId: 1 });
 movieSchema.index({ status: 1, sortOrder: 1 });
 
 /** Average to one decimal; missing until the first customer review (older documents lack the totals). */

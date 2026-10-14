@@ -10,6 +10,7 @@ import { Lead } from "./Lead";
 import { Movie } from "./Movie";
 import { OtpChallenge } from "./OtpChallenge";
 import { Payment } from "./Payment";
+import { Plan } from "./Plan";
 import { RateLimit } from "./RateLimit";
 import { Refund } from "./Refund";
 import { Review } from "./Review";
@@ -20,6 +21,8 @@ import { Show } from "./Show";
 import { Staff } from "./Staff";
 import { StreamTitle } from "./StreamTitle";
 import { User } from "./User";
+import { Vendor } from "./Vendor";
+import { VendorUser } from "./VendorUser";
 import { Venue } from "./Venue";
 import { WishlistItem } from "./WishlistItem";
 
@@ -30,6 +33,9 @@ export const allModels = [
   RateLimit,
   Staff,
   Role,
+  Vendor,
+  VendorUser,
+  Plan,
   City,
   Movie,
   Venue,

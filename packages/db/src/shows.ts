@@ -6,7 +6,8 @@ import { Venue } from "./models/Venue";
 /**
  * Turns each cinema's daily show templates into concrete `shows` documents. Idempotent: every show is an
  * upsert with `$setOnInsert` on the unique key (venue, screen, startsAt, movie), so re-running it (or two
- * servers running it at once) never duplicates a show or changes one that already exists.
+ * servers running it at once) never duplicates a show or changes one that already exists. Each show belongs to
+ * its cinema's vendor; a cinema without one (database not re-seeded since the marketplace change) is skipped.
  */
 
 /** Price steps below a template's (top zone) price, with a floor, as the prototype priced its auditorium. */
@@ -49,6 +50,7 @@ export async function ensureMovieShows(dateKeys: string[]): Promise<number> {
 
   const ops: Parameters<typeof Show.bulkWrite>[0] = [];
   for (const cinema of cinemas) {
+    if (!cinema.vendorId) continue;
     for (const template of cinema.showTemplates) {
       const screen = cinema.screens.find((s) => s.name === template.screenName);
       if (!screen) continue;
@@ -66,6 +68,7 @@ export async function ensureMovieShows(dateKeys: string[]): Promise<number> {
               filter: { venueId: cinema._id, screenId: screen.id, startsAt, movieId: movie._id },
               update: {
                 $setOnInsert: {
+                  vendorId: cinema.vendorId,
                   screenName: screen.name,
                   format: template.format,
                   language: template.language,

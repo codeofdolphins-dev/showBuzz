@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { idSchema, imageUrlSchema, isoDateTimeSchema, paiseSchema, slugSchema, wallClockTimeSchema } from "./common";
+import {
+  idSchema,
+  imageUrlSchema,
+  isoDateTimeSchema,
+  objectIdSchema,
+  paiseSchema,
+  slugSchema,
+  wallClockTimeSchema,
+} from "./common";
 
 /** One `events` collection holds every non-movie listing; `kind` decides the public section. */
 export const eventKindSchema = z.enum(["event", "play", "sport", "activity"]);
@@ -33,6 +41,10 @@ export const artistSchema = z.object({
 
 export const eventSchema = z.object({
   id: idSchema,
+  /** The organiser (filled from the database; seed data has none). */
+  vendorId: objectIdSchema.optional(),
+  /** The organiser's business name, shown as "Organised by …". */
+  organiserName: z.string().optional(),
   slug: slugSchema,
   kind: eventKindSchema,
   title: z.string().min(1),

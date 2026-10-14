@@ -4,17 +4,24 @@ import { formatINR } from "@showbuzz/utils/money";
 import { describeSchedule } from "@showbuzz/utils/schedule";
 import type { OrderDraft } from "@showbuzz/schemas/booking";
 import type { Coupon } from "@showbuzz/schemas/offer";
+import { computeSettlement } from "@showbuzz/schemas/settlement";
 import type { BookingKind, OrderQuote, QuoteFoodLine } from "@showbuzz/schemas/types/booking";
+import type { BookingSettlement } from "@showbuzz/schemas/types/vendor";
+import type { CancellationPolicy } from "@showbuzz/schemas/vendor";
 import type { Types } from "@showbuzz/db/mongoose";
 import { AppError } from "../http/app-error";
-import { getCouponByCode, getEventById, listFoodItems, listGiftCardDesigns } from "./catalog.service";
+import { getCouponByCode, getEventById, listFoodItemsFor, listGiftCardDesigns } from "./catalog.service";
 import { lookupGiftCard } from "./gift-card.service";
 import { loadSeatPlan, priceSeats } from "./seat-map.service";
 import { getSettings } from "./settings.service";
 import { getSeatState } from "./seat-hold.service";
 import { findPassShow, getShowDetails } from "./show.service";
+import { getSellerTerms } from "./vendor.service";
 
-/** All prices are computed here; anything the client shows is display-only. */
+/**
+ * All prices are computed here; anything the client shows is display-only. Fees use the selling vendor's rates
+ * (the show's vendor), and every vendor order carries the settlement (money split) frozen at this quote.
+ */
 
 const GIFT_CARD_IMAGE = "https://images.unsplash.com/photo-1513151233558-d860c5398176?w=600&auto=format&fit=crop&q=80";
 
@@ -24,6 +31,9 @@ export function percentOf(amountPaise: number, bps: number): number {
 
 export interface TicketPricing {
   kind: BookingKind;
+  /** Seller and venue (absent for gift cards, which the platform sells). */
+  vendorId?: string;
+  venueId?: string;
   title: string;
   poster: string;
   certificate?: string;
@@ -61,6 +71,8 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date, holderKey
     const start = new Date(show.startsAt);
     return {
       kind: show.kind,
+      vendorId: show.vendorId,
+      venueId: show.venueId,
       title: show.title,
       poster: show.poster,
       certificate: show.certificate,
@@ -97,6 +109,8 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date, holderKey
     const when = describeSchedule(event.schedule);
     return {
       kind: event.kind,
+      vendorId: passShow?.vendorId?.toString(),
+      venueId: passShow?.venueId.toString(),
       title: event.title,
       poster: event.poster,
       language: event.language,
@@ -134,12 +148,13 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date, holderKey
   };
 }
 
-async function priceFood(lines: OrderDraft["food"]): Promise<QuoteFoodLine[]> {
+/** Only the menu of the show's vendor and venue can be ordered with it. */
+async function priceFood(lines: OrderDraft["food"], tickets: TicketPricing): Promise<QuoteFoodLine[]> {
   const merged = new Map<string, number>();
   for (const line of lines) merged.set(line.foodItemId, (merged.get(line.foodItemId) ?? 0) + line.quantity);
   if (merged.size === 0) return [];
 
-  const foodItems = await listFoodItems();
+  const foodItems = await listFoodItemsFor(tickets.vendorId ?? "", tickets.venueId ?? "");
   return [...merged].map(([foodItemId, quantity]) => {
     const item = foodItems.find((f) => f.id === foodItemId);
     if (!item) throw new AppError("NOT_FOUND", "A snack in your order is no longer available.", 404);
@@ -161,6 +176,10 @@ export function evaluateCoupon(
   const { tickets, foodPaise, now } = ctx;
   if (new Date(coupon.validUntil) < now) return { error: `${coupon.code} has expired.` };
   if (tickets.kind === "gift-card") return { error: "Coupons cannot be applied to gift cards." };
+  // Vendor coupons only on that vendor's shows; platform coupons (no vendorId) everywhere.
+  if (coupon.vendorId && coupon.vendorId !== tickets.vendorId) {
+    return { error: `${coupon.code} isn't valid for this show.` };
+  }
 
   const base = coupon.appliesTo === "food" ? foodPaise : tickets.ticketsPaise;
   if (base < coupon.minOrderPaise) {
@@ -195,10 +214,12 @@ export interface QuoteOptions {
   giftCardContext?: { userId?: string; ip: string };
 }
 
-/** The customer-facing quote plus server-only details (which gift card pays). */
+/** The customer-facing quote plus server-only details (which gift card pays, the seller's split and policy). */
 export interface PricedOrder {
   quote: OrderQuote;
   giftCardId?: Types.ObjectId;
+  /** Absent for gift card purchases (platform sales). */
+  seller?: { vendorId: Types.ObjectId; settlement: BookingSettlement; cancellationPolicy: CancellationPolicy };
 }
 
 export async function quoteOrder(draft: OrderDraft, now: Date, options: QuoteOptions = {}): Promise<OrderQuote> {
@@ -235,11 +256,16 @@ export async function priceOrder(draft: OrderDraft, now: Date, options: QuoteOpt
   if (draft.food.length > 0 && !tickets.foodAllowed) {
     throw new AppError("VALIDATION_FAILED", "Food pre-orders are only available for cinema shows.", 422);
   }
-  const [food, settings] = await Promise.all([priceFood(draft.food), getSettings()]);
+  // Gift cards are sold by the platform with no fees; everything else by the show's vendor at its rates.
+  const seller = tickets.kind === "gift-card" ? undefined : await getSellerTerms(tickets.vendorId);
+  const rates = seller
+    ? { convenienceFeeBps: seller.convenienceFeeBps, gstBps: seller.gstBps }
+    : { convenienceFeeBps: 0, gstBps: 0 };
+  const food = await priceFood(draft.food, tickets);
   const foodPaise = food.reduce((sum, f) => sum + f.totalPaise, 0);
 
-  const convenienceFeePaise = tickets.feesApply ? percentOf(tickets.ticketsPaise, settings.convenienceFeeBps) : 0;
-  const gstPaise = percentOf(convenienceFeePaise, settings.gstBps);
+  const convenienceFeePaise = tickets.feesApply ? percentOf(tickets.ticketsPaise, rates.convenienceFeeBps) : 0;
+  const gstPaise = percentOf(convenienceFeePaise, rates.gstBps);
 
   let discountPaise = 0;
   let coupon: OrderQuote["coupon"];
@@ -289,10 +315,31 @@ export async function priceOrder(draft: OrderDraft, now: Date, options: QuoteOpt
       giftCardPaise,
       payablePaise: totalPaise - giftCardPaise,
     },
+    rates,
     coupon,
     couponError,
     ...(giftCard ? { giftCard } : {}),
     ...(giftCardError ? { giftCardError } : {}),
   };
-  return { quote, ...(giftCardId ? { giftCardId } : {}) };
+  const settlement =
+    seller &&
+    computeSettlement({
+      billingModel: seller.billingModel,
+      commissionBps: seller.commissionBps,
+      convenienceFeeBps: seller.convenienceFeeBps,
+      gstBps: seller.gstBps,
+      ticketsPaise: tickets.ticketsPaise,
+      foodPaise,
+      discountPaise,
+      convenienceFeePaise,
+      gstPaise,
+      totalPaise,
+    });
+  return {
+    quote,
+    ...(giftCardId ? { giftCardId } : {}),
+    ...(seller && settlement
+      ? { seller: { vendorId: seller.vendorId, settlement, cancellationPolicy: seller.cancellation } }
+      : {}),
+  };
 }

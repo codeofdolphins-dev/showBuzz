@@ -1,5 +1,5 @@
 import "server-only";
-import { type Model, Schema, model, models } from "mongoose";
+import { type Model, Schema, type Types, model, models } from "mongoose";
 import type { Cinema, Screen, ShowTemplate, VenueKind } from "@showbuzz/schemas/venue";
 import { type LeanDoc, sortOrderField } from "./transforms";
 
@@ -9,6 +9,8 @@ import { type LeanDoc, sortOrderField } from "./transforms";
  * Shows point at `venueId` + `screens.id`; seats are addressed by `showId` + seat id ("C7").
  */
 export interface VenueAttrs {
+  /** The vendor that operates this venue (its shows, prices and policy are that vendor's). */
+  vendorId: Types.ObjectId;
   slug: string;
   kind: VenueKind;
   name: string;
@@ -16,6 +18,10 @@ export interface VenueAttrs {
   address: string;
   distanceLabel: string;
   amenities: string[];
+  /**
+   * Venue-level opt-out: a booking is cancellable only when both the vendor's policy and the venue allow it.
+   * `label` is the seeded text; the public site builds its label from the vendor's policy.
+   */
   cancellation: { allowed: boolean; label: string };
   /** Cinemas only: daily showtimes that become `shows` documents (see ../shows.ts). */
   showTemplates: ShowTemplate[];
@@ -57,6 +63,7 @@ const showTemplateSchema = new Schema(
 
 const venueSchema = new Schema<VenueAttrs>(
   {
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor", required: true },
     slug: { type: String, required: true, trim: true },
     kind: { type: String, enum: ["cinema", "stadium", "venue"], required: true },
     name: { type: String, required: true, trim: true },
@@ -77,6 +84,7 @@ const venueSchema = new Schema<VenueAttrs>(
 
 venueSchema.index({ slug: 1 }, { unique: true });
 venueSchema.index({ kind: 1, sortOrder: 1 });
+venueSchema.index({ vendorId: 1, kind: 1 });
 
 /** Stable screen id from its display name ("Audi 02 (IMAX Laser)" → "audi-02-imax-laser"). */
 export function screenIdFor(name: string): string {
@@ -89,6 +97,7 @@ export function screenIdFor(name: string): string {
 export function toCinema(doc: LeanDoc<VenueAttrs>): Cinema {
   return {
     id: doc._id.toString(),
+    ...(doc.vendorId ? { vendorId: doc.vendorId.toString() } : {}),
     slug: doc.slug,
     name: doc.name,
     cityId: doc.cityId,

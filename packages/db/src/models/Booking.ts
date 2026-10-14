@@ -2,6 +2,8 @@ import "server-only";
 import { type Model, Schema, type Types, model, models } from "mongoose";
 import type { ContactDetails, PaymentMethod } from "@showbuzz/schemas/booking";
 import type { GiftCardOrderInput } from "@showbuzz/schemas/gift-card";
+import type { CancellationPolicy } from "@showbuzz/schemas/vendor";
+import type { BookingSettlement } from "@showbuzz/schemas/types/vendor";
 import type {
   BookingKind,
   BookingRecord,
@@ -14,11 +16,17 @@ import type {
  * An order and, once paid, the ticket. Created as `pending_payment` with its seats held (or tier passes reserved)
  * until `holdExpiresAt`; payment confirmation turns it `confirmed` in a transaction. The display fields are a
  * snapshot taken when the order was placed, so later catalogue edits never change an issued ticket.
+ *
+ * Marketplace: `vendorId` is the seller (the show's vendor). `settlement` freezes the money split and
+ * `cancellationPolicy` the vendor's terms at purchase, so later rate or policy changes never touch a sold ticket.
+ * Gift card purchases are platform sales: no vendor, settlement or policy.
  */
 export interface BookingAttrs {
   /** "SB-123456", shown to customers. */
   code: string;
   userId: Types.ObjectId;
+  /** Seller. Missing only on gift card purchases. */
+  vendorId?: Types.ObjectId;
   status: BookingStatus;
   kind: BookingKind;
   showId?: Types.ObjectId;
@@ -44,6 +52,9 @@ export interface BookingAttrs {
   ticketCount: number;
   food: QuoteFoodLine[];
   amounts: OrderAmounts;
+  settlement?: BookingSettlement;
+  /** The vendor's policy when the order was placed (venue opt-out already applied to `cancellable`). */
+  cancellationPolicy?: CancellationPolicy;
   couponCode?: string;
   /** Gift card paying `amounts.giftCardPaise` of this order (balance deducted when the payment is confirmed). */
   giftCardId?: Types.ObjectId;
@@ -77,6 +88,26 @@ const amountsSchema = new Schema(
   },
   { _id: false },
 );
+const settlementSchema = new Schema(
+  {
+    billingModel: { type: String, enum: ["subscription", "commission"], required: true },
+    commissionBps: { type: Number, required: true },
+    convenienceFeeBps: { type: Number, required: true },
+    gstBps: { type: Number, required: true },
+    subtotalPaise: { type: Number, required: true },
+    discountPaise: { type: Number, required: true },
+    convenienceFeePaise: { type: Number, required: true },
+    gstPaise: { type: Number, required: true },
+    totalPaise: { type: Number, required: true },
+    commissionPaise: { type: Number, required: true },
+    vendorSharePaise: { type: Number, required: true },
+  },
+  { _id: false },
+);
+const cancellationPolicySchema = new Schema(
+  { allowed: Boolean, cutoffMinutes: Number, feePaise: Number },
+  { _id: false },
+);
 const giftCardSchema = new Schema(
   { amountPaise: Number, designId: String, recipientName: String, recipientContact: String, message: String },
   { _id: false },
@@ -86,6 +117,13 @@ const bookingSchema = new Schema<BookingAttrs>(
   {
     code: { type: String, required: true, match: /^SB-\d{6}$/ },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    vendorId: {
+      type: Schema.Types.ObjectId,
+      ref: "Vendor",
+      required: function (this: BookingAttrs) {
+        return this.kind !== "gift-card";
+      },
+    },
     status: {
       type: String,
       enum: ["pending_payment", "confirmed", "payment_failed", "expired", "cancelled"],
@@ -112,6 +150,8 @@ const bookingSchema = new Schema<BookingAttrs>(
     ticketCount: { type: Number, required: true, min: 1 },
     food: { type: [foodLineSchema], default: [] },
     amounts: { type: amountsSchema, required: true },
+    settlement: settlementSchema,
+    cancellationPolicy: cancellationPolicySchema,
     couponCode: String,
     giftCardId: { type: Schema.Types.ObjectId, ref: "GiftCard" },
     paymentMethod: { type: String, enum: ["upi", "card", "netbanking", "wallet"], required: true },
@@ -128,6 +168,7 @@ const bookingSchema = new Schema<BookingAttrs>(
 
 bookingSchema.index({ code: 1 }, { unique: true });
 bookingSchema.index({ userId: 1, createdAt: -1 });
+bookingSchema.index({ vendorId: 1, createdAt: -1 });
 // Finds orders whose payment window lapsed so their tier passes can be given back.
 bookingSchema.index({ status: 1, holdExpiresAt: 1 });
 
@@ -172,6 +213,15 @@ export function toBookingRecord(doc: LeanBooking): BookingRecord {
       payablePaise: doc.amounts.payablePaise ?? doc.amounts.totalPaise - (doc.amounts.giftCardPaise ?? 0),
     },
     ...(doc.couponCode ? { couponCode: doc.couponCode } : {}),
+    ...(doc.cancellationPolicy
+      ? {
+          cancellationPolicy: {
+            allowed: doc.cancellationPolicy.allowed,
+            cutoffMinutes: doc.cancellationPolicy.cutoffMinutes,
+            feePaise: doc.cancellationPolicy.feePaise,
+          },
+        }
+      : {}),
     paymentMethod: doc.paymentMethod,
     contact: { name: doc.contact.name, phone: doc.contact.phone, email: doc.contact.email },
     bookedAt: (doc.confirmedAt ?? doc.createdAt).toISOString(),

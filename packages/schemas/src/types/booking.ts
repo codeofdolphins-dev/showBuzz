@@ -1,4 +1,5 @@
 import type { ContactDetails, PaymentMethod } from "../booking";
+import type { CancellationPolicy } from "../vendor";
 import type { GiftCardSummary } from "./gift-card";
 
 export type BookingKind = "movie" | "sport" | "event" | "play" | "activity" | "gift-card";
@@ -44,6 +45,8 @@ export interface OrderQuote {
   /** True when the order can carry a food pre-order (cinema shows only). */
   foodAllowed: boolean;
   amounts: OrderAmounts;
+  /** The vendor's rates used for the fee lines (shown as percentages); 0 for gift card orders. */
+  rates: { convenienceFeeBps: number; gstBps: number };
   coupon?: { code: string; title: string };
   couponError?: string;
   /** The gift card applied to this quote (last 4 characters only). */
@@ -80,6 +83,8 @@ export interface BookingRecord {
   food: QuoteFoodLine[];
   amounts: OrderAmounts;
   couponCode?: string;
+  /** The vendor's cancellation terms when it was bought (older bookings: none, Settings apply). */
+  cancellationPolicy?: CancellationPolicy;
   paymentMethod: PaymentMethod;
   contact: ContactDetails;
   bookedAt: string;

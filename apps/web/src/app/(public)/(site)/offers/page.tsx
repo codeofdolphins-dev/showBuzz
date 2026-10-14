@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { OfferBrowser } from "@/components/public/offer/OfferBrowser";
-import { listCoupons } from "@showbuzz/core/services/catalog.service";
+import { listPlatformCoupons } from "@showbuzz/core/services/catalog.service";
 
 export const metadata: Metadata = {
   title: "Offers & Promo Codes",
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function OffersPage() {
-  const offers = await listCoupons();
+  const offers = await listPlatformCoupons();
   return (
     <main className="w-full flex-1 px-4 py-8 sm:px-6 lg:px-8 xl:px-12">
       <div className="mb-8 flex flex-col items-center justify-between gap-6 rounded-3xl bg-gradient-to-r from-rose-500 via-purple-600 to-indigo-700 p-8 text-white shadow-xl md:flex-row">

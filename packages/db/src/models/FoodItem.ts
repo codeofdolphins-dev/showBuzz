@@ -1,16 +1,23 @@
 import "server-only";
-import { type Model, Schema, model, models } from "mongoose";
+import { type Model, Schema, type Types, model, models } from "mongoose";
 import type { FoodItem as FoodItemShape } from "@showbuzz/schemas/food";
 import { type LeanDoc, sortOrderField } from "./transforms";
 
-/** A snack or combo for cinema pre-orders. `code` is the stable seed key ("fb-1"). */
+/**
+ * A snack or combo for cinema pre-orders, owned by a vendor. `venueIds` limits it to some of that vendor's
+ * cinemas (empty = all of them). `code` is unique per vendor (the seed key, "fb-1").
+ */
 export interface FoodItemAttrs extends Omit<FoodItemShape, "id"> {
+  vendorId: Types.ObjectId;
+  venueIds: Types.ObjectId[];
   code: string;
   sortOrder: number;
 }
 
 const foodItemSchema = new Schema<FoodItemAttrs>(
   {
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor", required: true },
+    venueIds: { type: [Schema.Types.ObjectId], ref: "Venue", default: [] },
     code: { type: String, required: true, trim: true },
     name: { type: String, required: true, trim: true },
     category: { type: String, enum: ["Popcorn", "Snacks", "Combo Meals", "Beverages"], required: true },
@@ -24,7 +31,7 @@ const foodItemSchema = new Schema<FoodItemAttrs>(
   { timestamps: true, versionKey: false },
 );
 
-foodItemSchema.index({ code: 1 }, { unique: true });
+foodItemSchema.index({ vendorId: 1, code: 1 }, { unique: true });
 
 export function toFoodItem(doc: LeanDoc<FoodItemAttrs>): FoodItemShape {
   return {

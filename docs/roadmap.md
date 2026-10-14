@@ -125,6 +125,18 @@ Prompt B (`docs/prompts/phase-2-public-backend.md`, 2026-10-13) built the bookin
 - [~] **4.3** Leads in DB with per-IP rate limit and honeypot (Prompt C). Staff notification waits for the admin app / email provider.
 - [ ] **4.4** Notifications infrastructure (in-app + email).
 
+## Marketplace back office (`docs/prompts/phase-3-admin.md`)
+
+Multi-vendor rebuild of the back office: super-admin console (admin.showbuzz.com) + vendor portal (partner.showbuzz.com).
+Phases 6 and 7 below are largely replaced by these prompts.
+
+- [x] **B.1** Marketplace data model (2026-10-14): `vendors` (KYC, billing model, rates, cancellation policy), `vendorUsers`, `plans`; `vendorId` on venues, events, shows, bookings, payments, refunds, food items and (optional) coupons; `createdByVendorId` on movies. Pricing uses the show vendor's rates, bookings store a settlement snapshot and the vendor's cancellation policy, vendor coupons only apply to that vendor's shows, the food step lists the show vendor's menu. KYC files in GridFS behind `FileStorage`. Seed: 3 demo vendors + backfill. Verified with lint + typecheck + build (tests deferred).
+- [ ] **B.2** Shared console kit + partner app + vendor signup and onboarding (also: `logActivity`, `revalidateWeb`, `db:create-vendor-user`).
+- [ ] **B.3** Partner: venues, screens, seat layout designer. - [ ] **B.4** Partner: movies, events, shows, pricing.
+- [ ] **B.5** Partner: bookings, QR scan, food menu, offers, cancellation policy, earnings.
+- [ ] **B.6** Admin: vendors, plans, subscriptions, payouts (who keeps the cancellation fee), movie merge, hiding suspended vendors' listings.
+- [ ] **B.7** Admin: platform operations and content. - [ ] **B.8** Admin: dashboard, reports, notifications.
+
 ## Phase 5: Admin authentication & RBAC
 
 - [x] **5.1** `staff` + `roles` models, permission catalogue, seeded roles, bcrypt, `scripts/create-admin.ts`.

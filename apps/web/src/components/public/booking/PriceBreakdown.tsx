@@ -1,12 +1,11 @@
-import { PRICING_DEFAULTS } from "@showbuzz/schemas/constants";
 import { formatINR } from "@showbuzz/utils/money";
 import type { OrderQuote } from "@showbuzz/schemas/types/booking";
 
-/** Server-computed bill. Rendered on food, checkout and payment steps. */
+/** Server-computed bill (the selling vendor's fee rates). Rendered on food, checkout and payment steps. */
 export function PriceBreakdown({ quote }: { quote: OrderQuote }) {
   const a = quote.amounts;
-  const feePct = PRICING_DEFAULTS.convenienceFeeBps / 100;
-  const gstPct = PRICING_DEFAULTS.gstBps / 100;
+  const feePct = quote.rates.convenienceFeeBps / 100;
+  const gstPct = quote.rates.gstBps / 100;
   return (
     <div className="space-y-2 text-xs">
       <Row label={`Ticket Base (${quote.ticketCount} ${quote.ticketCount === 1 ? "Ticket" : "Tickets"})`} value={formatINR(a.ticketsPaise, { exact: true })} />

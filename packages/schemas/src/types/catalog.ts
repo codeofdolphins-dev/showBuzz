@@ -29,6 +29,11 @@ export interface Show {
 export interface ShowDetails {
   id: string;
   kind: "movie" | "sport";
+  /** The selling vendor (its rates price the order) and the venue (its food menu). */
+  vendorId: string;
+  venueId: string;
+  /** The vendor's business name, shown as "by …" / "Organised by …". */
+  operatorName?: string;
   title: string;
   poster: string;
   certificate?: string;
@@ -39,6 +44,7 @@ export interface ShowDetails {
   venueAddress?: string;
   screenName: string;
   startsAt: string;
+  /** Venue and vendor policy both allow cancelling (the cutoff and fee are the vendor's). */
   cancellationAllowed: boolean;
   backHref: string;
 }

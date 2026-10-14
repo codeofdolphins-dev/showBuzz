@@ -5,6 +5,8 @@ import { type Model, Schema, type Types, model, models } from "mongoose";
 export interface PaymentAttrs {
   bookingId: Types.ObjectId;
   userId: Types.ObjectId;
+  /** The booking's vendor (absent for gift card purchases, which are platform sales). */
+  vendorId?: Types.ObjectId;
   provider: "simulated";
   /** The gateway's order/payment id. */
   providerRef: string;
@@ -21,6 +23,7 @@ const paymentSchema = new Schema<PaymentAttrs>(
   {
     bookingId: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
     provider: { type: String, enum: ["simulated"], required: true },
     providerRef: { type: String, required: true },
     amountPaise: { type: Number, required: true, min: 0 },
@@ -34,6 +37,7 @@ const paymentSchema = new Schema<PaymentAttrs>(
 
 paymentSchema.index({ provider: 1, providerRef: 1 }, { unique: true });
 paymentSchema.index({ bookingId: 1, createdAt: -1 });
+paymentSchema.index({ vendorId: 1, createdAt: -1 });
 
 export const Payment: Model<PaymentAttrs> =
   (models.Payment as Model<PaymentAttrs> | undefined) ?? model<PaymentAttrs>("Payment", paymentSchema, "payments");

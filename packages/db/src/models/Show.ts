@@ -8,6 +8,8 @@ import type { ShowAvailability, ShowZone } from "@showbuzz/schemas/venue";
  * Movie shows are created from the cinemas' daily templates by `ensureMovieShows` (../shows.ts).
  */
 export interface ShowAttrs {
+  /** The vendor selling this show (the venue's vendor); its rates price the order. */
+  vendorId: Types.ObjectId;
   movieId?: Types.ObjectId;
   eventId?: Types.ObjectId;
   venueId: Types.ObjectId;
@@ -48,6 +50,7 @@ const showZoneSchema = new Schema(
 
 const showSchema = new Schema<ShowAttrs>(
   {
+    vendorId: { type: Schema.Types.ObjectId, ref: "Vendor", required: true },
     movieId: { type: Schema.Types.ObjectId, ref: "Movie" },
     eventId: { type: Schema.Types.ObjectId, ref: "Event" },
     venueId: { type: Schema.Types.ObjectId, ref: "Venue", required: true },
@@ -70,6 +73,7 @@ const showSchema = new Schema<ShowAttrs>(
 showSchema.index({ venueId: 1, screenId: 1, startsAt: 1, movieId: 1, eventId: 1 }, { unique: true });
 showSchema.index({ movieId: 1, startsAt: 1 });
 showSchema.index({ eventId: 1, startsAt: 1 });
+showSchema.index({ vendorId: 1, startsAt: 1 });
 
 export const Show: Model<ShowAttrs> =
   (models.Show as Model<ShowAttrs> | undefined) ?? model<ShowAttrs>("Show", showSchema, "shows");
