@@ -4,7 +4,7 @@ import { City } from "@showbuzz/db/models/City";
 import { Event } from "@showbuzz/db/models/Event";
 import { Movie } from "@showbuzz/db/models/Movie";
 import { SeatHold } from "@showbuzz/db/models/SeatHold";
-import { Show } from "@showbuzz/db/models/Show";
+import { LIVE_SHOW_FILTER, Show } from "@showbuzz/db/models/Show";
 import { type StoredScreen, Venue, type VenueAttrs, screenIdFor, toScreen } from "@showbuzz/db/models/Venue";
 import { Types } from "@showbuzz/db/mongoose";
 import {
@@ -62,9 +62,9 @@ async function requireOwnVenue(vendorId: string, venueId: string): Promise<LeanV
 // ---------------------------------------------------------------------------------------------------------------
 // Shows on a venue / screen
 
-/** Shows that haven't started (pass shows without a start time count as upcoming). */
+/** Shows that haven't started and aren't cancelled (pass shows without a start time count as upcoming). */
 export function upcomingShowFilter(now: Date) {
-  return { $or: [{ startsAt: { $gt: now } }, { startsAt: { $exists: false } }] };
+  return { $or: [{ startsAt: { $gt: now } }, { startsAt: { $exists: false } }], ...LIVE_SHOW_FILTER };
 }
 
 interface ShowRef {

@@ -1,6 +1,7 @@
 import "server-only";
 import { Movie } from "./models/Movie";
 import { Show } from "./models/Show";
+import { Vendor } from "./models/Vendor";
 import { ACTIVE_VENUE_FILTER, Venue } from "./models/Venue";
 
 /**
@@ -8,6 +9,10 @@ import { ACTIVE_VENUE_FILTER, Venue } from "./models/Venue";
  * upsert with `$setOnInsert` on the unique key (venue, screen, startsAt, movie), so re-running it (or two
  * servers running it at once) never duplicates a show or changes one that already exists. Each show belongs to
  * its cinema's vendor; a cinema without one (database not re-seeded since the marketplace change) is skipped.
+ *
+ * Demo only: it runs for the cinemas of vendors flagged `demoShowGeneration` (the seeded demo vendors). Real vendors
+ * schedule every show in the partner portal, and their venues have no templates either. A show the vendor cancelled
+ * keeps its document, so the insert-only upsert never brings it back.
  */
 
 /** Price steps below a template's (top zone) price, with a floor, as the prototype priced its auditorium. */
@@ -43,9 +48,16 @@ function onlyDuplicateKeys(err: unknown): boolean {
 
 /** Creates the missing movie shows for the given IST dates. Returns how many were inserted. */
 export async function ensureMovieShows(dateKeys: string[]): Promise<number> {
+  const demoVendors = await Vendor.find({ demoShowGeneration: true }, { _id: 1 }).lean();
+  if (demoVendors.length === 0) return 0;
   const [cinemas, movies] = await Promise.all([
-    Venue.find({ kind: "cinema", ...ACTIVE_VENUE_FILTER }).lean(),
-    Movie.find({ status: "now-showing" }, { _id: 1 }).lean(),
+    Venue.find({
+      kind: "cinema",
+      vendorId: { $in: demoVendors.map((v) => v._id) },
+      "showTemplates.0": { $exists: true },
+      ...ACTIVE_VENUE_FILTER,
+    }).lean(),
+    Movie.find({ status: "now-showing" }, { _id: 1, durationMinutes: 1 }).lean(),
   ]);
 
   const ops: Parameters<typeof Show.bulkWrite>[0] = [];
@@ -69,6 +81,9 @@ export async function ensureMovieShows(dateKeys: string[]): Promise<number> {
               update: {
                 $setOnInsert: {
                   vendorId: cinema.vendorId,
+                  endsAt: new Date(startsAt.getTime() + movie.durationMinutes * 60_000),
+                  status: "scheduled",
+                  source: "template",
                   screenName: screen.name,
                   format: template.format,
                   language: template.language,

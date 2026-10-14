@@ -19,8 +19,17 @@ export interface EventAttrs extends Omit<EventListing, "id" | "schedule" | "vend
   vendorId: Types.ObjectId;
   /** The venue document behind `venueName`; stadium fixtures have a Show there. */
   venueId?: Types.ObjectId;
+  /** Inactive listings are hidden from the public site (older documents have no status = active). */
+  status?: EventStatus;
+  /** Running time in minutes (partner form); stadium fixtures use it to keep a screen free. `durationLabel` is shown. */
+  durationMinutes?: number;
   sortOrder: number;
 }
+
+export type EventStatus = "active" | "inactive";
+
+/** Public reads: listings that are not switched off by their organiser. */
+export const ACTIVE_EVENT_FILTER = { status: { $ne: "inactive" } } as const;
 
 const ticketTierSchema = new Schema(
   { id: String, name: String, description: String, pricePaise: Number, available: Number },
@@ -58,6 +67,8 @@ const eventSchema = new Schema<EventAttrs>(
     director: String,
     artists: { type: [artistSchema], default: [] },
     ticketTiers: { type: [ticketTierSchema], default: [] },
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
+    durationMinutes: { type: Number, min: 1 },
     sortOrder: sortOrderField,
   },
   { timestamps: true, versionKey: false },

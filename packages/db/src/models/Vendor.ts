@@ -54,6 +54,11 @@ export interface VendorAttrs {
   cancellation: CancellationPolicy;
   /** Vendors see customer phone/email on their bookings only when the super-admin turns this on. */
   shareCustomerContact: boolean;
+  /**
+   * Seeded demo vendors only (set by `pnpm db:seed`): their cinemas' daily templates become shows automatically
+   * (`ensureMovieShows`). Real vendors schedule every show themselves in the partner portal.
+   */
+  demoShowGeneration?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -110,6 +115,7 @@ const vendorSchema = new Schema<VendorAttrs>(
       feePaise: { type: Number, required: true, min: 0 },
     },
     shareCustomerContact: { type: Boolean, default: false },
+    demoShowGeneration: { type: Boolean, default: false },
   },
   { timestamps: true, versionKey: false },
 );

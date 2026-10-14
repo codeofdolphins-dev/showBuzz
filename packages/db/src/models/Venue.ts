@@ -58,6 +58,11 @@ export interface VenueAttrs {
   /** Seeded cinemas only: daily showtimes that become `shows` documents (see ../shows.ts). */
   showTemplates: ShowTemplate[];
   screens: StoredScreen[];
+  /**
+   * Bumped (without touching `updatedAt`) inside every partner scheduling transaction, so two vendors' sessions
+   * scheduling on one venue at once conflict and one retries after seeing the other's shows.
+   */
+  scheduleVersion?: number;
   sortOrder: number;
   createdAt?: Date;
   /** Bumped on every save; the layout designer writes conditionally on it. */
@@ -129,6 +134,7 @@ const venueSchema = new Schema<VenueAttrs>(
     },
     showTemplates: { type: [showTemplateSchema], default: [] },
     screens: { type: [screenSchema], default: [] },
+    scheduleVersion: { type: Number, default: 0 },
     sortOrder: sortOrderField,
   },
   { timestamps: true, versionKey: false },

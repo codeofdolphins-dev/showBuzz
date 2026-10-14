@@ -2,7 +2,7 @@ import "server-only";
 import { connect } from "@showbuzz/db/connect";
 import { Show } from "@showbuzz/db/models/Show";
 import type { EventListing } from "@showbuzz/schemas/event";
-import { releaseLapsedOrders } from "./booking.service";
+import { releaseLapsedOrders } from "./order-release.service";
 import { getShowIdForEvent } from "./catalog.service";
 import { getSeatState } from "./seat-hold.service";
 import { loadSeatPlan } from "./seat-map.service";

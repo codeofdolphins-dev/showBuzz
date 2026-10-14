@@ -1,7 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { connect } from "@showbuzz/db/connect";
-import { Show as ShowModel, type ShowAttrs } from "@showbuzz/db/models/Show";
+import { LIVE_SHOW_FILTER, Show as ShowModel, type ShowAttrs } from "@showbuzz/db/models/Show";
 import type { Types } from "@showbuzz/db/mongoose";
 import { ensureMovieShows } from "@showbuzz/db/shows";
 import { log } from "@showbuzz/runtime/log";
@@ -14,9 +14,9 @@ import type { FoodItem } from "@showbuzz/schemas/food";
 import { EVENT_SECTION_PATH, getEventById, getMovieById, listCinemas, listFoodItemsFor } from "./catalog.service";
 
 /**
- * Showtimes are real `shows` documents. They are created lazily: the first showtimes request for a date
- * on each server instance upserts that date's shows from the cinemas' templates (idempotent), so the demo
- * never runs out of shows and needs no cron job. Everything here is time-dependent and stays uncached.
+ * Showtimes are real `shows` documents, scheduled by vendors in the partner portal. For the seeded demo vendors only,
+ * the first showtimes request for a date on each server instance also upserts that date's shows from their cinemas'
+ * templates (idempotent), so the demo never runs out of shows and needs no cron job. Cancelled shows are hidden. Everything here is time-dependent and stays uncached.
  */
 
 type LeanShow = ShowAttrs & { _id: Types.ObjectId };
@@ -87,7 +87,7 @@ export async function listShowtimes(movieId: string, dateKey: string, now: Date)
 
   const [cinemas, shows] = await Promise.all([
     listCinemas(),
-    ShowModel.find({ movieId: movie.id, startsAt: { $gt: from, $lt: dayEnd } })
+    ShowModel.find({ movieId: movie.id, startsAt: { $gt: from, $lt: dayEnd }, ...LIVE_SHOW_FILTER })
       .sort({ startsAt: 1 })
       .lean(),
   ]);
@@ -103,6 +103,7 @@ export async function getShowDetails(showId: string, now: Date): Promise<ShowDet
   // Seat-map shows only (movie shows and stadium fixtures); pass shows have no seat map.
   // Shows created before tier inventory existed have no `inventory` field (lean reads skip defaults).
   if (!show?.startsAt || show.startsAt <= now || (show.inventory ?? []).length > 0) return undefined;
+  if (show.status === "cancelled") return undefined;
   // Shows from before the marketplace change have no vendor until the database is re-seeded: not bookable.
   if (!show.vendorId) return undefined;
   const startsAt = show.startsAt.toISOString();
@@ -163,6 +164,6 @@ export async function getFoodMenuForShow(showId: string): Promise<FoodItem[]> {
 export const findPassShow = cache(async (eventId: string): Promise<LeanShow | undefined> => {
   if (!objectIdSchema.safeParse(eventId).success) return undefined;
   await connect();
-  const show = await ShowModel.findOne({ eventId, "inventory.0": { $exists: true } }).lean();
+  const show = await ShowModel.findOne({ eventId, "inventory.0": { $exists: true }, ...LIVE_SHOW_FILTER }).lean();
   return show ?? undefined;
 });

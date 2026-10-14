@@ -1,7 +1,7 @@
 import "server-only";
 import { connect } from "@showbuzz/db/connect";
 import { SeatHold } from "@showbuzz/db/models/SeatHold";
-import { Show } from "@showbuzz/db/models/Show";
+import { LIVE_SHOW_FILTER, Show } from "@showbuzz/db/models/Show";
 import { Venue, toScreen } from "@showbuzz/db/models/Venue";
 import { Types } from "@showbuzz/db/mongoose";
 import { showSeatSelectionSchema } from "@showbuzz/schemas/partner-venue";
@@ -35,6 +35,7 @@ export async function listVendorShowOptions(
     vendorId: new Types.ObjectId(vendorId),
     startsAt: { $gte: istDateTime(dateKey, "00:00"), $lt: istDateTime(addDaysToKey(dateKey, 1), "00:00") },
     $or: [{ inventory: { $exists: false } }, { inventory: { $size: 0 } }],
+    ...LIVE_SHOW_FILTER,
   };
   const venueObjectId = venueId ? toObjectId(venueId) : null;
   if (venueObjectId) filter.venueId = venueObjectId;

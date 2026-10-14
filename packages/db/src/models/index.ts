@@ -23,6 +23,7 @@ import { Staff } from "./Staff";
 import { StreamTitle } from "./StreamTitle";
 import { User } from "./User";
 import { Vendor } from "./Vendor";
+import { VendorMovie } from "./VendorMovie";
 import { VendorUser } from "./VendorUser";
 import { Venue } from "./Venue";
 import { WishlistItem } from "./WishlistItem";
@@ -56,4 +57,5 @@ export const allModels = [
   WishlistItem,
   GiftCard,
   ActivityLog,
+  VendorMovie,
 ];

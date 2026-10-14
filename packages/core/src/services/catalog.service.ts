@@ -3,11 +3,11 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { connect } from "@showbuzz/db/connect";
 import { City, toCity } from "@showbuzz/db/models/City";
 import { Coupon, toCoupon } from "@showbuzz/db/models/Coupon";
-import { Event, toEvent } from "@showbuzz/db/models/Event";
+import { ACTIVE_EVENT_FILTER, Event, toEvent } from "@showbuzz/db/models/Event";
 import { FoodItem, toFoodItem } from "@showbuzz/db/models/FoodItem";
 import { GiftCardDesign, toGiftCardDesign } from "@showbuzz/db/models/GiftCardDesign";
 import { Movie, toMovie } from "@showbuzz/db/models/Movie";
-import { Show } from "@showbuzz/db/models/Show";
+import { LIVE_SHOW_FILTER, Show } from "@showbuzz/db/models/Show";
 import { StreamTitle, toStreamTitle } from "@showbuzz/db/models/StreamTitle";
 import { Vendor, toVendorPublic } from "@showbuzz/db/models/Vendor";
 import { ACTIVE_VENUE_FILTER, Venue, toCinema, toScreen } from "@showbuzz/db/models/Venue";
@@ -153,7 +153,12 @@ export async function listEvents(kind: EventKind): Promise<EventListing[]> {
   cacheTag(CATALOG_TAGS.events, CATALOG_TAGS.vendors);
   cacheLife("hours");
   await connect();
-  const [docs, vendors] = await Promise.all([Event.find({ kind }).sort({ sortOrder: 1 }).lean(), vendorsById()]);
+  const [docs, vendors] = await Promise.all([
+    Event.find({ kind, ...ACTIVE_EVENT_FILTER })
+      .sort({ sortOrder: 1 })
+      .lean(),
+    vendorsById(),
+  ]);
   return docs.map((doc) => withOrganiser(toEvent(doc), vendors));
 }
 
@@ -162,7 +167,10 @@ export async function getEventBySlug(kind: EventKind, slug: string): Promise<Eve
   cacheTag(CATALOG_TAGS.events, CATALOG_TAGS.vendors);
   cacheLife("hours");
   await connect();
-  const [doc, vendors] = await Promise.all([Event.findOne({ kind, slug }).lean(), vendorsById()]);
+  const [doc, vendors] = await Promise.all([
+    Event.findOne({ kind, slug, ...ACTIVE_EVENT_FILTER }).lean(),
+    vendorsById(),
+  ]);
   return doc ? withOrganiser(toEvent(doc), vendors) : undefined;
 }
 
@@ -172,7 +180,7 @@ export async function getEventById(id: string): Promise<EventListing | undefined
   cacheLife("hours");
   if (!isObjectId(id)) return undefined;
   await connect();
-  const [doc, vendors] = await Promise.all([Event.findById(id).lean(), vendorsById()]);
+  const [doc, vendors] = await Promise.all([Event.findOne({ _id: id, ...ACTIVE_EVENT_FILTER }).lean(), vendorsById()]);
   return doc ? withOrganiser(toEvent(doc), vendors) : undefined;
 }
 
@@ -183,7 +191,9 @@ export async function getShowIdForEvent(eventId: string): Promise<string | undef
   cacheLife("hours");
   if (!isObjectId(eventId)) return undefined;
   await connect();
-  const show = await Show.findOne({ eventId }, { _id: 1 }).sort({ startsAt: -1 }).lean();
+  const show = await Show.findOne({ eventId, ...LIVE_SHOW_FILTER }, { _id: 1 })
+    .sort({ startsAt: -1 })
+    .lean();
   return show?._id.toString();
 }
 
@@ -260,7 +270,7 @@ export async function searchCatalog(query: string): Promise<SearchEntry[]> {
       .sort({ sortOrder: 1 })
       .limit(SEARCH_LIMIT_PER_TYPE)
       .lean(),
-    Event.find({ $or: [{ title: pattern }, { category: pattern }, { venueName: pattern }] })
+    Event.find({ ...ACTIVE_EVENT_FILTER, $or: [{ title: pattern }, { category: pattern }, { venueName: pattern }] })
       .sort({ kind: 1, sortOrder: 1 })
       .limit(SEARCH_LIMIT_PER_TYPE * 2)
       .lean(),

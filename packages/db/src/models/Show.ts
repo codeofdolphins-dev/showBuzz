@@ -5,7 +5,8 @@ import type { ShowAvailability, ShowZone } from "@showbuzz/schemas/venue";
 /**
  * One concrete performance: a movie show at a cinema screen, a stadium fixture (`eventId` + seat zones) or an
  * event "pass" show (`eventId` + `inventory`: quantity tiers without seat numbers).
- * Movie shows are created from the cinemas' daily templates by `ensureMovieShows` (../shows.ts).
+ * Vendors schedule shows in the partner portal; the seeded demo vendors' cinemas also get shows from their daily
+ * templates (`ensureMovieShows`, ../shows.ts).
  */
 export interface ShowAttrs {
   /** The vendor selling this show (the venue's vendor); its rates price the order. */
@@ -17,6 +18,15 @@ export interface ShowAttrs {
   screenName: string;
   /** UTC instant. Missing only for passes to daily activities (no fixed start). */
   startsAt?: Date;
+  /**
+   * When the screen is free again (start + running time). Seat-map shows only: the partner scheduler refuses a show
+   * that overlaps another on the same screen (plus a cleaning buffer).
+   */
+  endsAt?: Date;
+  /** Cancelled shows stay (bookings and the generator's unique key point at them) but are hidden and unbookable. */
+  status?: ShowStatus;
+  /** `template` = made by the demo generator from a seeded cinema's templates; `manual` = scheduled by the vendor. */
+  source?: ShowSource;
   format?: string;
   language?: string;
   availability: ShowAvailability;
@@ -30,6 +40,12 @@ export interface ShowAttrs {
    */
   inventory: ShowInventoryTier[];
 }
+
+export type ShowStatus = "scheduled" | "cancelled";
+export type ShowSource = "template" | "manual";
+
+/** Shows that haven't been cancelled (older documents have no status). */
+export const LIVE_SHOW_FILTER = { status: { $ne: "cancelled" } } as const;
 
 export interface ShowInventoryTier {
   tierId: string;
@@ -57,6 +73,9 @@ const showSchema = new Schema<ShowAttrs>(
     screenId: { type: String, required: true },
     screenName: { type: String, required: true },
     startsAt: Date,
+    endsAt: Date,
+    status: { type: String, enum: ["scheduled", "cancelled"], default: "scheduled" },
+    source: { type: String, enum: ["template", "manual"] },
     format: String,
     language: String,
     availability: { type: String, enum: ["available", "fast-filling", "almost-full"], default: "available" },

@@ -6,12 +6,16 @@
  * Marketplace: creates the demo plan and vendors (KYC included), assigns every venue, event, show and food menu to
  * a vendor and backfills vendorId + settlement on older bookings, payments and refunds. The one index it drops is
  * the old unique `code_1` on foodItems (food codes are now unique per vendor).
+ * Partner listings: the demo vendors are flagged `demoShowGeneration` (only their cinemas get template shows),
+ * events are written on first insert only (the organiser edits them in the partner portal), shows get `endsAt` /
+ * `status`, and each demo vendor's "My movies" list is filled from the films it already shows.
  * Reads MONGODB_URI / MONGODB_DB from the environment (falls back to apps/web/.env.local if present).
  */
 import { SHOW_DATE_WINDOW_DAYS } from "@showbuzz/schemas/constants";
 import { SETTINGS_DEFAULTS } from "@showbuzz/schemas/settings";
 import { computeSettlement } from "@showbuzz/schemas/settlement";
 import { vendorKycSchema } from "@showbuzz/schemas/vendor";
+import { EVENT_DEFAULT_DURATION_MINUTES } from "@showbuzz/schemas/partner-listing";
 import type { EventListing } from "@showbuzz/schemas/event";
 import type { Screen, SeatZone, ShowTemplate, VenueKind } from "@showbuzz/schemas/venue";
 import { connect, disconnect } from "@showbuzz/db/connect";
@@ -33,6 +37,7 @@ import { SETTINGS_KEY, Settings } from "@showbuzz/db/models/Settings";
 import { Show } from "@showbuzz/db/models/Show";
 import { StreamTitle } from "@showbuzz/db/models/StreamTitle";
 import { type StoredKycDocument, Vendor } from "@showbuzz/db/models/Vendor";
+import { VendorMovie } from "@showbuzz/db/models/VendorMovie";
 import { VendorUser } from "@showbuzz/db/models/VendorUser";
 import { Venue, screenIdFor, toScreen } from "@showbuzz/db/models/Venue";
 import { WishlistItem } from "@showbuzz/db/models/WishlistItem";
@@ -179,12 +184,17 @@ async function seedFixtureShow(
     description: STADIUM_BLOCKS[i] ?? tiers[i]?.description ?? "",
     pricePaise: tiers[i]?.pricePaise ?? 0,
   }));
+  const startsAt = new Date(event.schedule.startsAt);
   await Show.updateOne(
-    { venueId, screenId: STADIUM_SCREEN.id, startsAt: new Date(event.schedule.startsAt), eventId },
+    { venueId, screenId: STADIUM_SCREEN.id, startsAt, eventId },
     {
-      $set: {
-        vendorId,
+      $set: { vendorId },
+      // Prices and stands are the organiser's to edit in the partner portal; re-seeding must not undo that.
+      $setOnInsert: {
         screenName: STADIUM_SCREEN.name,
+        endsAt: new Date(startsAt.getTime() + EVENT_DEFAULT_DURATION_MINUTES * 60_000),
+        status: "scheduled",
+        source: "manual",
         availability: "fast-filling",
         pricePaise: zones[0]?.pricePaise ?? 0,
         zones,
@@ -212,6 +222,8 @@ async function seedPassShow(
       $set: { vendorId },
       $setOnInsert: {
         screenName: "General Admission",
+        status: "scheduled",
+        source: "manual",
         availability: "available",
         pricePaise: Math.min(...event.ticketTiers.map((t) => t.pricePaise)),
         inventory: event.ticketTiers.map((t) => ({
@@ -285,6 +297,8 @@ async function seedVendors(): Promise<Map<SeedVendorKey, Types.ObjectId>> {
           cancellation: v.cancellation,
           shareCustomerContact: false,
         },
+        // Only the seeded demo vendors get shows from their cinemas' templates (see ensureMovieShows).
+        $set: { demoShowGeneration: true },
       },
       { upsert: true, returnDocument: "after", lean: true },
     );
@@ -436,6 +450,56 @@ async function backfillLayouts(): Promise<void> {
   log.info("Backfilled venue layouts", { venues: updated });
 }
 
+/**
+ * Shows from before the partner scheduler: status, the end time (start + the film's running time, or the default
+ * fixture length) and, for the demo cinemas' movie shows, the `template` source. Only fills missing fields.
+ */
+async function backfillShows(): Promise<void> {
+  const statuses = await Show.updateMany({ status: { $exists: false } }, { $set: { status: "scheduled" } });
+  let ends = 0;
+  for (const movie of await Movie.find({}, { durationMinutes: 1 }).lean()) {
+    const result = await Show.updateMany(
+      { movieId: movie._id, startsAt: { $type: "date" }, endsAt: { $exists: false } },
+      [{ $set: { endsAt: { $add: ["$startsAt", movie.durationMinutes * 60_000] } } }],
+    );
+    ends += result.modifiedCount;
+  }
+  const fixtures = await Show.updateMany(
+    {
+      eventId: { $exists: true },
+      screenId: { $ne: "passes" },
+      startsAt: { $type: "date" },
+      endsAt: { $exists: false },
+    },
+    [{ $set: { endsAt: { $add: ["$startsAt", EVENT_DEFAULT_DURATION_MINUTES * 60_000] } } }],
+  );
+  const templated = await Show.updateMany(
+    { movieId: { $exists: true }, source: { $exists: false } },
+    { $set: { source: "template" } },
+  );
+  log.info("Backfilled shows", {
+    status: statuses.modifiedCount,
+    endsAt: ends + fixtures.modifiedCount,
+    source: templated.modifiedCount,
+  });
+}
+
+/** Each demo vendor's "My movies": every film it has a show for (idempotent upserts on the unique link). */
+async function seedVendorMovies(vendorIds: Types.ObjectId[]): Promise<void> {
+  let links = 0;
+  for (const vendorId of vendorIds) {
+    const movieIds = await Show.distinct("movieId", { vendorId, movieId: { $exists: true } });
+    if (movieIds.length === 0) continue;
+    const result = await VendorMovie.bulkWrite(
+      movieIds.map((movieId) => ({
+        updateOne: { filter: { vendorId, movieId }, update: { $setOnInsert: { vendorId, movieId } }, upsert: true },
+      })),
+    );
+    links += result.upsertedCount;
+  }
+  log.info("Seeded", { collection: "vendorMovies", added: links });
+}
+
 async function main() {
   await connect();
   await dropLegacyFoodIndex();
@@ -455,7 +519,18 @@ async function main() {
   ];
   // The unique indexes are what make upserts by slug/code safe (and, for seatHolds/bookings, what prevents double
   // booking in production, where autoIndex is off); createIndexes never drops anything.
-  const otherModels = [VendorUser, SeatHold, Booking, Payment, Refund, Review, Lead, WishlistItem, GiftCard];
+  const otherModels = [
+    VendorUser,
+    VendorMovie,
+    SeatHold,
+    Booking,
+    Payment,
+    Refund,
+    Review,
+    Lead,
+    WishlistItem,
+    GiftCard,
+  ];
   for (const model of [...seededModels, ...otherModels]) await model.createIndexes();
 
   await Settings.updateOne({ key: SETTINGS_KEY }, { $setOnInsert: { ...SETTINGS_DEFAULTS } }, { upsert: true });
@@ -523,7 +598,11 @@ async function main() {
         : e.schedule;
     const saved = await Event.findOneAndUpdate(
       { kind: e.kind, slug: e.slug },
-      { $set: { ...withoutId(e), vendorId: organiserId, schedule, venueId: venue?._id, sortOrder } },
+      {
+        $set: { vendorId: organiserId, sortOrder },
+        // The organiser edits listings in the partner portal; re-seeding must not undo that.
+        $setOnInsert: { ...withoutId(e), schedule, venueId: venue?._id, status: "active" },
+      },
       { upsert: true, returnDocument: "after", lean: true },
     );
     if (saved && venue) {
@@ -573,6 +652,8 @@ async function main() {
 
   const inserted = await ensureMovieShows(istDateKeys(new Date(), SHOW_DATE_WINDOW_DAYS));
   log.info("Seeded", { collection: "shows", inserted, days: SHOW_DATE_WINDOW_DAYS });
+  await backfillShows();
+  await seedVendorMovies([...vendorIds.values()]);
 }
 
 main()
