@@ -25,12 +25,15 @@ function StepHeader({ title, description }: { title: string; description: ReactN
   );
 }
 
-function SaveBar({ pending, label = "Save & continue" }: { pending: boolean; label?: string }) {
+/** Onboarding wizard steps, also used by Business Profile (`mode="profile"`) once onboarding is complete. */
+export type StepMode = "onboarding" | "profile";
+
+function SaveBar({ pending, mode }: { pending: boolean; mode: StepMode }) {
   return (
     <div className="flex justify-end border-t border-admin-border pt-4">
       <Button type="submit" disabled={pending}>
-        {pending ? "Saving…" : label}
-        <ArrowRight className="h-4 w-4" aria-hidden />
+        {pending ? "Saving…" : mode === "profile" ? "Save changes" : "Save & continue"}
+        {mode === "onboarding" ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
       </Button>
     </div>
   );
@@ -46,10 +49,12 @@ export function BusinessStep({
   vendor,
   cities,
   onSaved,
+  mode = "onboarding",
 }: {
   vendor: VendorSummary;
   cities: { value: string; label: string }[];
   onSaved: () => void;
+  mode?: StepMode;
 }) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -68,7 +73,7 @@ export function BusinessStep({
   const onSubmit = form.handleSubmit(() =>
     startTransition(async () => {
       setMessage(null);
-      const result = await saveBusinessDetailsAction(form.getValues());
+      const result = await saveBusinessDetailsAction(form.getValues(), mode);
       if (!result.success) {
         setMessage(applyActionError(form, result.error));
         return;
@@ -144,7 +149,7 @@ export function BusinessStep({
           {...form.register("address.pincode")}
         />
       </div>
-      <SaveBar pending={pending} />
+      <SaveBar pending={pending} mode={mode} />
     </form>
   );
 }
@@ -152,7 +157,15 @@ export function BusinessStep({
 type TaxInput = z.input<typeof onboardingTaxSchema>;
 type TaxOutput = z.output<typeof onboardingTaxSchema>;
 
-export function TaxStep({ kyc, onSaved }: { kyc: VendorKycView; onSaved: () => void }) {
+export function TaxStep({
+  kyc,
+  onSaved,
+  mode = "onboarding",
+}: {
+  kyc: VendorKycView;
+  onSaved: () => void;
+  mode?: StepMode;
+}) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -165,7 +178,7 @@ export function TaxStep({ kyc, onSaved }: { kyc: VendorKycView; onSaved: () => v
   const onSubmit = form.handleSubmit(() =>
     startTransition(async () => {
       setMessage(null);
-      const result = await saveTaxIdsAction(form.getValues());
+      const result = await saveTaxIdsAction(form.getValues(), mode);
       if (!result.success) {
         setMessage(applyActionError(form, result.error));
         return;
@@ -206,7 +219,7 @@ export function TaxStep({ kyc, onSaved }: { kyc: VendorKycView; onSaved: () => v
           {...form.register("pan")}
         />
       </div>
-      <SaveBar pending={pending} />
+      <SaveBar pending={pending} mode={mode} />
     </form>
   );
 }
@@ -214,7 +227,15 @@ export function TaxStep({ kyc, onSaved }: { kyc: VendorKycView; onSaved: () => v
 type BankInput = z.input<typeof onboardingBankSchema>;
 type BankOutput = z.output<typeof onboardingBankSchema>;
 
-export function BankStep({ kyc, onSaved }: { kyc: VendorKycView; onSaved: () => void }) {
+export function BankStep({
+  kyc,
+  onSaved,
+  mode = "onboarding",
+}: {
+  kyc: VendorKycView;
+  onSaved: () => void;
+  mode?: StepMode;
+}) {
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -232,7 +253,7 @@ export function BankStep({ kyc, onSaved }: { kyc: VendorKycView; onSaved: () => 
   const onSubmit = form.handleSubmit(() =>
     startTransition(async () => {
       setMessage(null);
-      const result = await saveBankAccountAction(form.getValues());
+      const result = await saveBankAccountAction(form.getValues(), mode);
       if (!result.success) {
         setMessage(applyActionError(form, result.error));
         return;
@@ -288,7 +309,7 @@ export function BankStep({ kyc, onSaved }: { kyc: VendorKycView; onSaved: () => 
           {...form.register("ifsc")}
         />
       </div>
-      <SaveBar pending={pending} />
+      <SaveBar pending={pending} mode={mode} />
     </form>
   );
 }

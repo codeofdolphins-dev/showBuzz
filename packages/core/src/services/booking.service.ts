@@ -1,7 +1,7 @@
 import "server-only";
-import { randomInt } from "node:crypto";
 import { connect } from "@showbuzz/db/connect";
-import { Booking, type BookingAttrs, toBookingRecord } from "@showbuzz/db/models/Booking";
+import { Booking, toBookingRecord } from "@showbuzz/db/models/Booking";
+import { Coupon } from "@showbuzz/db/models/Coupon";
 import { GiftCard } from "@showbuzz/db/models/GiftCard";
 import { Payment } from "@showbuzz/db/models/Payment";
 import { Refund } from "@showbuzz/db/models/Refund";
@@ -12,9 +12,18 @@ import { log } from "@showbuzz/runtime/log";
 import { placeOrderSchema, type PlaceOrderInput } from "@showbuzz/schemas/booking";
 import type { BookingRecord, BookingStatus, BookingView } from "@showbuzz/schemas/types/booking";
 import type { CustomerSnapshot } from "@showbuzz/schemas/user";
-import type { CancellationPolicy } from "@showbuzz/schemas/vendor";
+import { insertWithUniqueCode } from "../booking/booking-code";
 import { AppError } from "../http/app-error";
 import { getPaymentGateway, type SimulatedOutcome } from "../payments/gateway";
+import {
+  type LeanBooking,
+  type PolicyFallback,
+  canCancel,
+  cancelConfirmedBooking,
+  payableOf,
+  policyFallback,
+  policyOf,
+} from "./booking-cancel.service";
 import { generateGiftCardCode, getIssuedGiftCards, giftCardExpiry } from "./gift-card.service";
 import { priceOrder } from "./pricing.service";
 import { closeOrder, releaseLapsedOrders } from "./order-release.service";
@@ -40,34 +49,8 @@ import { findPassShow, getShowDetails } from "./show.service";
  * changes nothing the second time. Another customer's booking answers exactly like a missing one (NOT_FOUND).
  */
 
-type LeanBooking = BookingAttrs & { _id: Types.ObjectId };
-
-const MAX_CODE_ATTEMPTS = 5;
 const HOLD_EXPIRED_MESSAGE =
   "Your seat hold expired before payment, so no money was charged. Please pick your seats again.";
-
-function isDuplicateKey(err: unknown, field: string): boolean {
-  const e = err as { code?: number; keyPattern?: Record<string, unknown> };
-  return e.code === 11000 && !!e.keyPattern && field in e.keyPattern;
-}
-
-type PolicyFallback = Pick<CancellationPolicy, "cutoffMinutes" | "feePaise">;
-
-/** The policy the booking was sold under; bookings from before the marketplace change use Settings. */
-function policyOf(record: Pick<BookingRecord, "cancellationPolicy">, fallback: PolicyFallback): PolicyFallback {
-  return record.cancellationPolicy ?? fallback;
-}
-
-function canCancel(record: BookingRecord, now: Date, fallback: PolicyFallback): boolean {
-  if (record.status !== "confirmed" || !record.cancellable || !record.startsAt) return false;
-  const cutoff = new Date(record.startsAt).getTime() - policyOf(record, fallback).cutoffMinutes * 60_000;
-  return now.getTime() < cutoff;
-}
-
-async function policyFallback(): Promise<PolicyFallback> {
-  const { cancellationCutoffMinutes, cancellationFeePaise } = await getSettings();
-  return { cutoffMinutes: cancellationCutoffMinutes, feePaise: cancellationFeePaise };
-}
 
 /** The record without its owner id, which never leaves the server. */
 function withoutOwner(record: BookingRecord): Omit<BookingRecord, "userId"> {
@@ -90,21 +73,6 @@ async function findOwned(code: string, userId: string): Promise<LeanBooking | un
   if (!Types.ObjectId.isValid(userId)) return undefined;
   await connect();
   return (await Booking.findOne({ code, userId }).lean()) ?? undefined;
-}
-
-async function insertWithUniqueCode(
-  doc: Omit<BookingAttrs, "code" | "createdAt" | "updatedAt"> & { _id: Types.ObjectId },
-) {
-  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
-    const code = `SB-${randomInt(100_000, 1_000_000)}`;
-    try {
-      await Booking.create({ ...doc, code });
-      return code;
-    } catch (err) {
-      if (!isDuplicateKey(err, "code")) throw err;
-    }
-  }
-  throw new AppError("INTERNAL", "We couldn't create your booking. Please try again.", 500);
 }
 
 /**
@@ -256,16 +224,11 @@ export type PaymentResult = { status: "confirmed"; code: string } | { status: "f
 /** Thrown inside the confirm transaction to abort it; the reason is shown to the customer. */
 class ConfirmAborted extends Error {
   constructor(
-    readonly kind: "seats_lost" | "gift_card_spent",
+    readonly kind: "seats_lost" | "gift_card_spent" | "coupon_used_up",
     readonly reason: string,
   ) {
     super(kind);
   }
-}
-
-/** What the gateway charges for this order (older bookings have no gift card fields). */
-function payableOf(booking: LeanBooking): number {
-  return booking.amounts.payablePaise ?? booking.amounts.totalPaise - (booking.amounts.giftCardPaise ?? 0);
 }
 
 /**
@@ -349,6 +312,25 @@ export async function confirmPayment(
           { $inc: { "inventory.$.sold": booking.quantity } },
           { session },
         );
+      }
+      if (booking.couponCode) {
+        // One conditional update: a coupon's usage limit can't be exceeded by checkouts confirming at once.
+        const used = await Coupon.updateOne(
+          {
+            code: booking.couponCode,
+            $expr: { $lt: [{ $ifNull: ["$usedCount", 0] }, { $ifNull: ["$usageLimit", Number.MAX_SAFE_INTEGER] }] },
+          },
+          { $inc: { usedCount: 1 } },
+          { session },
+        );
+        if (used.matchedCount === 1) {
+          await Booking.updateOne({ _id: booking._id }, { $set: { couponUseCounted: true } }, { session });
+        } else if (await Coupon.exists({ code: booking.couponCode }).session(session)) {
+          throw new ConfirmAborted(
+            "coupon_used_up",
+            `${booking.couponCode} reached its usage limit before the payment completed. Any amount charged will be refunded.`,
+          );
+        }
       }
       const giftCardPaise = booking.amounts.giftCardPaise ?? 0;
       if (booking.giftCardId && giftCardPaise > 0) {
@@ -520,7 +502,7 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
 
   const record = toBookingRecord(booking);
   const fallback = await policyFallback();
-  const { cutoffMinutes, feePaise: cancellationFeePaise } = policyOf(record, fallback);
+  const { cutoffMinutes, feePaise } = policyOf(record, fallback);
   if (!canCancel(record, now, fallback)) {
     throw new AppError(
       "BOOKING_NOT_CANCELLABLE",
@@ -530,95 +512,5 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
       409,
     );
   }
-
-  const gatewayPart = payableOf(booking);
-  const giftPart = booking.amounts.giftCardPaise ?? 0;
-  const payment =
-    gatewayPart > 0 ? await Payment.findOne({ bookingId: booking._id, status: "succeeded" }).lean() : null;
-  if (gatewayPart > 0 && !payment) {
-    throw new AppError("INTERNAL", "We couldn't find the payment for this booking.", 500);
-  }
-
-  // The fee comes out of the gateway part first, so the gift card gets back as much as possible (agreed 2026-10-13).
-  const gatewayRefundPaise = Math.max(0, gatewayPart - cancellationFeePaise);
-  const giftCardReturnPaise = Math.max(0, giftPart - Math.max(0, cancellationFeePaise - gatewayPart));
-  const refundPaise = gatewayRefundPaise + giftCardReturnPaise;
-  const gateway = getPaymentGateway();
-  const mongoose = await connect();
-  const state = { cancelled: false };
-  await mongoose.connection.transaction(async (session) => {
-    state.cancelled = false;
-    const cancelled = await Booking.updateOne(
-      { _id: booking._id, status: "confirmed" },
-      { $set: { status: "cancelled", cancelledAt: now, refundPaise } },
-      { session },
-    );
-    if (cancelled.modifiedCount !== 1) return;
-    if (booking.seatIds.length > 0) await SeatHold.deleteMany({ bookingId: booking._id }, { session });
-    if (booking.showId && booking.tierId && booking.quantity) {
-      await Show.updateOne(
-        { _id: booking.showId, "inventory.tierId": booking.tierId },
-        { $inc: { "inventory.$.remaining": booking.quantity, "inventory.$.sold": -booking.quantity } },
-        { session },
-      );
-    }
-    if (booking.giftCardId && giftCardReturnPaise > 0) {
-      await GiftCard.updateOne(
-        { _id: booking.giftCardId },
-        {
-          $inc: { balancePaise: giftCardReturnPaise },
-          $push: {
-            transactions: { type: "refund", amountPaise: giftCardReturnPaise, bookingId: booking._id, at: now },
-          },
-        },
-        { session },
-      );
-      // A card emptied by this booking becomes usable again (an expired card keeps the money but stays expired).
-      await GiftCard.updateOne(
-        { _id: booking.giftCardId, status: "redeemed", balancePaise: { $gt: 0 } },
-        { $set: { status: "active" } },
-        { session },
-      );
-    }
-    // Recorded before the gateway is called; the unique bookingId means a booking is only ever refunded once.
-    await Refund.create(
-      [
-        {
-          bookingId: booking._id,
-          ...(payment ? { paymentId: payment._id } : {}),
-          userId: booking.userId,
-          ...(booking.vendorId ? { vendorId: booking.vendorId } : {}),
-          provider: gateway.provider,
-          providerRef: gatewayRefundPaise > 0 ? "pending" : "none",
-          amountPaise: gatewayRefundPaise,
-          giftCardPaise: giftCardReturnPaise,
-          feePaise: booking.amounts.totalPaise - refundPaise,
-          reason: "cancelled",
-          status: gatewayRefundPaise > 0 ? "processing" : "processed",
-          ...(gatewayRefundPaise > 0 ? {} : { processedAt: now }),
-        },
-      ],
-      { session },
-    );
-    state.cancelled = true;
-  });
-
-  if (!state.cancelled) {
-    const fresh = await Booking.findById(booking._id, { refundPaise: 1 }).lean();
-    return { refundPaise: fresh?.refundPaise ?? 0 };
-  }
-
-  if (!payment || gatewayRefundPaise === 0) return { refundPaise };
-  const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: gatewayRefundPaise });
-  await Refund.updateOne(
-    { bookingId: booking._id },
-    {
-      $set: {
-        providerRef: refund.providerRef,
-        status: refund.status,
-        ...(refund.status === "processed" ? { processedAt: now } : {}),
-      },
-    },
-  );
-  return { refundPaise };
+  return cancelConfirmedBooking(booking, { feePaise, by: "customer", now });
 }

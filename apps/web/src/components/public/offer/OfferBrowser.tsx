@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/public/common/EmptyState";
 import { Modal } from "@showbuzz/ui/Modal";
 import { cn } from "@showbuzz/utils/cn";
 import { formatDateShort } from "@showbuzz/utils/dates";
-import type { Coupon, OfferIcon } from "@showbuzz/schemas/offer";
+import type { OfferIcon, OfferListing } from "@showbuzz/schemas/offer";
 import { toast } from "@/stores/ui";
 
 const ICONS: Record<OfferIcon, LucideIcon> = {
@@ -23,12 +23,20 @@ const TABS = [
   { value: "Credit Cards", label: "Bank Cards" },
   { value: "UPI", label: "UPI & Wallets" },
   { value: "Food Combos", label: "F&B Perks" },
+  { value: "partner", label: "Cinema & Organiser Offers" },
 ];
 
-export function OfferBrowser({ offers }: { offers: Coupon[] }) {
+/** Platform offers, plus vendor offers (valid only on that vendor's shows) labelled "by <vendor>". */
+export function OfferBrowser({ offers }: { offers: OfferListing[] }) {
   const [tab, setTab] = useState("All");
-  const [termsFor, setTermsFor] = useState<Coupon | null>(null);
-  const visible = tab === "All" ? offers : offers.filter((o) => o.category === tab);
+  const [termsFor, setTermsFor] = useState<OfferListing | null>(null);
+  const tabs = offers.some((o) => o.vendorName) ? TABS : TABS.filter((t) => t.value !== "partner");
+  const visible =
+    tab === "All"
+      ? offers
+      : tab === "partner"
+        ? offers.filter((o) => o.vendorName)
+        : offers.filter((o) => o.category === tab);
 
   const copy = async (code: string) => {
     await navigator.clipboard?.writeText(code);
@@ -38,7 +46,7 @@ export function OfferBrowser({ offers }: { offers: Coupon[] }) {
   return (
     <>
       <div className="no-scrollbar mb-8 flex items-center gap-2 overflow-x-auto pb-2" role="tablist">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.value}
             type="button"
@@ -77,6 +85,11 @@ export function OfferBrowser({ offers }: { offers: Coupon[] }) {
                   </span>
                 </div>
                 <h3 className="text-base leading-snug font-black text-slate-900">{o.title}</h3>
+                {o.vendorName ? (
+                  <p className="mt-0.5 text-[11px] font-bold text-rose-600">
+                    by {o.vendorName} · valid on their shows only
+                  </p>
+                ) : null}
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">{o.description}</p>
                 <p className="mt-2 flex items-center gap-1 text-[11px] font-medium text-slate-400">
                   <Clock className="h-3 w-3" /> Valid till {formatDateShort(new Date(o.validUntil))}

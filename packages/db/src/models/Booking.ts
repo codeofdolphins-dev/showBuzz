@@ -1,6 +1,6 @@
 import "server-only";
 import { type Model, Schema, type Types, model, models } from "mongoose";
-import type { ContactDetails, PaymentMethod } from "@showbuzz/schemas/booking";
+import type { BookingPaymentMethod, ContactDetails } from "@showbuzz/schemas/booking";
 import type { GiftCardOrderInput } from "@showbuzz/schemas/gift-card";
 import type { CancellationPolicy } from "@showbuzz/schemas/vendor";
 import type { BookingSettlement } from "@showbuzz/schemas/types/vendor";
@@ -20,11 +20,19 @@ import type {
  * Marketplace: `vendorId` is the seller (the show's vendor). `settlement` freezes the money split and
  * `cancellationPolicy` the vendor's terms at purchase, so later rate or policy changes never touch a sold ticket.
  * Gift card purchases are platform sales: no vendor, settlement or policy.
+ *
+ * Counter sales (partner box office, `channel: "counter"`) have no customer account (`userId` absent), are paid in
+ * cash or UPI at the counter (recorded, no gateway) and are confirmed at once. `checkedInAt` is set once, at the gate.
  */
 export interface BookingAttrs {
   /** "SB-123456", shown to customers. */
   code: string;
-  userId: Types.ObjectId;
+  /** The customer account. Absent only on counter sales (walk-in customers have no account). */
+  userId?: Types.ObjectId;
+  /** Where it was sold (missing = online). */
+  channel?: BookingChannel;
+  /** Counter sales: the vendor login that sold it. */
+  soldByVendorUserId?: Types.ObjectId;
   /** Seller. Missing only on gift card purchases. */
   vendorId?: Types.ObjectId;
   status: BookingStatus;
@@ -56,17 +64,28 @@ export interface BookingAttrs {
   /** The vendor's policy when the order was placed (venue opt-out already applied to `cancellable`). */
   cancellationPolicy?: CancellationPolicy;
   couponCode?: string;
+  /** The coupon's `usedCount` was increased when this booking was confirmed (given back if it is cancelled). */
+  couponUseCounted?: boolean;
   /** Gift card paying `amounts.giftCardPaise` of this order (balance deducted when the payment is confirmed). */
   giftCardId?: Types.ObjectId;
-  paymentMethod: PaymentMethod;
-  contact: ContactDetails;
+  paymentMethod: BookingPaymentMethod;
+  /** Counter sales may have no phone/email (walk-in), so every field is optional there. */
+  contact: Partial<ContactDetails>;
   /** Pay before this or the order lapses (the seat holds expire at the same moment). */
   holdExpiresAt: Date;
   cancellable: boolean;
   confirmedAt?: Date;
   cancelledAt?: Date;
+  /** Who cancelled (missing on older bookings = the customer). */
+  cancelledBy?: "customer" | "vendor";
+  /** Vendor cancellations: the reason given (required after the cutoff). */
+  cancelReason?: string;
   refundPaise?: number;
   failureReason?: string;
+  /** Gate check-in (partner Scan Tickets): set once, by one atomic update. */
+  checkedInAt?: Date;
+  /** The vendor login that checked the ticket in. */
+  checkedInBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -116,7 +135,15 @@ const giftCardSchema = new Schema(
 const bookingSchema = new Schema<BookingAttrs>(
   {
     code: { type: String, required: true, match: /^SB-\d{6}$/ },
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: function (this: BookingAttrs) {
+        return this.channel !== "counter";
+      },
+    },
+    channel: { type: String, enum: ["online", "counter"] },
+    soldByVendorUserId: { type: Schema.Types.ObjectId, ref: "VendorUser" },
     vendorId: {
       type: Schema.Types.ObjectId,
       ref: "Vendor",
@@ -153,15 +180,24 @@ const bookingSchema = new Schema<BookingAttrs>(
     settlement: settlementSchema,
     cancellationPolicy: cancellationPolicySchema,
     couponCode: String,
+    couponUseCounted: Boolean,
     giftCardId: { type: Schema.Types.ObjectId, ref: "GiftCard" },
-    paymentMethod: { type: String, enum: ["upi", "card", "netbanking", "wallet"], required: true },
+    paymentMethod: {
+      type: String,
+      enum: ["upi", "card", "netbanking", "wallet", "counter_cash", "counter_upi"],
+      required: true,
+    },
     contact: { name: String, phone: String, email: String },
     holdExpiresAt: { type: Date, required: true },
     cancellable: { type: Boolean, default: false },
     confirmedAt: Date,
     cancelledAt: Date,
+    cancelledBy: { type: String, enum: ["customer", "vendor"] },
+    cancelReason: String,
     refundPaise: Number,
     failureReason: String,
+    checkedInAt: Date,
+    checkedInBy: { type: Schema.Types.ObjectId, ref: "VendorUser" },
   },
   { timestamps: true, versionKey: false },
 );
@@ -169,8 +205,13 @@ const bookingSchema = new Schema<BookingAttrs>(
 bookingSchema.index({ code: 1 }, { unique: true });
 bookingSchema.index({ userId: 1, createdAt: -1 });
 bookingSchema.index({ vendorId: 1, createdAt: -1 });
+// Partner bookings list by show date and the earnings report by confirmation time.
+bookingSchema.index({ vendorId: 1, startsAt: -1 });
+bookingSchema.index({ vendorId: 1, confirmedAt: 1 });
 // Finds orders whose payment window lapsed so their tier passes can be given back.
 bookingSchema.index({ status: 1, holdExpiresAt: 1 });
+
+export type BookingChannel = "online" | "counter";
 
 type LeanBooking = BookingAttrs & { _id: { toString(): string } };
 
@@ -178,7 +219,7 @@ type LeanBooking = BookingAttrs & { _id: { toString(): string } };
 export function toBookingRecord(doc: LeanBooking): BookingRecord {
   return {
     code: doc.code,
-    userId: doc.userId.toString(),
+    userId: doc.userId?.toString() ?? "",
     status: doc.status,
     kind: doc.kind,
     ...(doc.showId ? { showId: doc.showId.toString() } : {}),
@@ -223,7 +264,7 @@ export function toBookingRecord(doc: LeanBooking): BookingRecord {
         }
       : {}),
     paymentMethod: doc.paymentMethod,
-    contact: { name: doc.contact.name, phone: doc.contact.phone, email: doc.contact.email },
+    contact: { name: doc.contact.name ?? "", phone: doc.contact.phone ?? "", email: doc.contact.email ?? "" },
     bookedAt: (doc.confirmedAt ?? doc.createdAt).toISOString(),
     cancellable: doc.cancellable,
     ...(doc.cancelledAt ? { cancelledAt: doc.cancelledAt.toISOString() } : {}),

@@ -8,6 +8,9 @@ import { computeSettlement } from "@showbuzz/schemas/settlement";
 import type { BookingKind, OrderQuote, QuoteFoodLine } from "@showbuzz/schemas/types/booking";
 import type { BookingSettlement } from "@showbuzz/schemas/types/vendor";
 import type { CancellationPolicy } from "@showbuzz/schemas/vendor";
+import { connect } from "@showbuzz/db/connect";
+import { Booking } from "@showbuzz/db/models/Booking";
+import { Coupon as CouponModel } from "@showbuzz/db/models/Coupon";
 import type { Types } from "@showbuzz/db/mongoose";
 import { AppError } from "../http/app-error";
 import { getCouponByCode, getEventById, listFoodItemsFor, listGiftCardDesigns } from "./catalog.service";
@@ -34,6 +37,9 @@ export interface TicketPricing {
   /** Seller and venue (absent for gift cards, which the platform sells). */
   vendorId?: string;
   venueId?: string;
+  /** What is being sold (vendor coupons may be limited to some films or listings). */
+  movieId?: string;
+  eventId?: string;
   title: string;
   poster: string;
   certificate?: string;
@@ -73,6 +79,8 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date, holderKey
       kind: show.kind,
       vendorId: show.vendorId,
       venueId: show.venueId,
+      ...(show.movieId ? { movieId: show.movieId } : {}),
+      ...(show.eventId ? { eventId: show.eventId } : {}),
       title: show.title,
       poster: show.poster,
       certificate: show.certificate,
@@ -111,6 +119,7 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date, holderKey
       kind: event.kind,
       vendorId: passShow?.vendorId?.toString(),
       venueId: passShow?.venueId.toString(),
+      eventId: event.id,
       title: event.title,
       poster: event.poster,
       language: event.language,
@@ -174,11 +183,26 @@ export function evaluateCoupon(
   ctx: { tickets: TicketPricing; foodPaise: number; now: Date },
 ): { discountPaise: number } | { error: string } {
   const { tickets, foodPaise, now } = ctx;
+  if (coupon.status === "inactive") return { error: `Coupon "${coupon.code}" is invalid.` };
+  if (coupon.validFrom && new Date(coupon.validFrom) > now) return { error: `${coupon.code} isn't valid yet.` };
   if (new Date(coupon.validUntil) < now) return { error: `${coupon.code} has expired.` };
   if (tickets.kind === "gift-card") return { error: "Coupons cannot be applied to gift cards." };
   // Vendor coupons only on that vendor's shows; platform coupons (no vendorId) everywhere.
   if (coupon.vendorId && coupon.vendorId !== tickets.vendorId) {
     return { error: `${coupon.code} isn't valid for this show.` };
+  }
+  // A vendor coupon limited to some venues / films / listings (each list empty or missing = all).
+  const outside = (list: string[] | undefined, id: string | undefined) =>
+    !!list && list.length > 0 && (!id || !list.includes(id));
+  if (
+    outside(coupon.venueIds, tickets.venueId) ||
+    outside(coupon.movieIds, tickets.movieId) ||
+    outside(coupon.eventIds, tickets.eventId)
+  ) {
+    return { error: `${coupon.code} isn't valid for this show.` };
+  }
+  if (coupon.usageLimit !== undefined && (coupon.usedCount ?? 0) >= coupon.usageLimit) {
+    return { error: `${coupon.code} has been fully redeemed.` };
   }
 
   const base = coupon.appliesTo === "food" ? foodPaise : tickets.ticketsPaise;
@@ -203,6 +227,30 @@ export function evaluateCoupon(
   if (coupon.kind === "bogo") discount = Math.min(...tickets.unitPrices);
   if (coupon.maxDiscountPaise !== undefined) discount = Math.min(discount, coupon.maxDiscountPaise);
   return { discountPaise: Math.min(discount, base) };
+}
+
+/**
+ * Usage limits read fresh (the catalogue copy of a coupon is cached, so its `usedCount` may be behind). The total
+ * limit is enforced again atomically when the payment is confirmed; the per-customer limit counts this account's
+ * confirmed bookings with the code.
+ */
+async function couponUsageError(coupon: Coupon, userId: string | undefined): Promise<string | undefined> {
+  if (coupon.usageLimit === undefined && coupon.perCustomerLimit === undefined) return undefined;
+  await connect();
+  if (coupon.usageLimit !== undefined) {
+    const fresh = await CouponModel.findOne({ code: coupon.code }, { usedCount: 1 }).lean();
+    if ((fresh?.usedCount ?? 0) >= coupon.usageLimit) return `${coupon.code} has been fully redeemed.`;
+  }
+  if (coupon.perCustomerLimit !== undefined) {
+    if (!userId) return `Sign in to use ${coupon.code}.`;
+    const used = await Booking.countDocuments({ userId, couponCode: coupon.code, status: "confirmed" });
+    if (used >= coupon.perCustomerLimit) {
+      return coupon.perCustomerLimit === 1
+        ? `You've already used ${coupon.code}.`
+        : `You've already used ${coupon.code} ${coupon.perCustomerLimit} times.`;
+    }
+  }
+  return undefined;
 }
 
 export interface QuoteOptions {
@@ -273,9 +321,13 @@ export async function priceOrder(draft: OrderDraft, now: Date, options: QuoteOpt
 
   if (draft.couponCode) {
     const found = await getCouponByCode(draft.couponCode);
-    const result = found
+    let result = found
       ? evaluateCoupon(found, { tickets, foodPaise, now })
       : { error: `Coupon "${draft.couponCode}" is invalid.` };
+    if (found && !("error" in result)) {
+      const usageError = await couponUsageError(found, options.giftCardContext?.userId);
+      if (usageError) result = { error: usageError };
+    }
     if ("error" in result) {
       if (options.strictCoupon) throw new AppError("COUPON_INVALID", result.error, 422);
       couponError = result.error;

@@ -3,7 +3,7 @@ import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 
 /**
  * Same baseline headers as apps/admin (noindex: the portal must never appear in search results). The camera is
- * off until the Scan Tickets screen (prompt 5) turns it on for this origin.
+ * allowed for this origin only: the Scan Tickets screen reads ticket QR codes with it.
  */
 function securityHeaders(isDev: boolean) {
   const headers = [
@@ -12,7 +12,7 @@ function securityHeaders(isDev: boolean) {
     { key: "X-Frame-Options", value: "DENY" },
     {
       key: "Permissions-Policy",
-      value: "camera=(), microphone=(), usb=(), payment=(), browsing-topics=(), geolocation=()",
+      value: "camera=(self), microphone=(), usb=(), payment=(), browsing-topics=(), geolocation=()",
     },
     { key: "X-Robots-Tag", value: "noindex, nofollow" },
   ];

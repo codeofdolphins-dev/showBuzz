@@ -28,7 +28,18 @@ import { AppError } from "../../http/app-error";
  * the vendor id from the caller's session, never from the request. Steps can be saved in any order and revisited
  * until the vendor submits; progress is derived from the saved data. Submitting completes onboarding at once
  * (no approval step, agreed 2026-10-13).
+ *
+ * After onboarding, Business Profile edits the same details through the same functions with `phase: "profile"`
+ * (same validation, only allowed once onboarding is complete).
  */
+
+/** Which screen is editing: the onboarding wizard (incomplete vendors) or Business Profile (complete vendors). */
+export type KycEditPhase = "onboarding" | "profile";
+
+const STATUS_FOR: Record<KycEditPhase, VendorAttrs["onboardingStatus"]> = {
+  onboarding: "incomplete",
+  profile: "complete",
+};
 
 export type OnboardingStepId = "business" | "tax" | "bank" | "documents" | "review";
 
@@ -54,6 +65,7 @@ export interface CityOption {
 }
 
 const NOT_EDITABLE = "Onboarding is already complete. Edit your details from Business Profile.";
+const NOT_ONBOARDED = "Finish onboarding first.";
 
 /** Cities for the signup and business-details forms (the public city list). */
 export async function listCityOptions(): Promise<CityOption[]> {
@@ -81,16 +93,20 @@ export async function getOnboardingState(vendorId: string): Promise<OnboardingSt
   };
 }
 
-export async function saveBusinessDetails(vendorId: string, input: unknown): Promise<{ changedFields: string[] }> {
+export async function saveBusinessDetails(
+  vendorId: string,
+  input: unknown,
+  phase: KycEditPhase = "onboarding",
+): Promise<{ changedFields: string[] }> {
   const data = onboardingBusinessSchema.parse(input);
-  const vendor = await loadEditableVendor(vendorId);
+  const vendor = await loadEditableVendor(vendorId, phase);
   if (!(await City.exists({ slug: data.address.cityId }))) {
     throw new AppError("VALIDATION_FAILED", "Choose a city from the list.", 422, {
       fieldErrors: { "address.cityId": ["Choose a city from the list."] },
     });
   }
   await Vendor.updateOne(
-    { _id: vendor._id, onboardingStatus: "incomplete" },
+    { _id: vendor._id, onboardingStatus: STATUS_FOR[phase] },
     {
       $set: {
         businessName: data.businessName,
@@ -110,22 +126,30 @@ export async function saveBusinessDetails(vendorId: string, input: unknown): Pro
   };
 }
 
-export async function saveTaxIds(vendorId: string, input: unknown): Promise<{ changedFields: string[] }> {
+export async function saveTaxIds(
+  vendorId: string,
+  input: unknown,
+  phase: KycEditPhase = "onboarding",
+): Promise<{ changedFields: string[] }> {
   const { gstin, pan } = onboardingTaxSchema.parse(input);
-  const vendor = await loadEditableVendor(vendorId);
+  const vendor = await loadEditableVendor(vendorId, phase);
   await Vendor.updateOne(
-    { _id: vendor._id, onboardingStatus: "incomplete" },
+    { _id: vendor._id, onboardingStatus: STATUS_FOR[phase] },
     { $set: { "kyc.gstin": gstin, "kyc.pan": pan } },
   );
   return { changedFields: changed({ "kyc.gstin": [vendor.kyc.gstin, gstin], "kyc.pan": [vendor.kyc.pan, pan] }) };
 }
 
-export async function saveBankAccount(vendorId: string, input: unknown): Promise<{ changedFields: string[] }> {
+export async function saveBankAccount(
+  vendorId: string,
+  input: unknown,
+  phase: KycEditPhase = "onboarding",
+): Promise<{ changedFields: string[] }> {
   const { holderName, accountNumber, ifsc } = onboardingBankSchema.parse(input);
-  const vendor = await loadEditableVendor(vendorId);
+  const vendor = await loadEditableVendor(vendorId, phase);
   const bankAccount = { holderName, accountNumber, ifsc };
   await Vendor.updateOne(
-    { _id: vendor._id, onboardingStatus: "incomplete" },
+    { _id: vendor._id, onboardingStatus: STATUS_FOR[phase] },
     { $set: { "kyc.bankAccount": bankAccount } },
   );
   const before = vendor.kyc.bankAccount;
@@ -145,9 +169,10 @@ export async function saveBankAccount(vendorId: string, input: unknown): Promise
 export async function uploadKycDocument(
   vendorId: string,
   input: { kind: unknown; file: { name: string; bytes: Uint8Array } },
+  phase: KycEditPhase = "onboarding",
 ): Promise<{ kind: OnboardingDocumentKind; filename: string }> {
   const kind = onboardingDocumentKindSchema.parse(input.kind);
-  const vendor = await loadEditableVendor(vendorId);
+  const vendor = await loadEditableVendor(vendorId, phase);
 
   const storage = getFileStorage();
   let stored;
@@ -174,7 +199,7 @@ export async function uploadKycDocument(
   };
   const previous = vendor.kyc.documents.filter((d) => d.kind === kind);
   const result = await Vendor.updateOne(
-    { _id: vendor._id, onboardingStatus: "incomplete" },
+    { _id: vendor._id, onboardingStatus: STATUS_FOR[phase] },
     [
       {
         $set: {
@@ -191,7 +216,7 @@ export async function uploadKycDocument(
   );
   if (result.matchedCount !== 1) {
     await storage.delete(stored.fileId);
-    throw new AppError("CONFLICT", NOT_EDITABLE, 409);
+    throw new AppError("CONFLICT", phase === "onboarding" ? NOT_EDITABLE : NOT_ONBOARDED, 409);
   }
   for (const old of previous) {
     await storage
@@ -253,9 +278,11 @@ async function loadVendor(vendorId: string): Promise<LeanVendor> {
   return vendor;
 }
 
-async function loadEditableVendor(vendorId: string): Promise<LeanVendor> {
+async function loadEditableVendor(vendorId: string, phase: KycEditPhase = "onboarding"): Promise<LeanVendor> {
   const vendor = await loadVendor(vendorId);
-  if (vendor.onboardingStatus !== "incomplete") throw new AppError("CONFLICT", NOT_EDITABLE, 409);
+  if (vendor.onboardingStatus !== STATUS_FOR[phase]) {
+    throw new AppError("CONFLICT", phase === "onboarding" ? NOT_EDITABLE : NOT_ONBOARDED, 409);
+  }
   return vendor;
 }
 

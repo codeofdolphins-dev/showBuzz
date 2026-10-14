@@ -93,9 +93,13 @@ function parseClaims(encoded: string): TicketClaims | undefined {
 
 /**
  * Checks a scanned payload: signature first (constant-time), then the booking as it is now. Valid only for a
- * confirmed booking whose show and seats still match the ticket. For the admin scan-qr screen.
+ * confirmed booking whose show and seats still match the ticket. For the gate scanners (partner Scan Tickets, the
+ * admin scan-qr screen). With `vendorId`, another vendor's ticket answers `not_found`, exactly like a missing one.
  */
-export async function verifyTicketPayload(payload: string): Promise<TicketVerification> {
+export async function verifyTicketPayload(
+  payload: string,
+  options: { vendorId?: string } = {},
+): Promise<TicketVerification> {
   if (payload.length > MAX_PAYLOAD_LENGTH) return { valid: false, reason: "malformed" };
   const parts = payload.trim().split(".");
   if (parts.length !== 3 || parts[0] !== VERSION || !parts[1] || !parts[2])
@@ -112,7 +116,9 @@ export async function verifyTicketPayload(payload: string): Promise<TicketVerifi
 
   await connect();
   const booking = await Booking.findOne({ code: claims.c }).lean();
-  if (!booking) return { valid: false, reason: "not_found", code: claims.c };
+  if (!booking || (options.vendorId && booking.vendorId?.toString() !== options.vendorId)) {
+    return { valid: false, reason: "not_found", code: claims.c };
+  }
   if (booking.status !== "confirmed") return { valid: false, reason: "not_confirmed", code: claims.c };
   const sameShow = (booking.showId?.toString() ?? undefined) === claims.s;
   const sameSeats =

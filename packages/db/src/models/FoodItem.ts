@@ -5,12 +5,15 @@ import { type LeanDoc, sortOrderField } from "./transforms";
 
 /**
  * A snack or combo for cinema pre-orders, owned by a vendor. `venueIds` limits it to some of that vendor's
- * cinemas (empty = all of them). `code` is unique per vendor (the seed key, "fb-1").
+ * cinemas (empty = all of them). `code` is unique per vendor (the seed key, "fb-1"). `available: false` takes it
+ * off the public menu without deleting it (orders keep their own snapshot of name and price).
  */
 export interface FoodItemAttrs extends Omit<FoodItemShape, "id"> {
   vendorId: Types.ObjectId;
   venueIds: Types.ObjectId[];
   code: string;
+  /** Missing = available. */
+  available?: boolean;
   sortOrder: number;
 }
 
@@ -26,6 +29,7 @@ const foodItemSchema = new Schema<FoodItemAttrs>(
     size: { type: String, default: "" },
     image: { type: String, required: true },
     description: { type: String, default: "" },
+    available: { type: Boolean, default: true },
     sortOrder: sortOrderField,
   },
   { timestamps: true, versionKey: false },

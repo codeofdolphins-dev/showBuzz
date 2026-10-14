@@ -4,3 +4,20 @@
 /* Shared components from packages/ui and packages/console-ui (outside this app, so not scanned automatically). */
 @source "../../../../packages/ui/src";
 @source "../../../../packages/console-ui/src";
+
+/* Printing a counter ticket or a booking's pass: only the pass is printed (components/bookings/TicketPass). */
+@media print {
+  body:has(.ticket-print-area) * {
+    visibility: hidden;
+  }
+  .ticket-print-area,
+  .ticket-print-area * {
+    visibility: visible;
+  }
+  .ticket-print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+  }
+}

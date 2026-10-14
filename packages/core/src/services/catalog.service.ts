@@ -14,6 +14,7 @@ import { ACTIVE_VENUE_FILTER, Venue, toCinema, toScreen } from "@showbuzz/db/mod
 import { objectIdSchema } from "@showbuzz/schemas/common";
 import type { EventKind, EventListing } from "@showbuzz/schemas/event";
 import type { Movie as MovieShape } from "@showbuzz/schemas/movie";
+import type { OfferListing } from "@showbuzz/schemas/offer";
 import type { SearchEntry } from "@showbuzz/schemas/types/catalog";
 import type { VendorPublic } from "@showbuzz/schemas/types/vendor";
 import { type CancellationPolicy, describeCutoff } from "@showbuzz/schemas/vendor";
@@ -206,9 +207,23 @@ export async function listCoupons() {
   return docs.map(toCoupon);
 }
 
-/** Platform coupons for /offers. Vendor coupons apply at checkout but aren't listed there yet (partner offers). */
+/** Platform coupons (always valid everywhere). */
 export async function listPlatformCoupons() {
   return (await listCoupons()).filter((c) => !c.vendorId);
+}
+
+/**
+ * The /offers page: active platform coupons, plus vendor coupons whose vendor chose to list them, labelled with the
+ * vendor's business name (they apply only to that vendor's shows).
+ */
+export async function listOffers(): Promise<OfferListing[]> {
+  const [coupons, vendors] = await Promise.all([listCoupons(), vendorsById()]);
+  return coupons.flatMap((c): OfferListing[] => {
+    if (c.status === "inactive") return [];
+    if (!c.vendorId) return [c];
+    const vendor = vendors.get(c.vendorId);
+    return c.showOnOffersPage && vendor ? [{ ...c, vendorName: vendor.businessName }] : [];
+  });
 }
 
 export async function getCouponByCode(code: string) {
@@ -224,6 +239,7 @@ export async function listFoodItemsFor(vendorId: string, venueId: string) {
   await connect();
   const docs = await FoodItem.find({
     vendorId,
+    available: { $ne: false },
     $or: [{ venueIds: { $size: 0 } }, { venueIds: { $exists: false } }, { venueIds: venueId }],
   })
     .sort({ sortOrder: 1 })

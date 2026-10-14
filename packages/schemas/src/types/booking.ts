@@ -1,4 +1,4 @@
-import type { ContactDetails, PaymentMethod } from "../booking";
+import type { BookingPaymentMethod, ContactDetails } from "../booking";
 import type { CancellationPolicy } from "../vendor";
 import type { GiftCardSummary } from "./gift-card";
 
@@ -85,7 +85,7 @@ export interface BookingRecord {
   couponCode?: string;
   /** The vendor's cancellation terms when it was bought (older bookings: none, Settings apply). */
   cancellationPolicy?: CancellationPolicy;
-  paymentMethod: PaymentMethod;
+  paymentMethod: BookingPaymentMethod;
   contact: ContactDetails;
   bookedAt: string;
   cancellable: boolean;

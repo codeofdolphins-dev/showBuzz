@@ -32,6 +32,9 @@ export interface ShowDetails {
   /** The selling vendor (its rates price the order) and the venue (its food menu). */
   vendorId: string;
   venueId: string;
+  /** The film or sports fixture shown (vendor coupons can be limited to some). */
+  movieId?: string;
+  eventId?: string;
   /** The vendor's business name, shown as "by …" / "Organised by …". */
   operatorName?: string;
   title: string;

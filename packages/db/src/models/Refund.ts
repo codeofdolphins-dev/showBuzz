@@ -1,15 +1,19 @@
 import "server-only";
 import { type Model, Schema, type Types, model, models } from "mongoose";
 
-/** Money returned for a booking. One per booking (unique), so a repeated cancel can never refund twice. */
+/**
+ * Money returned for a booking. One per booking (unique), so a repeated cancel can never refund twice. Counter sales
+ * are refunded at the counter (provider `counter`, recorded only).
+ */
 export interface RefundAttrs {
   bookingId: Types.ObjectId;
   /** Missing when a gift card paid the whole order (nothing went through the gateway). */
   paymentId?: Types.ObjectId;
-  userId: Types.ObjectId;
+  /** Absent on counter sales. */
+  userId?: Types.ObjectId;
   /** The booking's vendor (absent for gift card purchases). */
   vendorId?: Types.ObjectId;
-  provider: "simulated";
+  provider: "simulated" | "counter";
   providerRef: string;
   /** Refunded through the payment gateway. */
   amountPaise: number;
@@ -28,9 +32,9 @@ const refundSchema = new Schema<RefundAttrs>(
   {
     bookingId: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
     paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User" },
     vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
-    provider: { type: String, enum: ["simulated"], required: true },
+    provider: { type: String, enum: ["simulated", "counter"], required: true },
     providerRef: { type: String, required: true },
     amountPaise: { type: Number, required: true, min: 0 },
     feePaise: { type: Number, required: true, min: 0 },

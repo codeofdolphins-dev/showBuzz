@@ -52,6 +52,15 @@ export const contactDetailsSchema = z.object({
 
 export const paymentMethodSchema = z.enum(["upi", "card", "netbanking", "wallet"]);
 
+/** Box-office sales in the partner portal: money taken at the counter and recorded, no gateway involved. */
+export const counterPaymentMethodSchema = z.enum(["counter_cash", "counter_upi"]);
+
+/** Every way a booking can be paid (online gateway methods + counter). */
+export const bookingPaymentMethodSchema = z.enum([
+  ...paymentMethodSchema.options,
+  ...counterPaymentMethodSchema.options,
+]);
+
 export const placeOrderSchema = orderDraftSchema.extend({
   contact: contactDetailsSchema,
   paymentMethod: paymentMethodSchema,
@@ -66,4 +75,6 @@ export type OrderDraftInput = z.input<typeof orderDraftSchema>;
 export type ContactDetails = z.infer<typeof contactDetailsSchema>;
 export type ContactDetailsInput = z.input<typeof contactDetailsSchema>;
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
+export type CounterPaymentMethod = z.infer<typeof counterPaymentMethodSchema>;
+export type BookingPaymentMethod = z.infer<typeof bookingPaymentMethodSchema>;
 export type PlaceOrderInput = z.input<typeof placeOrderSchema>;

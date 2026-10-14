@@ -22,7 +22,22 @@ export const couponSchema = z.object({
   minTickets: z.int().positive().optional(),
   weekendOnly: z.boolean().optional(),
   bank: z.string().optional(),
+  /** Usable from this moment (missing = straight away). */
+  validFrom: isoDateTimeSchema.optional(),
   validUntil: isoDateTimeSchema,
+  /** Inactive coupons are never accepted (missing = active). */
+  status: z.enum(["active", "inactive"]).optional(),
+  /** Total confirmed redemptions allowed (missing = unlimited), counted in `usedCount`. */
+  usageLimit: z.int().positive().optional(),
+  /** Confirmed redemptions allowed per customer account (missing = unlimited). */
+  perCustomerLimit: z.int().positive().optional(),
+  usedCount: z.int().nonnegative().optional(),
+  /** Vendor coupons: only at these venues / films / listings of the vendor (missing = all of them). */
+  venueIds: z.array(objectIdSchema).optional(),
+  movieIds: z.array(objectIdSchema).optional(),
+  eventIds: z.array(objectIdSchema).optional(),
+  /** Vendor coupons: listed on /offers, labelled with the vendor. Platform coupons are always listed. */
+  showOnOffersPage: z.boolean().optional(),
   description: z.string().min(1),
   icon: offerIconSchema,
   /** Tailwind gradient stops used by the offer card. */
@@ -37,4 +52,6 @@ export const couponCodeSchema = z
   .regex(/^[A-Z0-9]{3,20}$/, "Enter a valid coupon code");
 
 export type Coupon = z.infer<typeof couponSchema>;
+/** A coupon on the public /offers page; vendor coupons carry the seller's business name. */
+export type OfferListing = Coupon & { vendorName?: string };
 export type OfferIcon = z.infer<typeof offerIconSchema>;

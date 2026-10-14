@@ -18,9 +18,11 @@ import { Review } from "./Review";
 import { Role } from "./Role";
 import { SeatHold } from "./SeatHold";
 import { Settings } from "./Settings";
+import { Settlement } from "./Settlement";
 import { Show } from "./Show";
 import { Staff } from "./Staff";
 import { StreamTitle } from "./StreamTitle";
+import { SubscriptionInvoice } from "./SubscriptionInvoice";
 import { User } from "./User";
 import { Vendor } from "./Vendor";
 import { VendorMovie } from "./VendorMovie";
@@ -58,4 +60,6 @@ export const allModels = [
   GiftCard,
   ActivityLog,
   VendorMovie,
+  Settlement,
+  SubscriptionInvoice,
 ];

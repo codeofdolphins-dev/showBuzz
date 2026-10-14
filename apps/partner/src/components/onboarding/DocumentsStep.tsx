@@ -21,15 +21,20 @@ const KINDS: { kind: OnboardingDocumentKind; hint: string }[] = [
   },
 ];
 
-/** One upload per document kind; each file is stored as soon as it is chosen (replacing the earlier one). */
+/**
+ * One upload per document kind; each file is stored as soon as it is chosen (replacing the earlier one). Business
+ * Profile uses it to re-upload documents (`mode="profile"`, no "continue" step).
+ */
 export function DocumentsStep({
   documents,
   missing,
   onContinue,
+  mode = "onboarding",
 }: {
   documents: KycDocument[];
   missing: OnboardingDocumentKind[];
-  onContinue: () => void;
+  onContinue?: () => void;
+  mode?: "onboarding" | "profile";
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -45,6 +50,7 @@ export function DocumentsStep({
       const data = new FormData();
       data.set("kind", kind);
       data.set("file", file);
+      data.set("mode", mode);
       const result = await uploadKycDocumentAction(data);
       setUploading(null);
       if (!result.success) {
@@ -104,10 +110,12 @@ export function DocumentsStep({
             ? "All required documents are uploaded."
             : `Still needed: ${missing.map((k) => KYC_DOCUMENT_LABELS[k]).join(", ")}.`}
         </p>
-        <Button type="button" onClick={onContinue} disabled={pending}>
-          Continue to review
-          <ArrowRight className="h-4 w-4" aria-hidden />
-        </Button>
+        {onContinue ? (
+          <Button type="button" onClick={onContinue} disabled={pending}>
+            Continue to review
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Button>
+        ) : null}
       </div>
     </div>
   );

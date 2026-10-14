@@ -23,7 +23,10 @@
     "db:create-admin": "pnpm --filter @showbuzz/admin db:create-admin",
     "db:seed-demo-admin": "pnpm --filter @showbuzz/admin db:seed-demo-admin",
     "db:create-vendor-user": "pnpm --filter @showbuzz/partner db:create-vendor-user",
-    "db:seed-demo-vendors": "pnpm --filter @showbuzz/partner db:seed-demo-vendors"
+    "db:seed-demo-vendors": "pnpm --filter @showbuzz/partner db:seed-demo-vendors",
+    "web": "pnpm --filter @showbuzz/web dev",
+    "admin": "pnpm --filter @showbuzz/admin dev",
+    "partner": "pnpm --filter @showbuzz/partner dev"
   },
   "devDependencies": {
     "@showbuzz/config": "workspace:*",
