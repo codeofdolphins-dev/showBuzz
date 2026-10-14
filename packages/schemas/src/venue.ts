@@ -30,7 +30,8 @@ export const cinemaSchema = z.object({
     allowed: z.boolean(),
     label: z.string().min(1),
   }),
-  showTemplates: z.array(showTemplateSchema).min(1),
+  /** Seeded cinemas generate their shows from these; a vendor's new cinema has none (its shows are scheduled). */
+  showTemplates: z.array(showTemplateSchema),
 });
 
 export type ShowAvailability = z.infer<typeof showAvailabilitySchema>;
@@ -38,14 +39,25 @@ export type ShowTemplate = z.infer<typeof showTemplateSchema>;
 export type Cinema = z.infer<typeof cinemaSchema>;
 
 export const venueKindSchema = z.enum(["cinema", "stadium", "venue"]);
+/** Inactive venues are hidden from the public site; tickets already sold stay valid. */
+export const venueStatusSchema = z.enum(["active", "inactive"]);
+
+/** Seat-category colours (prototype seat-layout legend); the public seat map uses them for the category badge. */
+export const SEAT_ACCENTS = ["indigo", "blue", "teal", "amber", "purple", "green", "rose", "slate"] as const;
+export const seatAccentSchema = z.enum(SEAT_ACCENTS);
+
+/** Seat ids are row letter + number ("C7", SeatHold.seatId), so rows are A–Z and numbers stay below 100. */
+export const MAX_SEATS_PER_ROW = 40;
 
 export const seatRowSchema = z.object({
   row: z.string().regex(/^[A-Z]$/),
-  count: z.int().min(1).max(40),
-  /** Seat number after which an aisle gap is drawn. */
-  aisleAfter: z.int().positive().optional(),
+  count: z.int().min(1).max(MAX_SEATS_PER_ROW),
+  /** Seat numbers after which an aisle gap is drawn. */
+  aislesAfter: z.array(z.int().positive()).default([]),
   /** Seat numbers marked wheelchair accessible. */
   accessibleSeats: z.array(z.int().positive()).default([]),
+  /** Seat numbers that are never sold (broken, removed, camera position...). */
+  blockedSeats: z.array(z.int().positive()).default([]),
 });
 
 /** A block of rows sold at one price. Prices live on each show, so one layout serves every price list. */
@@ -53,15 +65,22 @@ export const seatZoneSchema = z.object({
   id: idSchema,
   name: z.string().min(1),
   description: z.string(),
-  accent: z.enum(["rose", "amber", "blue"]),
+  accent: seatAccentSchema,
   recliner: z.boolean(),
+  /** The price a newly scheduled show starts with for this category (each show keeps its own prices). */
+  defaultPricePaise: paiseSchema,
   rows: z.array(seatRowSchema).min(1),
 });
+
+export const screenLayoutTypeSchema = z.enum(["screen", "stadium"]);
 
 export const screenSchema = z.object({
   id: idSchema,
   name: z.string().min(1),
-  layoutType: z.enum(["screen", "stadium"]),
+  layoutType: screenLayoutTypeSchema,
+  /** Projection / experience formats this screen can run (2D, IMAX, 4DX...). */
+  formats: z.array(z.string().min(1)).default([]),
+  soundSystem: z.string().optional(),
   zones: z.array(seatZoneSchema).min(1),
 });
 
@@ -74,6 +93,9 @@ export const showZoneSchema = z.object({
 });
 
 export type VenueKind = z.infer<typeof venueKindSchema>;
+export type VenueStatus = z.infer<typeof venueStatusSchema>;
+export type SeatAccent = z.infer<typeof seatAccentSchema>;
+export type ScreenLayoutType = z.infer<typeof screenLayoutTypeSchema>;
 export type SeatRowSpec = z.infer<typeof seatRowSchema>;
 export type SeatZone = z.infer<typeof seatZoneSchema>;
 export type Screen = z.infer<typeof screenSchema>;

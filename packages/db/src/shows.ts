@@ -1,7 +1,7 @@
 import "server-only";
 import { Movie } from "./models/Movie";
 import { Show } from "./models/Show";
-import { Venue } from "./models/Venue";
+import { ACTIVE_VENUE_FILTER, Venue } from "./models/Venue";
 
 /**
  * Turns each cinema's daily show templates into concrete `shows` documents. Idempotent: every show is an
@@ -44,7 +44,7 @@ function onlyDuplicateKeys(err: unknown): boolean {
 /** Creates the missing movie shows for the given IST dates. Returns how many were inserted. */
 export async function ensureMovieShows(dateKeys: string[]): Promise<number> {
   const [cinemas, movies] = await Promise.all([
-    Venue.find({ kind: "cinema" }).lean(),
+    Venue.find({ kind: "cinema", ...ACTIVE_VENUE_FILTER }).lean(),
     Movie.find({ status: "now-showing" }, { _id: 1 }).lean(),
   ]);
 

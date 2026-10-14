@@ -18,6 +18,11 @@ const ACCENT_BADGE: Record<SeatTier["accent"], string> = {
   rose: "text-rose-600 bg-rose-50 border-rose-100",
   amber: "text-amber-600 bg-amber-50 border-amber-100",
   blue: "text-blue-600 bg-blue-50 border-blue-100",
+  indigo: "text-indigo-600 bg-indigo-50 border-indigo-100",
+  teal: "text-teal-600 bg-teal-50 border-teal-100",
+  purple: "text-purple-600 bg-purple-50 border-purple-100",
+  green: "text-emerald-600 bg-emerald-50 border-emerald-100",
+  slate: "text-slate-600 bg-slate-50 border-slate-200",
 };
 
 function tierIcon(show: ShowDetails, index: number) {
@@ -241,7 +246,7 @@ export function SeatSelector({ show, seatMap, maxTickets, focusTier }: SeatSelec
                               >
                                 {seat.status === "accessible" && !isSelected ? <Accessibility className="h-2.5 w-2.5" /> : seat.number}
                               </button>
-                              {row.aisleAfter === seat.number && <span className="w-3 shrink-0 sm:w-5" />}
+                              {row.aislesAfter.includes(seat.number) && <span className="w-3 shrink-0 sm:w-5" />}
                             </Fragment>
                           );
                         })}

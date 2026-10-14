@@ -32,8 +32,9 @@ export async function loadSeatPlan(showId: string): Promise<SeatPlan | undefined
 const NO_HOLDS: SeatState = { unavailable: new Set(), mine: [] };
 
 export function buildSeatMap(show: ShowDetails, plan: SeatPlan, state: SeatState = NO_HOLDS): SeatMap {
-  const status = (id: string, accessible: boolean): Seat["status"] =>
-    state.unavailable.has(id) ? "sold" : accessible ? "accessible" : "available";
+  // Seats blocked in the layout are never sold, so customers see them like sold seats.
+  const status = (id: string, accessible: boolean, blocked: boolean): Seat["status"] =>
+    blocked || state.unavailable.has(id) ? "sold" : accessible ? "accessible" : "available";
 
   const tiers: SeatTier[] = plan.zones.map(({ layout, pricing }) => ({
     id: layout.id,
@@ -46,9 +47,13 @@ export function buildSeatMap(show: ShowDetails, plan: SeatPlan, state: SeatState
       row: r.row,
       seats: Array.from({ length: r.count }, (_, i) => {
         const id = `${r.row}${i + 1}`;
-        return { id, number: i + 1, status: status(id, r.accessibleSeats.includes(i + 1)) };
+        return {
+          id,
+          number: i + 1,
+          status: status(id, r.accessibleSeats.includes(i + 1), r.blockedSeats.includes(i + 1)),
+        };
       }),
-      aisleAfter: r.aisleAfter,
+      aislesAfter: r.aislesAfter,
     })),
   }));
 

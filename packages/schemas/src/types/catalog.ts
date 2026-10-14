@@ -1,4 +1,4 @@
-import type { ShowAvailability } from "../venue";
+import type { SeatAccent, ShowAvailability } from "../venue";
 
 export type SearchEntryType = "movie" | "event" | "play" | "sport" | "activity" | "cinema";
 
@@ -61,8 +61,8 @@ export interface Seat {
 export interface SeatRow {
   row: string;
   seats: Seat[];
-  /** Seat number after which an aisle gap is drawn. */
-  aisleAfter?: number;
+  /** Seat numbers after which an aisle gap is drawn. */
+  aislesAfter: number[];
 }
 
 export interface SeatTier {
@@ -70,7 +70,7 @@ export interface SeatTier {
   name: string;
   description: string;
   pricePaise: number;
-  accent: "rose" | "amber" | "blue";
+  accent: SeatAccent;
   recliner: boolean;
   rows: SeatRow[];
 }

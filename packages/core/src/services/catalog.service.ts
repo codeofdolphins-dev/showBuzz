@@ -10,7 +10,7 @@ import { Movie, toMovie } from "@showbuzz/db/models/Movie";
 import { Show } from "@showbuzz/db/models/Show";
 import { StreamTitle, toStreamTitle } from "@showbuzz/db/models/StreamTitle";
 import { Vendor, toVendorPublic } from "@showbuzz/db/models/Vendor";
-import { Venue, toCinema } from "@showbuzz/db/models/Venue";
+import { ACTIVE_VENUE_FILTER, Venue, toCinema, toScreen } from "@showbuzz/db/models/Venue";
 import { objectIdSchema } from "@showbuzz/schemas/common";
 import type { EventKind, EventListing } from "@showbuzz/schemas/event";
 import type { Movie as MovieShape } from "@showbuzz/schemas/movie";
@@ -124,7 +124,9 @@ export async function listCinemas(): Promise<Cinema[]> {
   cacheLife("hours");
   await connect();
   const [docs, vendors] = await Promise.all([
-    Venue.find({ kind: "cinema" }).sort({ sortOrder: 1 }).lean(),
+    Venue.find({ kind: "cinema", ...ACTIVE_VENUE_FILTER })
+      .sort({ sortOrder: 1 })
+      .lean(),
     vendorsById(),
   ]);
   return docs.map((doc) => withOperator(toCinema(doc), vendors));
@@ -143,25 +145,7 @@ export async function getScreen(venueId: string, screenId: string): Promise<Scre
   await connect();
   const venue = await Venue.findById(venueId, { screens: 1 }).lean();
   const screen = venue?.screens.find((s) => s.id === screenId);
-  if (!screen) return undefined;
-  return {
-    id: screen.id,
-    name: screen.name,
-    layoutType: screen.layoutType,
-    zones: screen.zones.map((z) => ({
-      id: z.id,
-      name: z.name,
-      description: z.description,
-      accent: z.accent,
-      recliner: z.recliner,
-      rows: z.rows.map((r) => ({
-        row: r.row,
-        count: r.count,
-        ...(r.aisleAfter ? { aisleAfter: r.aisleAfter } : {}),
-        accessibleSeats: [...(r.accessibleSeats ?? [])],
-      })),
-    })),
-  };
+  return screen ? toScreen(screen) : undefined;
 }
 
 export async function listEvents(kind: EventKind): Promise<EventListing[]> {
@@ -280,7 +264,7 @@ export async function searchCatalog(query: string): Promise<SearchEntry[]> {
       .sort({ kind: 1, sortOrder: 1 })
       .limit(SEARCH_LIMIT_PER_TYPE * 2)
       .lean(),
-    Venue.find({ kind: "cinema", $or: [{ name: pattern }, { address: pattern }] })
+    Venue.find({ kind: "cinema", ...ACTIVE_VENUE_FILTER, $or: [{ name: pattern }, { address: pattern }] })
       .sort({ sortOrder: 1 })
       .limit(SEARCH_LIMIT_PER_TYPE)
       .lean(),

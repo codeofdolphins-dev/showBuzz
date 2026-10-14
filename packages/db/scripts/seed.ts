@@ -13,7 +13,7 @@ import { SETTINGS_DEFAULTS } from "@showbuzz/schemas/settings";
 import { computeSettlement } from "@showbuzz/schemas/settlement";
 import { vendorKycSchema } from "@showbuzz/schemas/vendor";
 import type { EventListing } from "@showbuzz/schemas/event";
-import type { Screen, SeatZone, VenueKind } from "@showbuzz/schemas/venue";
+import type { Screen, SeatZone, ShowTemplate, VenueKind } from "@showbuzz/schemas/venue";
 import { connect, disconnect } from "@showbuzz/db/connect";
 import { Booking } from "@showbuzz/db/models/Booking";
 import { City } from "@showbuzz/db/models/City";
@@ -34,11 +34,11 @@ import { Show } from "@showbuzz/db/models/Show";
 import { StreamTitle } from "@showbuzz/db/models/StreamTitle";
 import { type StoredKycDocument, Vendor } from "@showbuzz/db/models/Vendor";
 import { VendorUser } from "@showbuzz/db/models/VendorUser";
-import { Venue, screenIdFor } from "@showbuzz/db/models/Venue";
+import { Venue, screenIdFor, toScreen } from "@showbuzz/db/models/Venue";
 import { WishlistItem } from "@showbuzz/db/models/WishlistItem";
 import { Types } from "@showbuzz/db/mongoose";
 import { getFileStorage } from "@showbuzz/db/storage/file-storage";
-import { ensureMovieShows, istDateKeys } from "@showbuzz/db/shows";
+import { ensureMovieShows, istDateKeys, movieZonePrice } from "@showbuzz/db/shows";
 import { log } from "@showbuzz/runtime/log";
 import {
   DEMO_PLAN,
@@ -58,7 +58,7 @@ import {
 } from "./seed-data";
 
 /** The prototype's auditorium (rows A-G, three price zones); every seeded screen and stand uses it. */
-function standardZones(names: [string, string, string], recliner: boolean): SeatZone[] {
+function standardZones(names: [string, string, string], recliner: boolean, topPricePaise: number): SeatZone[] {
   const accents: SeatZone["accent"][] = ["rose", "amber", "blue"];
   const rows: { row: string; count: number }[][] = [
     [
@@ -81,20 +81,29 @@ function standardZones(names: [string, string, string], recliner: boolean): Seat
     description: name,
     accent: accents[i] ?? "blue",
     recliner: recliner && i === 0,
+    defaultPricePaise: movieZonePrice(topPricePaise, i),
     rows: (rows[i] ?? []).map((r) => ({
       ...r,
-      aisleAfter: r.count > 8 ? r.count / 2 : undefined,
+      aislesAfter: r.count > 8 ? [r.count / 2] : [],
       accessibleSeats: r.row === "C" ? [1, r.count] : [],
+      blockedSeats: [],
     })),
   }));
 }
 
-function cinemaScreen(name: string): Screen {
+/** A seeded cinema screen, priced from its most expensive template and offering the templates' formats. */
+function cinemaScreen(name: string, templates: ShowTemplate[]): Screen {
+  const own = templates.filter((t) => t.screenName === name);
   return {
     id: screenIdFor(name),
     name,
     layoutType: "screen",
-    zones: standardZones(["Royal Recliner", "Prime Gold", "Classic Silver"], true),
+    formats: [...new Set(own.map((t) => t.format))],
+    zones: standardZones(
+      ["Royal Recliner", "Prime Gold", "Classic Silver"],
+      true,
+      Math.max(0, ...own.map((t) => t.pricePaise)),
+    ),
   };
 }
 
@@ -102,7 +111,8 @@ const STADIUM_SCREEN: Screen = {
   id: "stadium",
   name: "Stadium",
   layoutType: "stadium",
-  zones: standardZones(["Premium Stand", "Lower Stand", "Upper Stand"], false),
+  formats: ["Live Event"],
+  zones: standardZones(["Premium Stand", "Lower Stand", "Upper Stand"], false, 150_000),
 };
 
 const STADIUM_BLOCKS = [
@@ -141,14 +151,13 @@ async function seedEventVenue(event: EventListing, sortOrder: number, vendorId: 
   return Venue.findOneAndUpdate(
     { slug: slugify(event.venueName) },
     {
-      $set: {
-        vendorId,
-        kind,
+      $set: { vendorId, kind, sortOrder: 100 + sortOrder },
+      // The vendor edits these in the partner portal; re-seeding must not undo that.
+      $setOnInsert: {
         name: event.venueName,
         cityId: event.cityId,
         address: event.venueName,
         screens: kind === "stadium" ? [STADIUM_SCREEN] : [],
-        sortOrder: 100 + sortOrder,
       },
     },
     { upsert: true, returnDocument: "after", lean: true },
@@ -390,6 +399,43 @@ async function backfillOwnership(): Promise<void> {
   log.info("Backfilled vendor ownership", { shows, bookings: backfilled, payments, refunds });
 }
 
+/**
+ * Brings venues stored before the layout designer up to its shape: status, a list of aisles instead of one,
+ * blocked seats, screen formats and a default price per category (from the screen's templates, like the shows).
+ * Only touches venues that still miss something, so it never overwrites a vendor's own layout.
+ */
+async function backfillLayouts(): Promise<void> {
+  let updated = 0;
+  for (const venue of await Venue.find({}).lean()) {
+    const outdated =
+      !venue.status ||
+      venue.screens.some(
+        (s) =>
+          !s.formats ||
+          s.zones.some(
+            (z) => z.defaultPricePaise === undefined || z.rows.some((r) => !r.aislesAfter || !r.blockedSeats),
+          ),
+      );
+    if (!outdated) continue;
+    const screens = venue.screens.map((stored) => {
+      const screen = toScreen(stored);
+      const own = venue.showTemplates.filter((t) => t.screenName === screen.name);
+      const top = Math.max(0, ...own.map((t) => t.pricePaise));
+      return {
+        ...screen,
+        formats: stored.formats ?? [...new Set(own.map((t) => t.format))],
+        zones: screen.zones.map((zone, i) => ({
+          ...zone,
+          defaultPricePaise: stored.zones[i]?.defaultPricePaise ?? movieZonePrice(top, i),
+        })),
+      };
+    });
+    await Venue.updateOne({ _id: venue._id }, { $set: { status: venue.status ?? "active", screens } });
+    updated += 1;
+  }
+  log.info("Backfilled venue layouts", { venues: updated });
+}
+
 async function main() {
   await connect();
   await dropLegacyFoodIndex();
@@ -444,15 +490,21 @@ async function main() {
 
   await upsertBy("venues (cinemas)", cinemas, (c, sortOrder) => {
     const screenNames = [...new Set(c.showTemplates.map((t) => t.screenName))];
+    const { showTemplates, ...profile } = withoutId(c);
     return Venue.updateOne(
       { slug: c.slug },
       {
         $set: {
-          ...withoutId(c),
           vendorId: vendorIdFor(vendorIds, cinemaOperators[c.slug] ?? "kolkata-screens"),
           kind: "cinema",
-          screens: screenNames.map(cinemaScreen),
+          showTemplates,
           sortOrder,
+        },
+        // Profile and screens are the vendor's to edit in the partner portal; re-seeding must not undo that.
+        $setOnInsert: {
+          ...profile,
+          status: "active",
+          screens: screenNames.map((name) => cinemaScreen(name, showTemplates)),
         },
       },
       { upsert: true },
@@ -516,6 +568,7 @@ async function main() {
     GiftCardDesign.updateOne({ code: g.id }, { $set: { ...withoutId(g), sortOrder } }, { upsert: true }),
   );
 
+  await backfillLayouts();
   await backfillOwnership();
 
   const inserted = await ensureMovieShows(istDateKeys(new Date(), SHOW_DATE_WINDOW_DAYS));

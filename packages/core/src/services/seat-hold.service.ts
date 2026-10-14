@@ -10,7 +10,7 @@ import { AppError } from "../http/app-error";
  */
 
 export interface SeatState {
-  /** Sold, or held by another browser. */
+  /** Sold, blocked by the vendor, or held by another browser. */
   unavailable: Set<string>;
   /** Held by this browser (still valid). */
   mine: string[];
@@ -21,7 +21,7 @@ export interface SeatState {
 export async function getSeatState(showId: string, holderKey: string | undefined, now: Date): Promise<SeatState> {
   await connect();
   const docs = await SeatHold.find(
-    { showId, $or: [{ status: "sold" }, { status: "held", expiresAt: { $gt: now } }] },
+    { showId, $or: [{ status: { $in: ["sold", "blocked"] } }, { status: "held", expiresAt: { $gt: now } }] },
     { seatId: 1, status: 1, holderKey: 1, expiresAt: 1 },
   ).lean();
 
