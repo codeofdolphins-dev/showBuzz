@@ -13,7 +13,7 @@ export interface RefundAttrs {
   userId?: Types.ObjectId;
   /** The booking's vendor (absent for gift card purchases). */
   vendorId?: Types.ObjectId;
-  provider: "simulated" | "counter";
+  provider: "simulated" | "razorpay" | "counter";
   providerRef: string;
   /** Refunded through the payment gateway. */
   amountPaise: number;
@@ -34,7 +34,7 @@ const refundSchema = new Schema<RefundAttrs>(
     paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
     userId: { type: Schema.Types.ObjectId, ref: "User" },
     vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
-    provider: { type: String, enum: ["simulated", "counter"], required: true },
+    provider: { type: String, enum: ["simulated", "razorpay", "counter"], required: true },
     providerRef: { type: String, required: true },
     amountPaise: { type: Number, required: true, min: 0 },
     feePaise: { type: Number, required: true, min: 0 },

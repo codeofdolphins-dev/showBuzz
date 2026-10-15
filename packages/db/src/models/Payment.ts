@@ -12,9 +12,14 @@ export interface PaymentAttrs {
   userId?: Types.ObjectId;
   /** The booking's vendor (absent for gift card purchases, which are platform sales). */
   vendorId?: Types.ObjectId;
-  provider: "simulated" | "counter";
-  /** The gateway's order/payment id. */
+  provider: "simulated" | "razorpay" | "counter";
+  /** The gateway's order id, created before the customer pays (Razorpay: `order_…`). */
   providerRef: string;
+  /**
+   * The gateway's own payment id, captured at confirmation (Razorpay: `pay_…`). Refunds go against this,
+   * not `providerRef`, because Razorpay refunds a payment and not the order it belonged to.
+   */
+  gatewayPaymentRef?: string;
   amountPaise: number;
   method: BookingPaymentMethod;
   status: "created" | "succeeded" | "failed";
@@ -31,8 +36,9 @@ const paymentSchema = new Schema<PaymentAttrs>(
     bookingId: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
     userId: { type: Schema.Types.ObjectId, ref: "User" },
     vendorId: { type: Schema.Types.ObjectId, ref: "Vendor" },
-    provider: { type: String, enum: ["simulated", "counter"], required: true },
+    provider: { type: String, enum: ["simulated", "razorpay", "counter"], required: true },
     providerRef: { type: String, required: true },
+    gatewayPaymentRef: String,
     amountPaise: { type: Number, required: true, min: 0 },
     method: {
       type: String,

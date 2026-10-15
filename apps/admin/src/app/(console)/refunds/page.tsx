@@ -23,6 +23,7 @@ const STATUS_OPTIONS = [
   { value: "processing", label: "Processing" },
 ];
 const PROVIDER_OPTIONS = [
+  { value: "razorpay", label: "Razorpay" },
   { value: "simulated", label: "Simulated gateway" },
   { value: "counter", label: "Counter" },
 ];
@@ -128,7 +129,7 @@ export default async function RefundsPage({ searchParams }: PageProps<"/refunds"
       <PageHeader
         title="Customer Refunds & Cancellations"
         crumb="Refunds"
-        subtitle="Refunds follow each vendor's cancellation policy and are sent back automatically: online ones through the simulated gateway, counter ones in cash at the counter."
+        subtitle="Refunds follow each vendor's cancellation policy and are sent back automatically: online ones through Razorpay, counter ones in cash at the counter."
       />
       {result.ok ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">

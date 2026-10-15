@@ -155,7 +155,7 @@ export interface AdminPaymentRow {
   vendorName: string;
   amountPaise: number;
   method: string;
-  provider: "simulated" | "counter";
+  provider: "simulated" | "razorpay" | "counter";
   providerRef: string;
   reference?: string;
   status: "created" | "succeeded" | "failed";
@@ -175,7 +175,7 @@ export interface AdminRefundRow {
   reason: "cancelled" | "booking_failed";
   cancelledBy?: "customer" | "vendor" | "staff";
   cancelReason?: string;
-  provider: "simulated" | "counter";
+  provider: "simulated" | "razorpay" | "counter";
   status: "processing" | "processed";
   createdAt: string;
   processedAt?: string;

@@ -23,6 +23,7 @@
     "bcryptjs": "catalog:",
     "jose": "catalog:",
     "qrcode": "catalog:",
+    "razorpay": "catalog:",
     "zod": "catalog:"
   },
   "peerDependencies": {

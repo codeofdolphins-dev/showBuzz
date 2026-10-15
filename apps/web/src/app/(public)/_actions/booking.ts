@@ -31,9 +31,19 @@ const holdSeatsSchema = z.object({
     .refine((ids) => new Set(ids).size === ids.length, "Duplicate seats selected"),
 });
 
+/**
+ * Either the demo page's chosen outcome or the signed result Razorpay Checkout reported. Both are claims from
+ * the browser: the gateway decides, so `handshake` is only ever checked against the key secret on the server.
+ */
 const confirmPaymentSchema = z.object({
   code: bookingCodeSchema,
-  simulate: z.enum(["success", "failure"]),
+  simulate: z.enum(["success", "failure"]).optional(),
+  handshake: z
+    .object({
+      paymentId: z.string().min(1).max(64),
+      signature: z.string().min(1).max(256),
+    })
+    .optional(),
 });
 
 async function clientIp() {
@@ -95,8 +105,13 @@ export async function placeOrderAction(input: PlaceOrderInput) {
 export async function confirmPaymentAction(input: z.input<typeof confirmPaymentSchema>) {
   return runAction(async () => {
     const customer = await requireCustomer();
-    const { code, simulate } = confirmPaymentSchema.parse(input);
-    return confirmPayment(code, customer.id, simulate, new Date());
+    const { code, simulate, handshake } = confirmPaymentSchema.parse(input);
+    return confirmPayment(
+      code,
+      customer.id,
+      { ...(simulate ? { simulate } : {}), ...(handshake ? { handshake } : {}) },
+      new Date(),
+    );
   });
 }
 

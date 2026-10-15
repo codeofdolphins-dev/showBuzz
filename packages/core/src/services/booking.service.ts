@@ -14,7 +14,13 @@ import type { BookingRecord, BookingStatus, BookingView } from "@showbuzz/schema
 import type { CustomerSnapshot } from "@showbuzz/schemas/user";
 import { insertWithUniqueCode } from "../booking/booking-code";
 import { AppError } from "../http/app-error";
-import { getPaymentGateway, type SimulatedOutcome } from "../payments/gateway";
+import {
+  getPaymentGateway,
+  type CheckoutHandoff,
+  type PaymentHandshake,
+  type PaymentOutcome,
+  type SimulatedOutcome,
+} from "../payments/gateway";
 import {
   type LeanBooking,
   type PolicyFallback,
@@ -76,6 +82,15 @@ async function findOwned(code: string, userId: string): Promise<LeanBooking | un
   return (await Booking.findOne({ code, userId }).lean()) ?? undefined;
 }
 
+/** Marks a confirmation as coming from the gateway rather than from a signed-in customer. */
+export const TRUSTED = Symbol("gateway");
+
+/** Owner-agnostic lookup. Only for callers that already proved who they are (the Razorpay webhook). */
+async function findByCode(code: string): Promise<LeanBooking | undefined> {
+  await connect();
+  return (await Booking.findOne({ code }).lean()) ?? undefined;
+}
+
 /**
  * Places an order for the signed-in customer and opens a payment for it. Seats must be held by this browser
  * (`holderKey`) and still valid; tier passes are reserved here. The ticket contact uses the account's phone and
@@ -86,7 +101,7 @@ export async function placeOrder(
   customer: CustomerSnapshot,
   context: { holderKey?: string; ip: string; device?: "mobile" | "tablet" | "desktop" | undefined },
   now: Date,
-): Promise<{ code: string; holdExpiresAt: string }> {
+): Promise<{ code: string; holdExpiresAt: string; checkout?: CheckoutHandoff }> {
   const { holderKey, ip } = context;
   const order = placeOrderSchema.parse(input);
   await connect();
@@ -218,7 +233,9 @@ export async function placeOrder(
     method: order.paymentMethod,
     status: "created",
   });
-  return { code, holdExpiresAt: holdExpiresAt.toISOString() };
+  // Only the key id and order id reach the browser; the secret stays on the server.
+  const checkout = gateway.checkoutHandoff?.(providerRef, payablePaise);
+  return { code, holdExpiresAt: holdExpiresAt.toISOString(), ...(checkout ? { checkout } : {}) };
 }
 
 export type PaymentResult = { status: "confirmed"; code: string } | { status: "failed"; code: string; reason: string };
@@ -240,11 +257,17 @@ class ConfirmAborted extends Error {
  */
 export async function confirmPayment(
   code: string,
-  userId: string,
-  simulate: SimulatedOutcome,
+  /** The signed-in owner, or `TRUSTED` when the gateway itself is the caller (webhook: no customer present). */
+  owner: string | typeof TRUSTED,
+  attempt: {
+    simulate?: SimulatedOutcome;
+    handshake?: PaymentHandshake;
+    /** The gateway already verified this payment (webhook), so it is not asked again. */
+    verified?: { paymentRef: string };
+  },
   now: Date,
 ): Promise<PaymentResult> {
-  const booking = await findOwned(code, userId);
+  const booking = owner === TRUSTED ? await findByCode(code) : await findOwned(code, owner);
   if (!booking) throw new AppError("NOT_FOUND", "Booking not found.", 404);
   if (booking.status === "confirmed" || booking.status === "cancelled") return { status: "confirmed", code };
   if (booking.status !== "pending_payment") {
@@ -257,6 +280,8 @@ export async function confirmPayment(
   }
 
   const gateway = getPaymentGateway();
+  // The gateway's own payment id, known only once it confirms; refunds below target it rather than the order.
+  let capturedRef: string | undefined;
   // A gift card covering the whole order means nothing goes through the gateway.
   const payment =
     payableOf(booking) > 0
@@ -268,11 +293,14 @@ export async function confirmPayment(
       await closeOrder(booking, "payment_failed", reason, { releaseSeats: true });
       return { status: "failed", code, reason };
     }
-    const outcome = await gateway.confirmPayment({
-      providerRef: payment.providerRef,
-      amountPaise: payment.amountPaise,
-      simulate,
-    });
+    const outcome: PaymentOutcome = attempt.verified
+      ? { status: "succeeded", paymentRef: attempt.verified.paymentRef }
+      : await gateway.confirmPayment({
+          providerRef: payment.providerRef,
+          amountPaise: payment.amountPaise,
+          ...(attempt.simulate ? { simulate: attempt.simulate } : {}),
+          ...(attempt.handshake ? { handshake: attempt.handshake } : {}),
+        });
     if (outcome.status === "failed") {
       await Payment.updateOne(
         { _id: payment._id, status: "created" },
@@ -280,6 +308,11 @@ export async function confirmPayment(
       );
       await closeOrder(booking, "payment_failed", outcome.reason, { releaseSeats: true });
       return { status: "failed", code, reason: outcome.reason };
+    }
+    // Stored before the booking is confirmed: a refund needs this id, and the money has already moved.
+    if (outcome.paymentRef) {
+      capturedRef = outcome.paymentRef;
+      await Payment.updateOne({ _id: payment._id }, { $set: { gatewayPaymentRef: outcome.paymentRef } });
     }
   }
 
@@ -405,7 +438,10 @@ export async function confirmPayment(
     await closeOrder(booking, "payment_failed", reason, { releaseSeats: true });
     if (payment) {
       await Payment.updateOne({ _id: payment._id }, { $set: { status: "succeeded", succeededAt: now } });
-      const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: payment.amountPaise });
+      const refund = await gateway.refund({
+        paymentRef: capturedRef ?? payment.providerRef,
+        amountPaise: payment.amountPaise,
+      });
       const recorded = await Refund.updateOne(
         { bookingId: booking._id },
         {
@@ -519,4 +555,33 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
     );
   }
   return cancelConfirmedBooking(booking, { feePaise, by: "customer", now });
+}
+
+/**
+ * Confirms (or fails) an order from a Razorpay webhook, so a payment still lands when the customer closes the
+ * tab before the browser reports back. The caller must have verified the webhook signature first; the order is
+ * found by the gateway's order reference because the webhook knows nothing about booking codes.
+ * Returns undefined when the payment belongs to no known order (another integration on the same account).
+ */
+export async function settlePaymentFromWebhook(
+  orderRef: string,
+  event: { kind: "captured"; paymentId: string } | { kind: "failed"; reason: string },
+  now: Date,
+): Promise<PaymentResult | undefined> {
+  await connect();
+  const payment = await Payment.findOne({ providerRef: orderRef }).lean();
+  if (!payment) return undefined;
+  const booking = await Booking.findById(payment.bookingId).lean();
+  if (!booking) return undefined;
+
+  if (event.kind === "failed") {
+    if (booking.status !== "pending_payment") return { status: "confirmed", code: booking.code };
+    await Payment.updateOne(
+      { _id: payment._id, status: "created" },
+      { $set: { status: "failed", failureReason: event.reason } },
+    );
+    await closeOrder(booking, "payment_failed", event.reason, { releaseSeats: true });
+    return { status: "failed", code: booking.code, reason: event.reason };
+  }
+  return confirmPayment(booking.code, TRUSTED, { verified: { paymentRef: event.paymentId } }, now);
 }

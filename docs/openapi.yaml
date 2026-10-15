@@ -21,6 +21,8 @@ tags:
     description: Partner portal resources, always scoped to the signed-in vendor.
   - name: Internal
     description: Server-to-server calls between the ShowBuzz apps (not for browsers).
+  - name: Webhooks
+    description: Payment gateway callbacks (signed by the provider, not by a ShowBuzz session).
   - name: System
 
 paths:
@@ -613,6 +615,68 @@ paths:
           description: Tags revalidated (`data.revalidated`).
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "422": { $ref: "#/components/responses/ValidationFailed" }
+
+  /webhooks/razorpay:
+    post:
+      tags: [Webhooks]
+      summary: Razorpay payment events (payment.captured, payment.failed)
+      description: |
+        Backstop for the browser handshake: confirms (or fails) an order when the customer closes the tab
+        after paying. Razorpay signs the **raw** body with the webhook secret, so the body is verified before
+        it is parsed; a request without a valid `X-Razorpay-Signature` is rejected without being read further.
+
+        The order is found by the gateway's order id (`payload.payment.entity.order_id`), never by anything
+        the body claims about a booking. Confirmation is idempotent, so a replayed event changes nothing.
+        Answers 200 for an unknown order or an event we don't act on, so Razorpay stops retrying.
+
+        Requires `PAYMENT_WEBHOOK_SECRET`; without it every call is rejected with 401.
+      security: []
+      parameters:
+        - in: header
+          name: X-Razorpay-Signature
+          required: true
+          description: HMAC-SHA256 of the raw request body, keyed with the webhook secret.
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event, payload]
+              properties:
+                event: { type: string, example: payment.captured }
+                payload:
+                  type: object
+                  properties:
+                    payment:
+                      type: object
+                      properties:
+                        entity:
+                          type: object
+                          properties:
+                            id: { type: string, example: pay_To7GlIcbJWetPq }
+                            order_id: { type: string, example: order_To7GlIcbJWetPq }
+                            error_description: { type: string, nullable: true }
+      responses:
+        "200":
+          description: |
+            Signature accepted. `data.handled` is false when the order is unknown here or the event is one
+            ShowBuzz does not act on.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [received, handled]
+                        properties:
+                          received: { type: boolean }
+                          handled: { type: boolean }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
 
 components:
   securitySchemes:

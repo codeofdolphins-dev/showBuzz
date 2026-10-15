@@ -19,6 +19,9 @@
         "VERCEL_URL",
         "VERCEL_BRANCH_URL",
         "PAYMENT_PROVIDER",
+        "PAYMENT_KEY_ID",
+        "PAYMENT_KEY_SECRET",
+        "PAYMENT_WEBHOOK_SECRET",
         "QR_SIGNING_SECRET"
       ]
     },
@@ -39,6 +42,9 @@
         "VERCEL_URL",
         "VERCEL_BRANCH_URL",
         "PAYMENT_PROVIDER",
+        "PAYMENT_KEY_ID",
+        "PAYMENT_KEY_SECRET",
+        "PAYMENT_WEBHOOK_SECRET",
         "QR_SIGNING_SECRET"
       ]
     },

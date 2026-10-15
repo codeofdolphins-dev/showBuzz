@@ -21,10 +21,11 @@ const serverEnvSchema = z.object({
   VERCEL_URL: z.string().optional(),
   VERCEL_BRANCH_URL: z.string().optional(),
   /**
-   * Payment gateway behind the PaymentGateway interface. Only "simulated" exists until Razorpay/Cashfree is
-   * chosen; it is allowed in production (agreed 2026-10-13) so the demo can book on Vercel.
+   * Payment gateway behind the PaymentGateway interface. "simulated" books without charging (allowed in
+   * production, agreed 2026-10-13, so the demo can book on Vercel); "razorpay" needs the credentials in
+   * payment-env.ts, which are read lazily so simulated deployments boot without them.
    */
-  PAYMENT_PROVIDER: z.enum(["simulated"]).default("simulated"),
+  PAYMENT_PROVIDER: z.enum(["simulated", "razorpay"]).default("simulated"),
 });
 
 /** Parses `values` with `schema`, naming only the failing variables (values can hold credentials). */

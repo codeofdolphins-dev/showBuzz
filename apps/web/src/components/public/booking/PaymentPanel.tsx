@@ -7,6 +7,7 @@ import { Landmark, CreditCard, FlaskConical, Gift, QrCode, ShieldCheck, Wallet }
 import { confirmPaymentAction, placeOrderAction } from "@/app/(public)/_actions/booking";
 import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { useOrderQuote } from "@/hooks/use-order-quote";
+import { useRazorpayCheckout } from "@/hooks/use-razorpay-checkout";
 import { cn } from "@showbuzz/utils/cn";
 import { formatINR } from "@showbuzz/utils/money";
 import type { PaymentMethod } from "@showbuzz/schemas/booking";
@@ -40,6 +41,7 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
   const [isPending, startTransition] = useTransition();
   const authStatus = useAuthStore((s) => s.status);
   const openAuthModal = useUiStore((s) => s.openAuthModal);
+  const openCheckout = useRazorpayCheckout();
 
   if (quoteState.status !== "ready") return <QuoteFallback state={quoteState} />;
   const { quote } = quoteState;
@@ -87,8 +89,28 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
         return;
       }
 
-      const { code } = placed.data;
-      const confirmed = await withAuthRetry(() => confirmPaymentAction({ code, simulate }));
+      const { code, checkout } = placed.data;
+
+      // A real gateway: the customer pays in its modal and we confirm with the signed result it returns.
+      let handshake: { paymentId: string; signature: string } | undefined;
+      if (checkout) {
+        const result = await openCheckout(checkout, contact, code);
+        if (result.status === "dismissed") {
+          // Nothing was charged and the seats are still held, so the customer can simply try again.
+          toast("Payment cancelled. Your seats are held until the timer runs out.", "info");
+          return;
+        }
+        if (result.status === "failed") {
+          toast(result.reason, "error");
+          router.push(`/booking/failure?code=${code}`);
+          return;
+        }
+        handshake = { paymentId: result.paymentId, signature: result.signature };
+      }
+
+      const confirmed = await withAuthRetry(() =>
+        confirmPaymentAction({ code, ...(handshake ? { handshake } : { simulate }) }),
+      );
       if (confirmed.success && confirmed.data.status === "confirmed") {
         cart.clear();
         router.replace(`/booking/success?id=${code}`);

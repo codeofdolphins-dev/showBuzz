@@ -24,6 +24,7 @@ const STATUS_OPTIONS = [
   { value: "failed", label: "Failed" },
 ];
 const PROVIDER_OPTIONS = [
+  { value: "razorpay", label: "Razorpay" },
   { value: "simulated", label: "Simulated gateway" },
   { value: "counter", label: "Counter" },
 ];
@@ -83,7 +84,7 @@ const COLUMNS: DataTableColumn<AdminPaymentRow>[] = [
   },
 ];
 
-/** Every payment attempt (prototype payments.html). No real gateway yet: online payments are simulated. */
+/** Every payment attempt (prototype payments.html). Online payments go through Razorpay. */
 export default async function PaymentsPage({ searchParams }: PageProps<"/payments">) {
   const { staff } = await requireStaffPage("/payments");
   if (!hasPermission(staff.permissions, "payments:read")) return <NoAccess title="Payment Gateway" />;
@@ -113,7 +114,7 @@ export default async function PaymentsPage({ searchParams }: PageProps<"/payment
       <PageHeader
         title="Payment Transactions"
         crumb="Payment Gateway"
-        subtitle="Online payments run on a simulated gateway until a real one (Razorpay or Cashfree) is chosen; counter sales are recorded by vendors."
+        subtitle="Online payments run through Razorpay; counter sales are recorded by vendors. Older records show the gateway that took them."
       />
       <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
         <b>Simulated gateway:</b> no real money moved for online payments.

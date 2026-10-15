@@ -194,7 +194,11 @@ export async function cancelConfirmedBooking(
   );
 
   if (!payment || gatewayRefundPaise === 0 || atCounter) return { refundPaise };
-  const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: gatewayRefundPaise });
+  // Razorpay refunds a payment, not the order created up front, so the id captured at confirmation wins.
+  const refund = await gateway.refund({
+    paymentRef: payment.gatewayPaymentRef ?? payment.providerRef,
+    amountPaise: gatewayRefundPaise,
+  });
   await Refund.updateOne(
     { bookingId: booking._id },
     {

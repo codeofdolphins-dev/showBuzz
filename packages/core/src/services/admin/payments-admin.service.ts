@@ -9,11 +9,15 @@ import { addDaysToKey, istDateTime } from "@showbuzz/utils/dates";
 import { type AdminListQuery, optionalId, searchPattern, sortSpec, vendorNames } from "./shared";
 
 /**
- * Platform-wide payment and refund records (read-only). Online payments go through the simulated gateway until a
- * real one is chosen; counter sales and their refunds are recorded with provider `counter`.
+ * Platform-wide payment and refund records (read-only). Online payments go through the gateway named by
+ * PAYMENT_PROVIDER (`razorpay`, or `simulated` where no money moves); counter sales and their refunds are
+ * recorded with provider `counter`. Older records keep whichever provider was live when they were taken.
  */
 
 export const PAYMENT_SORT_FIELDS = ["createdAt", "amountPaise"] as const;
+
+/** Values the provider filter accepts; anything else is ignored rather than returning nothing. */
+const PAYMENT_PROVIDERS = ["simulated", "razorpay", "counter"];
 
 export interface PaymentListQuery extends AdminListQuery {
   vendorId?: string;
@@ -55,7 +59,7 @@ async function baseFilter(query: PaymentListQuery, statuses: readonly string[]) 
   const vendorId = optionalId(query.vendorId);
   if (vendorId) filter.vendorId = vendorId;
   if (query.status && statuses.includes(query.status)) filter.status = query.status;
-  if (query.provider === "simulated" || query.provider === "counter") filter.provider = query.provider;
+  if (query.provider && PAYMENT_PROVIDERS.includes(query.provider)) filter.provider = query.provider;
   const createdAt = dateFilter(query.fromDate, query.toDate);
   if (createdAt) filter.createdAt = createdAt;
   if (query.q.trim()) {
