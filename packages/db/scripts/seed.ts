@@ -223,7 +223,6 @@ async function seedFixtureShow(
         endsAt: new Date(startsAt.getTime() + EVENT_DEFAULT_DURATION_MINUTES * 60_000),
         status: "scheduled",
         source: "manual",
-        availability: "fast-filling",
         pricePaise: zones[0]?.pricePaise ?? 0,
         zones,
       },
@@ -252,7 +251,6 @@ async function seedPassShow(
         screenName: "General Admission",
         status: "scheduled",
         source: "manual",
-        availability: "available",
         pricePaise: Math.min(...event.ticketTiers.map((t) => t.pricePaise)),
         inventory: event.ticketTiers.map((t) => ({
           tierId: t.id,

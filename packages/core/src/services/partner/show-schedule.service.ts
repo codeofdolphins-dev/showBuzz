@@ -23,7 +23,7 @@ import type {
   VendorShowRow,
   VenueScreenOption,
 } from "@showbuzz/schemas/types/partner-listing";
-import type { Screen, ShowZone } from "@showbuzz/schemas/venue";
+import { type Screen, type ShowZone, screenCapacity, zoneSeatsOnSale } from "@showbuzz/schemas/venue";
 import { addDaysToKey, istDateTime } from "@showbuzz/utils/dates";
 import { escapeRegex } from "@showbuzz/utils/text";
 import { AppError } from "../../http/app-error";
@@ -54,15 +54,6 @@ const fieldError = (field: string, message: string) =>
 
 const vendorObjectId = (vendorId: string) => new Types.ObjectId(vendorId);
 
-/** Seats on sale in a layout category (layout-blocked seats don't count). */
-function zoneSeats(zone: Screen["zones"][number]): number {
-  return zone.rows.reduce((sum, row) => sum + row.count - new Set(row.blockedSeats).size, 0);
-}
-
-export function screenCapacity(screen: Screen): number {
-  return screen.zones.reduce((sum, zone) => sum + zoneSeats(zone), 0);
-}
-
 function toScreenOption(stored: StoredScreen): ScreenOption {
   const screen = toScreen(stored);
   return {
@@ -73,7 +64,7 @@ function toScreenOption(stored: StoredScreen): ScreenOption {
       id: z.id,
       name: z.name,
       defaultPricePaise: z.defaultPricePaise,
-      seats: zoneSeats(z),
+      seats: zoneSeatsOnSale(z),
     })),
   };
 }
@@ -297,7 +288,6 @@ async function planMovieShow(
       screenName: screen.name,
       format: input.format,
       language: input.language,
-      availability: "available",
       // The headline price on showtime chips is the top (first) category, as for the seeded shows.
       pricePaise: zones[0]?.pricePaise ?? 0,
       zones,

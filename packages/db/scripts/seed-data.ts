@@ -372,14 +372,14 @@ export const movies = z.array(movieSchema).parse([
 const screenFor = (format: string) =>
   format.startsWith("IMAX") ? "Audi 02 (IMAX Laser)" : format === "4DX" ? "Audi 05 (4DX)" : "Audi 01 (Dolby Atmos)";
 
-const slot = (
-  time: string,
-  format: string,
-  language: string,
-  availability: "available" | "fast-filling" | "almost-full",
-  rupees: number,
-  priceTier: string,
-) => ({ time, format, language, availability, pricePaise: rupees * 100, priceTier, screenName: screenFor(format) });
+const slot = (time: string, format: string, language: string, rupees: number, priceTier: string) => ({
+  time,
+  format,
+  language,
+  pricePaise: rupees * 100,
+  priceTier,
+  screenName: screenFor(format),
+});
 
 export const cinemas = z.array(cinemaSchema).parse([
   {
@@ -400,12 +400,12 @@ export const cinemas = z.array(cinemaSchema).parse([
     ],
     cancellation: { allowed: true, label: "Cancellation Available (Up to 20 mins before show)" },
     showTemplates: [
-      slot("09:30", "2D", "Hindi", "available", 180, "Silver"),
-      slot("11:45", "IMAX 3D", "English", "almost-full", 480, "IMAX Premium"),
-      slot("14:30", "3D", "English", "fast-filling", 290, "Gold"),
-      slot("18:15", "IMAX 3D", "English", "almost-full", 540, "IMAX Recliner"),
-      slot("21:45", "2D", "Bengali", "available", 220, "Gold"),
-      slot("22:30", "4DX", "English", "fast-filling", 420, "4DX Dynamic"),
+      slot("09:30", "2D", "Hindi", 180, "Silver"),
+      slot("11:45", "IMAX 3D", "English", 480, "IMAX Premium"),
+      slot("14:30", "3D", "English", 290, "Gold"),
+      slot("18:15", "IMAX 3D", "English", 540, "IMAX Recliner"),
+      slot("21:45", "2D", "Bengali", 220, "Gold"),
+      slot("22:30", "4DX", "English", 420, "4DX Dynamic"),
     ],
   },
   {
@@ -418,11 +418,11 @@ export const cinemas = z.array(cinemaSchema).parse([
     amenities: ["VIP Lounge", "4K Projection", "Dolby 7.1", "Mobile Food Ordering", "Valet Parking"],
     cancellation: { allowed: true, label: "Cancellation Available" },
     showTemplates: [
-      slot("10:00", "2D", "English", "available", 170, "Club"),
-      slot("13:15", "3D", "Hindi", "available", 260, "Executive"),
-      slot("16:30", "2D", "English", "fast-filling", 240, "Executive"),
-      slot("19:45", "3D", "English", "almost-full", 350, "VIP Recliner"),
-      slot("22:15", "2D", "Hindi", "available", 200, "Club"),
+      slot("10:00", "2D", "English", 170, "Club"),
+      slot("13:15", "3D", "Hindi", 260, "Executive"),
+      slot("16:30", "2D", "English", 240, "Executive"),
+      slot("19:45", "3D", "English", 350, "VIP Recliner"),
+      slot("22:15", "2D", "Hindi", 200, "Club"),
     ],
   },
   {
@@ -435,10 +435,10 @@ export const cinemas = z.array(cinemaSchema).parse([
     amenities: ["Luxury Insignia Dining", "Plush Recliners", "Laser IMAX", "Dolby Atmos", "Butler On Call"],
     cancellation: { allowed: false, label: "Non-Cancellable" },
     showTemplates: [
-      slot("11:00", "IMAX 3D", "English", "fast-filling", 580, "Insignia Royal"),
-      slot("15:00", "IMAX 3D", "English", "almost-full", 620, "Insignia Royal"),
-      slot("18:45", "IMAX 3D", "Hindi", "almost-full", 650, "Insignia Royal"),
-      slot("22:00", "2D", "English", "available", 390, "Insignia Club"),
+      slot("11:00", "IMAX 3D", "English", 580, "Insignia Royal"),
+      slot("15:00", "IMAX 3D", "English", 620, "Insignia Royal"),
+      slot("18:45", "IMAX 3D", "Hindi", 650, "Insignia Royal"),
+      slot("22:00", "2D", "English", 390, "Insignia Club"),
     ],
   },
   {
@@ -451,10 +451,10 @@ export const cinemas = z.array(cinemaSchema).parse([
     amenities: ["Dolby 7.1", "Café Corner", "E-Tickets Allowed", "Parking"],
     cancellation: { allowed: true, label: "Cancellation Available" },
     showTemplates: [
-      slot("10:30", "2D", "Bengali", "available", 150, "Silver"),
-      slot("13:45", "2D", "Hindi", "available", 180, "Gold"),
-      slot("17:00", "2D", "English", "fast-filling", 210, "Gold"),
-      slot("20:15", "2D", "Bengali", "fast-filling", 230, "Gold"),
+      slot("10:30", "2D", "Bengali", 150, "Silver"),
+      slot("13:45", "2D", "Hindi", 180, "Gold"),
+      slot("17:00", "2D", "English", 210, "Gold"),
+      slot("20:15", "2D", "Bengali", 230, "Gold"),
     ],
   },
   {
@@ -467,9 +467,9 @@ export const cinemas = z.array(cinemaSchema).parse([
     amenities: ["IMAX with Laser", "4DX", "Dolby Atmos", "Star Lounge", "Valet Parking"],
     cancellation: { allowed: true, label: "Cancellation Available" },
     showTemplates: [
-      slot("10:15", "IMAX 3D", "English", "fast-filling", 550, "IMAX Prime"),
-      slot("13:30", "4DX", "English", "almost-full", 600, "4DX Gold"),
-      slot("19:00", "IMAX 3D", "Hindi", "almost-full", 680, "IMAX Recliner"),
+      slot("10:15", "IMAX 3D", "English", 550, "IMAX Prime"),
+      slot("13:30", "4DX", "English", 600, "4DX Gold"),
+      slot("19:00", "IMAX 3D", "Hindi", 680, "IMAX Recliner"),
     ],
   },
 ]);

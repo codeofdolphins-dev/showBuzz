@@ -87,7 +87,6 @@ export async function ensureMovieShows(dateKeys: string[]): Promise<number> {
                   screenName: screen.name,
                   format: template.format,
                   language: template.language,
-                  availability: template.availability,
                   pricePaise: template.pricePaise,
                   priceTier: template.priceTier,
                   zones,

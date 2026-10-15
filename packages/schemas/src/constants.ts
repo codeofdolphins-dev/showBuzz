@@ -27,6 +27,12 @@ export const CANCELLATION_CUTOFF_MINUTES = 20;
 
 export const SEAT_HOLD_MINUTES = 10;
 
+/**
+ * Share of a show's seats on sale that must be taken (sold or held) before the showtime chip stops saying
+ * "Available". Nothing is stored: the figure is counted from `seatHolds` every time showtimes are listed.
+ */
+export const SHOW_FILL_LEVELS = { fastFilling: 0.5, almostFull: 0.85 } as const;
+
 /** Customer sign-in (docs/roadmap.md "Decisions already taken"). */
 export const AUTH = {
   otpLength: 6,

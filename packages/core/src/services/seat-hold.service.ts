@@ -1,6 +1,7 @@
 import "server-only";
 import { connect } from "@showbuzz/db/connect";
 import { SeatHold } from "@showbuzz/db/models/SeatHold";
+import type { Types } from "@showbuzz/db/mongoose";
 import { AppError } from "../http/app-error";
 
 /**
@@ -35,6 +36,40 @@ export async function getSeatState(showId: string, holderKey: string | undefined
     }
   }
   return state;
+}
+
+/** Seats taken and seats the vendor took off sale, per show. Shows with no seat documents are left out. */
+export interface SeatCounts {
+  /** Sold or held by someone right now. */
+  taken: number;
+  /** Blocked by the vendor for this show, so not on sale at all. */
+  blocked: number;
+}
+
+/**
+ * Counts taken and blocked seats for several shows in one aggregation. This is what makes a showtime chip say
+ * "Almost full": nothing about how full a show is is ever stored, it is counted from `seatHolds` on every read.
+ */
+export async function countSeatsPerShow(showIds: Types.ObjectId[], now: Date): Promise<Map<string, SeatCounts>> {
+  if (showIds.length === 0) return new Map();
+  await connect();
+  const isBlocked = { $eq: ["$status", "blocked"] };
+  const rows = await SeatHold.aggregate<{ _id: Types.ObjectId } & SeatCounts>([
+    {
+      $match: {
+        showId: { $in: showIds },
+        $or: [{ status: { $in: ["sold", "blocked"] } }, { status: "held", expiresAt: { $gt: now } }],
+      },
+    },
+    {
+      $group: {
+        _id: "$showId",
+        taken: { $sum: { $cond: [isBlocked, 0, 1] } },
+        blocked: { $sum: { $cond: [isBlocked, 1, 0] } },
+      },
+    },
+  ]);
+  return new Map(rows.map((r) => [r._id.toString(), { taken: r.taken, blocked: r.blocked }]));
 }
 
 function isDuplicateKeyError(err: unknown): boolean {

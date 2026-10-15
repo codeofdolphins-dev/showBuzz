@@ -1,6 +1,6 @@
 import "server-only";
 import { type Model, Schema, type Types, model, models } from "mongoose";
-import type { ShowAvailability, ShowZone } from "@showbuzz/schemas/venue";
+import type { ShowZone } from "@showbuzz/schemas/venue";
 
 /**
  * One concrete performance: a movie show at a cinema screen, a stadium fixture (`eventId` + seat zones) or an
@@ -29,7 +29,6 @@ export interface ShowAttrs {
   source?: ShowSource;
   format?: string;
   language?: string;
-  availability: ShowAvailability;
   /** Headline (top zone) price shown on showtime chips. */
   pricePaise: number;
   priceTier?: string;
@@ -78,7 +77,6 @@ const showSchema = new Schema<ShowAttrs>(
     source: { type: String, enum: ["template", "manual"] },
     format: String,
     language: String,
-    availability: { type: String, enum: ["available", "fast-filling", "almost-full"], default: "available" },
     pricePaise: { type: Number, required: true, min: 0 },
     priceTier: String,
     zones: { type: [showZoneSchema], default: [] },

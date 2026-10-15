@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema, objectIdSchema, paiseSchema, slugSchema, wallClockTimeSchema } from "./common";
 
+/** How full a show is right now. Always derived from live seat holds (show.service), never stored. */
 export const showAvailabilitySchema = z.enum(["available", "fast-filling", "almost-full"]);
 
 /** A recurring daily showtime at a cinema. Concrete shows are generated per date from these. */
@@ -8,7 +9,6 @@ export const showTemplateSchema = z.object({
   time: wallClockTimeSchema,
   format: z.string().min(1),
   language: z.string().min(1),
-  availability: showAvailabilitySchema,
   pricePaise: paiseSchema,
   priceTier: z.string().min(1),
   screenName: z.string().min(1),
@@ -100,3 +100,13 @@ export type SeatRowSpec = z.infer<typeof seatRowSchema>;
 export type SeatZone = z.infer<typeof seatZoneSchema>;
 export type Screen = z.infer<typeof screenSchema>;
 export type ShowZone = z.infer<typeof showZoneSchema>;
+
+/** Seats on sale in a category: seats blocked in the layout are never sold, so they don't count. */
+export function zoneSeatsOnSale(zone: SeatZone): number {
+  return zone.rows.reduce((sum, row) => sum + row.count - new Set(row.blockedSeats).size, 0);
+}
+
+/** Seats on sale across a screen; the denominator for "how full is this show". */
+export function screenCapacity(screen: Screen): number {
+  return screen.zones.reduce((sum, zone) => sum + zoneSeatsOnSale(zone), 0);
+}

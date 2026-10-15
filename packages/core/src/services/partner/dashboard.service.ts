@@ -9,11 +9,11 @@ import { Venue, type VenueAttrs, toScreen } from "@showbuzz/db/models/Venue";
 import type { Types } from "@showbuzz/db/mongoose";
 import type { DashboardRange } from "@showbuzz/schemas/dashboard";
 import type { PartnerDashboard, ShowOccupancy } from "@showbuzz/schemas/types/dashboard";
+import { screenCapacity } from "@showbuzz/schemas/venue";
 import { AppError } from "../../http/app-error";
 import { SOLD_STATUSES, dashboardWindow, fillTrend } from "../dashboard-period";
 import { cached } from "../ttl-cache";
 import { toObjectId } from "./ids";
-import { screenCapacity } from "./show-schedule.service";
 
 /**
  * The vendor's dashboard. Every query is filtered by the session's vendor id (the caller passes it from
