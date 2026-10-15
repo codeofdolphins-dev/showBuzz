@@ -5,12 +5,13 @@ import { CalendarDays, Clock, MapPin, Navigation, Ticket, UserRound } from "luci
 import { tierPriceRange } from "@/components/public/cards/EventCard";
 import { WishlistButton } from "@/components/public/common/WishlistButton";
 import { LiveTierPicker } from "@/components/public/event/LiveTierPicker";
+import { slugParams } from "@/lib/static-params";
 import { describeSchedule } from "@showbuzz/utils/schedule";
 import { getEventBySlug, listEvents } from "@showbuzz/core/services/catalog.service";
 import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
 export async function generateStaticParams() {
-  return (await listEvents("event")).map((e) => ({ slug: e.slug }));
+  return slugParams((await listEvents("event")).map((e) => e.slug));
 }
 
 export async function generateMetadata({ params }: PageProps<"/events/[slug]">): Promise<Metadata> {

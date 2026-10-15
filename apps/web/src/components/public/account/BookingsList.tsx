@@ -104,7 +104,7 @@ export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListPr
             <article key={b.code} className="rounded-3xl border border-slate-200/80 bg-white p-4 shadow-xs transition-all hover:border-slate-300 sm:p-6">
               <div className="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 sm:flex-row sm:items-center">
                 <div className="flex items-start gap-3 sm:gap-4">
-                  <Image src={b.poster} alt="" width={64} height={96} className="aspect-[2/3] w-14 shrink-0 rounded-2xl object-cover shadow-sm sm:w-16" />
+                  <Image src={b.poster} alt="" width={64} height={96} className="aspect-2/3 w-14 shrink-0 rounded-2xl object-cover shadow-sm sm:w-16" />
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span

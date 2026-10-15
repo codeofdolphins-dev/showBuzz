@@ -9,6 +9,7 @@ import { ShareButton } from "@/components/public/common/ShareButton";
 import { TrailerButton } from "@/components/public/common/TrailerButton";
 import { WishlistButton } from "@/components/public/common/WishlistButton";
 import { ReviewDialog } from "@/components/public/movie/ReviewDialog";
+import { slugParams } from "@/lib/static-params";
 import { formatDateLong, formatDateShort, formatDuration } from "@showbuzz/utils/dates";
 import { formatINR } from "@showbuzz/utils/money";
 import type { Movie } from "@showbuzz/schemas/movie";
@@ -18,7 +19,7 @@ import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
 export async function generateStaticParams() {
   const movies = await listMovies();
-  return movies.map((m) => ({ slug: m.slug }));
+  return slugParams(movies.map((m) => m.slug));
 }
 
 export async function generateMetadata({ params }: PageProps<"/movies/[slug]">): Promise<Metadata> {

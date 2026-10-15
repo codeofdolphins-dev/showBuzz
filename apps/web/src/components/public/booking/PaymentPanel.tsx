@@ -214,7 +214,7 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
       )}
 
       {isPending && (
-        <div className="animate-fade-in fixed inset-0 z-[1500] flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-md">
+        <div className="animate-fade-in fixed inset-0 z-1500 flex items-center justify-center bg-slate-900/80 p-4 backdrop-blur-md">
           <div className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-8 text-center shadow-2xl" role="status">
             <div className="mx-auto h-16 w-16 animate-spin rounded-full border-4 border-rose-500 border-t-transparent" />
             <h3 className="text-lg font-black text-slate-900">Processing Payment...</h3>
