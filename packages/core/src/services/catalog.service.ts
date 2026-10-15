@@ -292,7 +292,9 @@ export async function listStreamTitles() {
   cacheTag(CATALOG_TAGS.streamTitles);
   cacheLife("hours");
   await connect();
-  const docs = await StreamTitle.find().sort({ sortOrder: 1 }).lean();
+  const docs = await StreamTitle.find({ status: { $ne: "inactive" } })
+    .sort({ sortOrder: 1 })
+    .lean();
   return docs.map(toStreamTitle);
 }
 

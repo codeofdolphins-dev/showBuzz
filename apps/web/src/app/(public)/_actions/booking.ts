@@ -21,6 +21,7 @@ import { holdSeats } from "@showbuzz/core/services/seat-hold.service";
 import { loadSeatPlan, priceSeats } from "@showbuzz/core/services/seat-map.service";
 import { getSettings } from "@showbuzz/core/services/settings.service";
 import { getShowDetails } from "@showbuzz/core/services/show.service";
+import { deviceClass } from "@showbuzz/utils/user-agent";
 
 const holdSeatsSchema = z.object({
   showId: showIdSchema,
@@ -77,7 +78,16 @@ export async function holdSeatsAction(input: z.input<typeof holdSeatsSchema>) {
 /** Sign-in is required before payment (decided 2026-10-13); the owner comes from the session only. */
 export async function placeOrderAction(input: PlaceOrderInput) {
   return runAction(async () =>
-    placeOrder(input, await requireCustomer(), { holderKey: await readHolderKey(), ip: await clientIp() }, new Date()),
+    placeOrder(
+      input,
+      await requireCustomer(),
+      {
+        holderKey: await readHolderKey(),
+        ip: await clientIp(),
+        device: deviceClass((await headers()).get("user-agent")),
+      },
+      new Date(),
+    ),
   );
 }
 

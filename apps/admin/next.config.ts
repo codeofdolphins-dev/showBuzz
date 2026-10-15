@@ -33,6 +33,10 @@ export default function config(phase: string): NextConfig {
       "@showbuzz/schemas",
       "@showbuzz/utils",
     ],
+    experimental: {
+      // Media Library and KYC-on-behalf uploads go through Server Actions: 4 MB files (FileStorage limit) + form overhead.
+      serverActions: { bodySizeLimit: "5mb" },
+    },
     turbopack: {
       rules: {
         "*.css": {

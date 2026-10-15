@@ -84,7 +84,7 @@ async function findOwned(code: string, userId: string): Promise<LeanBooking | un
 export async function placeOrder(
   input: PlaceOrderInput,
   customer: CustomerSnapshot,
-  context: { holderKey?: string; ip: string },
+  context: { holderKey?: string; ip: string; device?: "mobile" | "tablet" | "desktop" | undefined },
   now: Date,
 ): Promise<{ code: string; holdExpiresAt: string }> {
   const { holderKey, ip } = context;
@@ -192,6 +192,7 @@ export async function placeOrder(
       },
       holdExpiresAt,
       cancellable,
+      ...(context.device ? { device: context.device } : {}),
     });
   } catch (err) {
     await releaseReservation();

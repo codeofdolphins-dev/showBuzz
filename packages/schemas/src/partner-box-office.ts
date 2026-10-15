@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { bookingCodeSchema, counterPaymentMethodSchema, seatIdSchema } from "./booking";
-import { idSchema, imageUrlSchema, isoDateTimeSchema, objectIdSchema, paiseSchema, toE164IndianPhone } from "./common";
+import {
+  hostedImageUrlSchema,
+  idSchema,
+  isoDateTimeSchema,
+  objectIdSchema,
+  paiseSchema,
+  toE164IndianPhone,
+} from "./common";
 import { foodCategorySchema } from "./food";
 import { couponCodeSchema } from "./offer";
 import { cancellationPolicySchema } from "./vendor";
@@ -98,7 +105,7 @@ export const foodItemInputSchema = z.object({
   isVeg: z.boolean(),
   pricePaise: paiseSchema.min(100, "Enter a price of at least ₹1"),
   size: z.string().trim().max(40).default(""),
-  image: imageUrlSchema,
+  image: hostedImageUrlSchema,
   description: z.string().trim().max(200).default(""),
   /** Empty = every one of the vendor's cinemas. */
   venueIds: z.array(objectIdSchema).max(100).default([]),

@@ -31,6 +31,8 @@ export interface BookingAttrs {
   userId?: Types.ObjectId;
   /** Where it was sold (missing = online). */
   channel?: BookingChannel;
+  /** Online orders: the device class of the browser that placed it (audience analytics; missing on older orders). */
+  device?: "mobile" | "tablet" | "desktop";
   /** Counter sales: the vendor login that sold it. */
   soldByVendorUserId?: Types.ObjectId;
   /** Seller. Missing only on gift card purchases. */
@@ -152,6 +154,7 @@ const bookingSchema = new Schema<BookingAttrs>(
       },
     },
     channel: { type: String, enum: ["online", "counter"] },
+    device: { type: String, enum: ["mobile", "tablet", "desktop"] },
     soldByVendorUserId: { type: Schema.Types.ObjectId, ref: "VendorUser" },
     vendorId: {
       type: Schema.Types.ObjectId,

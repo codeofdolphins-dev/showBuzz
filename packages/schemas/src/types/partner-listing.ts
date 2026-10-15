@@ -63,6 +63,8 @@ export interface VendorEventRow {
   capacity: number;
   sold: number;
   status: ListingStatus;
+  /** Taken down by ShowBuzz staff (hidden publicly until staff restore it). */
+  takenDown?: boolean;
 }
 
 /** Per tier: what's sold and reserved (unpaid orders), so the form can show the floor for capacity. */
@@ -80,6 +82,8 @@ export interface VendorEventDetail {
   usage: TierUsage[];
   /** Tickets sold or reserved: the schedule and venue are locked. */
   locked: boolean;
+  /** Set when ShowBuzz took the listing down (the vendor can still edit it, but it stays hidden). */
+  takedown?: { at: string; reason: string };
 }
 
 export interface ScreenOption {

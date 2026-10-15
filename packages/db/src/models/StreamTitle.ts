@@ -5,6 +5,8 @@ import { type LeanDoc, sortOrderField } from "./transforms";
 
 /** A rent/buy title on /stream. */
 export interface StreamTitleAttrs extends Omit<StreamTitleShape, "id"> {
+  /** Inactive titles are hidden from /stream (older documents have none = active). Edited in the admin console. */
+  status?: "active" | "inactive";
   sortOrder: number;
 }
 
@@ -21,6 +23,7 @@ const streamTitleSchema = new Schema<StreamTitleAttrs>(
     poster: { type: String, required: true },
     description: { type: String, required: true },
     featured: { type: Boolean, default: false },
+    status: { type: String, enum: ["active", "inactive"], default: "active" },
     sortOrder: sortOrderField,
   },
   { timestamps: true, versionKey: false },

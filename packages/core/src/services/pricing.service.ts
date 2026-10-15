@@ -72,6 +72,10 @@ async function priceTickets(tickets: OrderDraft["tickets"], now: Date, holderKey
     const show = await getShowDetails(tickets.showId, now);
     const plan = show && (await loadSeatPlan(show.id));
     if (!show || !plan) throw new AppError("NOT_FOUND", "This show is no longer available for booking.", 404);
+    // A fixture whose listing was switched off or taken down can't be sold, even from an old seat-map link.
+    if (show.eventId && !(await getEventById(show.eventId))) {
+      throw new AppError("NOT_FOUND", "This show is no longer available for booking.", 404);
+    }
     // Seats held by this browser are fine; sold seats and other browsers' holds are not.
     const seats = priceSeats(show, plan, tickets.seatIds, await getSeatState(show.id, holderKey, now));
     const start = new Date(show.startsAt);

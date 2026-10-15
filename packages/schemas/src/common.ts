@@ -15,7 +15,22 @@ export const slugSchema = z
 export const paiseSchema = z.int().nonnegative();
 /** 24-hex MongoDB ObjectId string. */
 export const objectIdSchema = z.string().regex(/^[0-9a-f]{24}$/, "Invalid id");
-export const imageUrlSchema = z.url({ protocol: /^https$/ });
+/** A Media Library file, served by every app at `/media/<id>` (admin batch 9). */
+export const MEDIA_PATH_PATTERN = /^\/media\/[0-9a-f]{24}$/;
+/** An image as stored: an https URL or a Media Library path. */
+export const imageUrlSchema = z.union([z.url({ protocol: /^https$/ }), z.string().regex(MEDIA_PATH_PATTERN)]);
+const UNSPLASH_PREFIX = "https://images.unsplash.com/";
+/**
+ * Images typed into the consoles: showbuzz.com's next/image only loads images.unsplash.com and Media Library files,
+ * so anything else would break the public page.
+ */
+export const hostedImageUrlSchema = z
+  .string()
+  .trim()
+  .refine(
+    (v) => (v.startsWith(UNSPLASH_PREFIX) && URL.canParse(v)) || MEDIA_PATH_PATTERN.test(v),
+    "Use an images.unsplash.com URL or a Media Library image (/media/…)",
+  );
 export const isoDateTimeSchema = z.iso.datetime({ offset: true });
 export const isoDateSchema = z.iso.date();
 /** "HH:mm", 24-hour wall-clock time in IST. */

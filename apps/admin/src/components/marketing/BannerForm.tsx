@@ -84,7 +84,7 @@ export function BannerForm({ bannerId, defaults, cities }: { bannerId?: string; 
           <ImageUrlField
             label="Wide image URL"
             required
-            hint="images.unsplash.com for now (media storage isn't set up yet). Wide, at least 1600 px."
+            hint="An images.unsplash.com URL, or Copy URL in the Media Library. Wide, at least 1600 px."
             value={field.value}
             onChange={field.onChange}
             error={errors.imageUrl?.message}
@@ -92,12 +92,7 @@ export function BannerForm({ bannerId, defaults, cities }: { bannerId?: string; 
         )}
       />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <TextField
-          label="Button text"
-          required
-          error={errors.ctaLabel?.message}
-          {...form.register("ctaLabel")}
-        />
+        <TextField label="Button text" required error={errors.ctaLabel?.message} {...form.register("ctaLabel")} />
         <TextField
           label="Button link"
           required

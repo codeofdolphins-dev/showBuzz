@@ -7,6 +7,8 @@ import {
   BadgeIndianRupee,
   Briefcase,
   ChevronRight,
+  Eye,
+  EyeOff,
   FileText,
   type LucideIcon,
   RotateCcw,
@@ -26,6 +28,8 @@ const TYPE_ICONS: Record<NotificationType, { icon: LucideIcon; tone: string }> =
   refund_created: { icon: RotateCcw, tone: "bg-amber-50 text-amber-700" },
   payout_paid: { icon: BadgeIndianRupee, tone: "bg-emerald-50 text-admin-success" },
   invoice_issued: { icon: FileText, tone: "bg-teal-50 text-admin-teal" },
+  listing_takedown: { icon: EyeOff, tone: "bg-red-50 text-admin-danger" },
+  listing_restored: { icon: Eye, tone: "bg-emerald-50 text-admin-success" },
 };
 
 const timeFormat = new Intl.DateTimeFormat("en-IN", {

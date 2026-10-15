@@ -11,6 +11,7 @@ import { GiftCardDesign } from "./GiftCardDesign";
 import { Genre } from "./Genre";
 import { Language } from "./Language";
 import { Lead } from "./Lead";
+import { MediaAsset } from "./MediaAsset";
 import { Movie } from "./Movie";
 import { Notification } from "./Notification";
 import { OtpChallenge } from "./OtpChallenge";
@@ -74,4 +75,5 @@ export const allModels = [
   SitePage,
   SeoMeta,
   Notification,
+  MediaAsset,
 ];

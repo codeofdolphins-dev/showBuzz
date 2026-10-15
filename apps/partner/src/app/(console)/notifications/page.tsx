@@ -32,7 +32,7 @@ export default async function NotificationsPage({ searchParams }: PageProps<"/no
       <PageHeader
         title="Notifications"
         crumb="Notifications"
-        subtitle="Payouts and subscription invoices from ShowBuzz."
+        subtitle="Payouts, subscription invoices and listing notices from ShowBuzz."
       />
       <FilterTabs unreadOnly={unreadOnly} sp={sp} />
       {!result.ok ? (
@@ -40,7 +40,7 @@ export default async function NotificationsPage({ searchParams }: PageProps<"/no
       ) : result.data.rows.length === 0 ? (
         <EmptyState
           title={unreadOnly ? "No unread notifications" : "No notifications yet"}
-          description="Payouts paid to you and subscription invoices appear here."
+          description="Payouts, subscription invoices and notices about your listings appear here."
         />
       ) : (
         <>

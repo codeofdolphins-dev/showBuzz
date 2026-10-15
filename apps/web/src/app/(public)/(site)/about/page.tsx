@@ -31,7 +31,7 @@ export default async function AboutPage() {
         <h1 className="text-3xl leading-tight font-black tracking-tight text-slate-900 sm:text-5xl">{content.title}</h1>
         {content.intro ? <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">{content.intro}</p> : null}
       </div>
-      <div className="relative aspect-[21/9] overflow-hidden rounded-3xl border border-slate-200 shadow-xl">
+      <div className="relative aspect-21/9 overflow-hidden rounded-3xl border border-slate-200 shadow-xl">
         <Image src={content.imageUrl} alt="" fill priority sizes="100vw" className="object-cover" />
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

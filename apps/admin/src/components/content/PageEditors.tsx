@@ -85,7 +85,13 @@ function Toolbar({
   );
 }
 
-function RowTools({ index, count, onMove, onRemove, label }: {
+function RowTools({
+  index,
+  count,
+  onMove,
+  onRemove,
+  label,
+}: {
   index: number;
   count: number;
   onMove: (from: number, to: number) => void;
@@ -95,7 +101,13 @@ function RowTools({ index, count, onMove, onRemove, label }: {
   const icon = "rounded-md p-1.5 text-admin-muted hover:bg-slate-100 hover:text-admin-indigo disabled:opacity-30";
   return (
     <span className="flex items-center gap-0.5">
-      <button type="button" className={icon} disabled={index === 0} onClick={() => onMove(index, index - 1)} aria-label={`Move ${label} up`}>
+      <button
+        type="button"
+        className={icon}
+        disabled={index === 0}
+        onClick={() => onMove(index, index - 1)}
+        aria-label={`Move ${label} up`}
+      >
         <ArrowUp className="h-4 w-4" aria-hidden />
       </button>
       <button
@@ -169,7 +181,9 @@ export function LegalPageEditor({
                 onChange={field.onChange}
                 addLabel="Add paragraph"
                 max={10}
-                errors={(errors?.sections?.[i]?.paragraphs as { message?: string }[] | undefined)?.map((e) => e?.message)}
+                errors={(errors?.sections?.[i]?.paragraphs as { message?: string }[] | undefined)?.map(
+                  (e) => e?.message,
+                )}
               />
             )}
           />
@@ -236,7 +250,13 @@ export function FaqPageEditor({ status, content }: { status: PageStatus; content
               error={errors?.items?.[i]?.question?.message}
               {...form.register(`content.items.${i}.question`)}
             />
-            <RowTools index={i} count={items.fields.length} onMove={items.move} onRemove={items.remove} label={`question ${i + 1}`} />
+            <RowTools
+              index={i}
+              count={items.fields.length}
+              onMove={items.move}
+              onRemove={items.remove}
+              label={`question ${i + 1}`}
+            />
           </div>
           <TextAreaField
             label="Answer"
@@ -289,7 +309,7 @@ export function AboutPageEditor({ status, content }: { status: PageStatus; conte
             <ImageUrlField
               label="Wide image URL"
               required
-              hint="images.unsplash.com for now."
+              hint="An images.unsplash.com URL, or Copy URL in the Media Library."
               value={field.value}
               onChange={field.onChange}
               error={errors?.imageUrl?.message}
@@ -307,7 +327,13 @@ export function AboutPageEditor({ status, content }: { status: PageStatus; conte
               error={errors?.cards?.[i]?.title?.message}
               {...form.register(`content.cards.${i}.title`)}
             />
-            <RowTools index={i} count={cards.fields.length} onMove={cards.move} onRemove={cards.remove} label={`card ${i + 1}`} />
+            <RowTools
+              index={i}
+              count={cards.fields.length}
+              onMove={cards.move}
+              onRemove={cards.remove}
+              label={`card ${i + 1}`}
+            />
           </div>
           <TextAreaField
             label="Text"

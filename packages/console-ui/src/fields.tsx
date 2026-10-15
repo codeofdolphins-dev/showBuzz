@@ -389,7 +389,10 @@ export function MoneyInput({
   );
 }
 
-/** Image URL with a live preview (posters, banners). Remote images can't go through next/image without config. */
+/**
+ * Image URL with a live preview (posters, banners): an images.unsplash.com URL or a Media Library path
+ * (`/media/<id>`, served by every app). Remote images can't go through next/image without config.
+ */
 export function ImageUrlField({
   label,
   hint,
@@ -406,20 +409,20 @@ export function ImageUrlField({
   const fallbackId = useId();
   const fieldId = id ?? fallbackId;
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const showPreview = /^https:\/\/\S+$/.test(value) && failedUrl !== value;
+  const showPreview = (/^https:\/\/\S+$/.test(value) || /^\/media\/[0-9a-f]{24}$/.test(value)) && failedUrl !== value;
   return (
     <FieldShell id={fieldId} label={label} required={required} hint={hint} error={error} className={containerClassName}>
       <div className="space-y-2">
         <Input
           id={fieldId}
           name={name}
-          type="url"
+          type="text"
           inputMode="url"
           value={value}
           onChange={(event) => onChange(event.target.value.trim())}
           required={required}
           disabled={disabled}
-          placeholder="https://"
+          placeholder="https://images.unsplash.com/… or /media/…"
           aria-invalid={messages(error)?.length ? true : undefined}
           aria-describedby={describedBy(fieldId, error, hint)}
         />

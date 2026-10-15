@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { imageUrlSchema, isoDateTimeSchema, objectIdSchema, paiseSchema, wallClockTimeSchema } from "./common";
+import { hostedImageUrlSchema, isoDateTimeSchema, objectIdSchema, paiseSchema, wallClockTimeSchema } from "./common";
 import { eventKindSchema, type EventKind } from "./event";
 import { movieStatusSchema } from "./movie";
 
@@ -107,12 +107,12 @@ export const movieInputSchema = z.object({
   formats: optionList("format", 8),
   releaseDate: z.iso.date({ error: "Choose the release date" }),
   status: movieStatusSchema,
-  poster: imageUrlSchema.or(z.literal("")).refine((v) => v !== "", "Paste an https image URL"),
-  backdrop: imageUrlSchema.or(z.literal("")).refine((v) => v !== "", "Paste an https image URL"),
+  poster: hostedImageUrlSchema,
+  backdrop: hostedImageUrlSchema,
   trailerUrl: z.url({ protocol: /^https$/, error: "Paste an https link (YouTube)" }),
   director: personName,
   cast: z
-    .array(z.object({ name: personName, role: personRole, image: imageUrlSchema }))
+    .array(z.object({ name: personName, role: personRole, image: hostedImageUrlSchema }))
     .max(30, "Up to 30 cast members"),
   crew: z.array(z.object({ name: personName, role: personRole })).max(30, "Up to 30 crew members"),
 });
@@ -169,11 +169,11 @@ export const eventInputSchema = z
     /** "daily" only (activities): opening hours in IST. */
     opensAt: wallClockTimeSchema.or(z.literal("")),
     closesAt: wallClockTimeSchema.or(z.literal("")),
-    poster: imageUrlSchema.or(z.literal("")).refine((v) => v !== "", "Paste an https image URL"),
-    backdrop: imageUrlSchema.or(z.literal("")),
+    poster: hostedImageUrlSchema,
+    backdrop: hostedImageUrlSchema.or(z.literal("")),
     director: z.string().trim().max(80),
     artists: z
-      .array(z.object({ name: personName, role: personRole, image: imageUrlSchema }))
+      .array(z.object({ name: personName, role: personRole, image: hostedImageUrlSchema }))
       .max(20, "Up to 20 artists"),
     tiers: z.array(ticketTierInputSchema).min(1, "Add at least one ticket tier").max(10, "Up to 10 tiers"),
     status: listingStatusSchema,

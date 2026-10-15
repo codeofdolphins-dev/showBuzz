@@ -13,6 +13,8 @@ export const NOTIFICATION_TYPES = [
   "refund_created",
   "payout_paid",
   "invoice_issued",
+  "listing_takedown",
+  "listing_restored",
 ] as const;
 
 export const notificationTypeSchema = z.enum(NOTIFICATION_TYPES);

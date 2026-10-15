@@ -84,7 +84,7 @@ async function fixtureSeatActivity(show: LeanShow | null): Promise<{ sold: numbe
   return { sold, held };
 }
 
-function whenLabel(event: Pick<LeanEvent, "schedule">): string {
+export function whenLabel(event: Pick<LeanEvent, "schedule">): string {
   const s = event.schedule;
   if (s.type === "daily") return `Daily ${s.opensAt ?? ""}–${s.closesAt ?? ""}`;
   const at = s.startsAt ?? new Date(0);
@@ -130,29 +130,12 @@ export async function listVendorEvents(
     Event.countDocuments(filter),
   ]);
 
-  const ids = docs.map((d) => d._id);
-  const shows = ids.length ? await Show.find({ eventId: { $in: ids }, ...LIVE_SHOW_FILTER }).lean() : [];
-  const fixtureIds = shows.filter((s) => (s.inventory ?? []).length === 0).map((s) => s._id);
-  const soldSeats = fixtureIds.length
-    ? await SeatHold.aggregate<{ _id: Types.ObjectId; n: number }>([
-        { $match: { showId: { $in: fixtureIds }, status: "sold" } },
-        { $group: { _id: "$showId", n: { $sum: 1 } } },
-      ])
-    : [];
-  const soldByShow = new Map(soldSeats.map((s) => [s._id.toString(), s.n]));
+  const counts = await listingTicketCounts(docs);
 
   return {
     total,
     rows: docs.map((doc) => {
-      const own = shows.filter((s) => s.eventId?.toString() === doc._id.toString());
-      const pass = own.find((s) => (s.inventory ?? []).length > 0);
-      const fixture = own.find((s) => (s.inventory ?? []).length === 0);
-      const capacity = pass
-        ? pass.inventory.reduce((sum, t) => sum + t.capacity, 0)
-        : doc.ticketTiers.reduce((sum, t) => sum + t.available, 0);
-      const sold = pass
-        ? pass.inventory.reduce((sum, t) => sum + t.sold, 0)
-        : (soldByShow.get(fixture?._id.toString() ?? "") ?? 0);
+      const { sold, capacity } = counts.get(doc._id.toString()) ?? { sold: 0, capacity: 0 };
       return {
         id: doc._id.toString(),
         kind: doc.kind,
@@ -166,9 +149,44 @@ export async function listVendorEvents(
         capacity,
         sold,
         status: doc.status ?? "active",
+        ...(doc.takenDownAt ? { takenDown: true } : {}),
       };
     }),
   };
+}
+
+/**
+ * Tickets sold and capacity per listing: passes from the pass show's inventory; seated fixtures = seats sold on the
+ * fixture show out of the tiers' seats (= the stadium layout's categories). Shared with the admin oversight screens.
+ */
+export async function listingTicketCounts(
+  docs: Pick<LeanEvent, "_id" | "ticketTiers">[],
+): Promise<Map<string, { sold: number; capacity: number }>> {
+  const ids = docs.map((d) => d._id);
+  const shows = ids.length ? await Show.find({ eventId: { $in: ids }, ...LIVE_SHOW_FILTER }).lean() : [];
+  const fixtureIds = shows.filter((s) => (s.inventory ?? []).length === 0).map((s) => s._id);
+  const soldSeats = fixtureIds.length
+    ? await SeatHold.aggregate<{ _id: Types.ObjectId; n: number }>([
+        { $match: { showId: { $in: fixtureIds }, status: "sold" } },
+        { $group: { _id: "$showId", n: { $sum: 1 } } },
+      ])
+    : [];
+  const soldByShow = new Map(soldSeats.map((s) => [s._id.toString(), s.n]));
+  const result = new Map<string, { sold: number; capacity: number }>();
+  for (const doc of docs) {
+    const own = shows.filter((s) => s.eventId?.toString() === doc._id.toString());
+    const pass = own.find((s) => (s.inventory ?? []).length > 0);
+    const fixture = own.find((s) => (s.inventory ?? []).length === 0);
+    result.set(doc._id.toString(), {
+      capacity: pass
+        ? pass.inventory.reduce((sum, t) => sum + t.capacity, 0)
+        : doc.ticketTiers.reduce((sum, t) => sum + t.available, 0),
+      sold: pass
+        ? pass.inventory.reduce((sum, t) => sum + t.sold, 0)
+        : (soldByShow.get(fixture?._id.toString() ?? "") ?? 0),
+    });
+  }
+  return result;
 }
 
 /** The vendor's sports fixtures (Shows page filter). */
@@ -231,6 +249,7 @@ export async function getVendorEvent(vendorId: string, eventId: string): Promise
     values: toValues(doc, fixture),
     usage,
     locked: usage.some((u) => u.sold + u.reserved > 0) || seats.sold + seats.held > 0,
+    ...(doc.takenDownAt ? { takedown: { at: doc.takenDownAt.toISOString(), reason: doc.takedownReason ?? "" } } : {}),
   };
 }
 

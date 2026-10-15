@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { imageUrlSchema } from "./common";
+import { hostedImageUrlSchema, imageUrlSchema } from "./common";
 import { CANCELLATION_CUTOFF_MINUTES } from "./constants";
 
 /**
@@ -50,8 +50,8 @@ export const aboutContentSchema = z.object({
   eyebrow: z.string().trim().max(40),
   title: line("headline", 160),
   intro: z.string().trim().max(600),
-  /** next/image only allows images.unsplash.com until media storage exists. */
-  imageUrl: imageUrlSchema.refine((v) => v.startsWith("https://images.unsplash.com/"), "Use an images.unsplash.com URL"),
+  /** images.unsplash.com or the Media Library (next/image allows only those). */
+  imageUrl: hostedImageUrlSchema,
   cards: z
     .array(z.object({ title: line("card title", 80), text: line("card text", 400) }))
     .min(1, "Add at least one card")

@@ -39,3 +39,11 @@ export function describeUserAgent(userAgent: string | undefined): string {
   if (browser && os) return `${browser} on ${os}`;
   return browser ?? os ?? "Unknown device";
 }
+
+/** Coarse device class of a browser (booking analytics). Tablets: iPad and Android without "Mobile". */
+export function deviceClass(userAgent: string | undefined | null): "mobile" | "tablet" | "desktop" | undefined {
+  if (!userAgent) return undefined;
+  if (/iPad|Tablet/i.test(userAgent) || (/Android/.test(userAgent) && !/Mobile/.test(userAgent))) return "tablet";
+  if (/Mobi|iPhone|iPod|Android/i.test(userAgent)) return "mobile";
+  return "desktop";
+}

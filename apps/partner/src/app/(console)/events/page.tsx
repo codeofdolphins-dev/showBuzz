@@ -51,7 +51,12 @@ function columns(kind: string): DataTableColumn<VendorEventRow>[] {
       header: kind === "sport" ? "Seats sold" : "Passes sold",
       cell: (e) => `${e.sold.toLocaleString("en-IN")} / ${e.capacity.toLocaleString("en-IN")}`,
     },
-    { key: "status", header: "Status", cell: (e) => <StatusBadge status={e.status} /> },
+    {
+      key: "status",
+      header: "Status",
+      cell: (e) =>
+        e.takenDown ? <StatusBadge tone="danger">Taken down</StatusBadge> : <StatusBadge status={e.status} />,
+    },
   ];
 }
 

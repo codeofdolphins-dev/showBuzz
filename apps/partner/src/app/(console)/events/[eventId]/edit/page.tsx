@@ -28,6 +28,15 @@ export default async function EditEventPage({ params }: PageProps<"/events/[even
         crumb={labels.many}
         subtitle={`${labels.one} · /${event.slug}`}
       />
+      {event.takedown ? (
+        <div role="status" className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800">
+          <p className="font-bold text-admin-danger">Taken down by ShowBuzz</p>
+          <p>
+            This listing is hidden from showbuzz.com and can&apos;t be booked. Reason: {event.takedown.reason}. Tickets
+            already sold stay valid. Contact your ShowBuzz account manager to have it restored.
+          </p>
+        </div>
+      ) : null}
       <EventForm
         kind={event.kind}
         venues={venues}

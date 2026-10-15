@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { imageUrlSchema, isoDateTimeSchema } from "./common";
+import { hostedImageUrlSchema, isoDateTimeSchema } from "./common";
 
 /**
  * Home banners (prompt 7): the public home hero carousel. A banner targets one city or all of them and may have a
@@ -26,7 +26,10 @@ const linkSchema = z
   .string()
   .trim()
   .max(300)
-  .refine((v) => /^\/(?!\/)\S*$/.test(v) || /^https:\/\/\S+$/.test(v), "Use a site path like /movies/… or an https link");
+  .refine(
+    (v) => /^\/(?!\/)\S*$/.test(v) || /^https:\/\/\S+$/.test(v),
+    "Use a site path like /movies/… or an https link",
+  );
 
 export const bannerInputSchema = z
   .object({
@@ -35,11 +38,8 @@ export const bannerInputSchema = z
     badge: z.string().trim().max(40),
     icon: z.enum(["zap", "music", "trophy"]),
     tone: z.enum(["rose", "purple", "emerald"]),
-    /** Wide image (next/image only allows images.unsplash.com until media storage exists). */
-    imageUrl: imageUrlSchema
-      .or(z.literal(""))
-      .refine((v) => v !== "", "Paste an https image URL")
-      .refine((v) => v === "" || v.startsWith("https://images.unsplash.com/"), "Use an images.unsplash.com URL for now"),
+    /** Wide image: images.unsplash.com or the Media Library (next/image allows only those). */
+    imageUrl: hostedImageUrlSchema,
     ctaLabel: z.string().trim().min(2, "Enter the button text").max(30),
     linkUrl: linkSchema,
     placement: bannerPlacementSchema,

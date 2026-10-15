@@ -527,6 +527,51 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorEnvelope" }
         "422": { $ref: "#/components/responses/ValidationFailed" }
+  /admin/backup:
+    get:
+      tags: [Admin]
+      summary: JSON export of the database (admin app)
+      description: |
+        Needs `backup:read`. Streams `application/json` as an attachment: `{ format, version, exportedAt,
+        collections: { <name>: [documents] } }`. Logins, password hashes, sessions, OTPs, bank account numbers, KYC
+        files, gift card codes and customer phone/email are left out. Recorded in the activity log.
+      security: [{ staffAccessCookie: [] }]
+      responses:
+        "200":
+          description: The export.
+          content:
+            application/json: {}
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /media/{fileId}:
+    servers:
+      - url: https://showbuzz.com
+      - url: https://admin.showbuzz.com
+      - url: https://partner.showbuzz.com
+    get:
+      tags: [System]
+      summary: A Media Library image (served by every app, outside /api/v1)
+      description: |
+        Public, `Cache-Control: public, max-age=31536000, immutable` (errors: `no-store`). Only images stored by the
+        Media Library are served; any other file id (e.g. a KYC document) answers 404. On the consoles the path sits
+        behind the console's sign-in pre-check.
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema: { type: string, pattern: "^[0-9a-f]{24}$" }
+      responses:
+        "200":
+          description: The image.
+          content:
+            image/jpeg: {}
+            image/png: {}
+            image/webp: {}
+        "404":
+          description: Not found (`NOT_FOUND`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
   /internal/revalidate:
     servers:
       - url: /api

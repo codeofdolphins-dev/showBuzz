@@ -85,7 +85,8 @@ export function apiHandler<B extends Schema = undefined, Q extends Schema = unde
     }
 
     response.headers.set("x-request-id", requestId);
-    response.headers.set("Cache-Control", options.cacheControl ?? "no-store");
+    // Errors are never cached, even on routes that opt into caching.
+    response.headers.set("Cache-Control", response.ok && options.cacheControl ? options.cacheControl : "no-store");
     return response;
   };
 }
