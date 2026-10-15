@@ -15,8 +15,10 @@ import type {
   SettlementTotals,
 } from "@showbuzz/schemas/types/admin-marketplace";
 import { maskAccountNumber } from "@showbuzz/schemas/vendor";
-import { addDaysToKey, istDateKey, istDateTime } from "@showbuzz/utils/dates";
+import { addDaysToKey, formatDateShort, istDateKey, istDateTime } from "@showbuzz/utils/dates";
+import { formatINR } from "@showbuzz/utils/money";
 import { AppError } from "../../http/app-error";
+import { notify } from "../notification.service";
 import {
   type AdminListQuery,
   idOr404,
@@ -293,9 +295,23 @@ export async function markSettlementPaid(
   const doc = await Settlement.findOneAndUpdate(
     { _id, status: "pending" },
     { $set: { status: "paid", reference, paidAt: now, paidBy: new Types.ObjectId(staffId) } },
-    { projection: { code: 1, vendorId: 1 } },
+    { projection: { code: 1, vendorId: 1, netPayoutPaise: 1, periodFrom: 1, periodTo: 1 } },
   ).lean();
   if (!doc) throw await settlementConflict(_id);
+  const net = doc.netPayoutPaise;
+  // periodTo is the exclusive end (midnight after the last day).
+  const cycle = `${formatDateShort(doc.periodFrom)} – ${formatDateShort(new Date(doc.periodTo.getTime() - 1))}`;
+  await notify({
+    audience: "vendor",
+    vendorId: doc.vendorId.toString(),
+    type: "payout_paid",
+    title:
+      net < 0
+        ? `Payout ${doc.code}: your payment of ${formatINR(-net, { exact: true })} was received`
+        : `Payout ${doc.code} of ${formatINR(net, { exact: true })} was paid`,
+    body: `Settlement cycle ${cycle}. Reference ${reference}.`,
+    link: "/earnings",
+  });
   return { code: doc.code, vendorId: doc.vendorId.toString() };
 }
 

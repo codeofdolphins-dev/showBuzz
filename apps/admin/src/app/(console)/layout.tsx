@@ -23,6 +23,7 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       loginPath="/login"
       tabIds={TAB_IDS}
       notificationsHref="/notifications"
+      notificationsCountUrl="/api/v1/admin/notifications/unread"
     >
       {children}
     </ConsoleShell>

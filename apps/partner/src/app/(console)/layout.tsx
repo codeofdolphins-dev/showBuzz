@@ -20,6 +20,8 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
       logoutPath="/api/v1/partner/auth/logout"
       loginPath="/login"
       tabIds={PARTNER_TAB_IDS}
+      notificationsHref="/notifications"
+      notificationsCountUrl="/api/v1/partner/notifications/unread"
       banner={vendor.status === "suspended" ? <SuspendedNotice /> : null}
     >
       {children}

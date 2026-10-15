@@ -61,12 +61,12 @@ function vendorObjectId(vendorId: string): Types.ObjectId {
   return new Types.ObjectId(vendorId);
 }
 
-async function sharesContact(vendorId: string): Promise<boolean> {
+export async function sharesContact(vendorId: string): Promise<boolean> {
   const vendor = await Vendor.findById(vendorId, { shareCustomerContact: 1 }).lean();
   return vendor?.shareCustomerContact === true;
 }
 
-function contactOf(doc: BookingAttrs, share: boolean): SharedContact | undefined {
+export function contactOf(doc: BookingAttrs, share: boolean): SharedContact | undefined {
   if (doc.channel === "counter") {
     const walkIn = {
       ...(doc.contact.name ? { name: doc.contact.name } : {}),

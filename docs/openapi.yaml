@@ -415,6 +415,118 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  /admin/notifications/unread:
+    get:
+      tags: [Admin]
+      summary: Unread notification count for the signed-in staff member (admin app bell)
+      description: |
+        Counts staff notifications whose permission the staff member's role has and that they haven't read
+        (capped at 100; the bell shows "99+").
+      security: [{ staffAccessCookie: [] }]
+      responses:
+        "200":
+          description: The count.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [count]
+                        properties:
+                          count: { type: integer, minimum: 0, maximum: 100 }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+  /partner/notifications/unread:
+    get:
+      tags: [Partner]
+      summary: Unread notification count for the signed-in vendor login (partner app bell)
+      description: Scoped to the session's vendor. Capped at 100.
+      security: [{ partnerAccessCookie: [] }]
+      responses:
+        "200":
+          description: The count.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [count]
+                        properties:
+                          count: { type: integer, minimum: 0, maximum: 100 }
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+  /admin/reports/{report}:
+    get:
+      tags: [Admin]
+      summary: CSV export of a platform report (admin app)
+      description: |
+        Streams `text/csv` (UTF-8 with BOM, money in rupees with 2 decimals, dates in IST) as an attachment. Needs
+        `reports:read`, plus `settlements:read` for `payouts` and `invoices:read` for `invoices`. Sales reports count
+        bookings by the IST day they were paid for. Invalid filter values are ignored (defaults: the last 30 days).
+        Each export is written to the activity log.
+      security: [{ staffAccessCookie: [] }]
+      parameters:
+        - name: report
+          in: path
+          required: true
+          schema: { type: string, enum: [sales-by-vendor, sales-by-venue, sales-by-title, payouts, invoices] }
+        - { name: from, in: query, schema: { type: string, format: date }, description: "IST date, default today − 29" }
+        - { name: to, in: query, schema: { type: string, format: date }, description: "IST date, default today" }
+        - {
+            name: city,
+            in: query,
+            schema: { type: string },
+            description: City slug (show city; vendor city for payouts and invoices),
+          }
+        - { name: vendor, in: query, schema: { type: string, pattern: "^[0-9a-f]{24}$" } }
+      responses:
+        "200":
+          description: The CSV file.
+          content:
+            text/csv: {}
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: Unknown report.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+  /partner/reports/{report}:
+    get:
+      tags: [Partner]
+      summary: CSV export of the signed-in vendor's own report (partner app)
+      description: |
+        Same format as the admin export, always scoped to the session's vendor (a `vendor` parameter is ignored).
+        The `bookings` report includes customer name, phone and email only when the vendor's
+        `shareCustomerContact` is on (counter walk-in details always). Needs onboarding complete.
+      security: [{ partnerAccessCookie: [] }]
+      parameters:
+        - name: report
+          in: path
+          required: true
+          schema: { type: string, enum: [sales-by-venue, sales-by-title, bookings, payouts] }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: city, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: The CSV file.
+          content:
+            text/csv: {}
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403":
+          description: Onboarding not complete (`ONBOARDING_INCOMPLETE`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
   /internal/revalidate:
     servers:
       - url: /api

@@ -13,6 +13,7 @@ import {
 import { AppError } from "../http/app-error";
 import { ipPrefix } from "../http/request";
 import { consumeRateLimit } from "../security/rate-limit";
+import { notify } from "./notification.service";
 
 /**
  * Inbound enquiries (contact, corporate, list-your-show) in the `leads` collection. Spam protection:
@@ -41,7 +42,7 @@ async function storeLead(
   contact: { name: string; email: string; phone?: string },
   fields: Record<string, unknown>,
   ctx: LeadContext,
-): Promise<{ reference: string }> {
+): Promise<{ reference: string; id?: string }> {
   const limit = await consumeRateLimit(`lead:${ipPrefix(ctx.ip) ?? ctx.ip}`, { ...LIMIT_PER_IP, now: ctx.now });
   if (!limit.allowed) {
     throw new AppError("RATE_LIMITED", "Too many requests from your network. Please try again later.", 429, {
@@ -53,7 +54,7 @@ async function storeLead(
   for (let attempt = 0; attempt < MAX_REFERENCE_ATTEMPTS; attempt++) {
     const reference = newReference(type);
     try {
-      await Lead.create({
+      const lead = await Lead.create({
         type,
         reference,
         name: contact.name,
@@ -63,7 +64,7 @@ async function storeLead(
         status: "new",
         ipPrefix: ipPrefix(ctx.ip),
       });
-      return { reference };
+      return { reference, id: lead._id.toString() };
     } catch (err) {
       if ((err as { code?: number }).code !== 11000) throw err;
     }
@@ -81,24 +82,45 @@ function formFields(data: { website?: string }): Record<string, unknown> {
 export async function submitContactLead(input: ContactLeadInput, ctx: LeadContext) {
   if (isFilledHoneypot(input)) return { reference: newReference("contact") };
   const data = contactLeadSchema.parse(input);
-  return storeLead("contact", { name: data.name, email: data.email, phone: data.phone }, formFields(data), ctx);
+  const { reference } = await storeLead(
+    "contact",
+    { name: data.name, email: data.email, phone: data.phone },
+    formFields(data),
+    ctx,
+  );
+  return { reference };
 }
 
 export async function submitCorporateLead(input: CorporateLeadInput, ctx: LeadContext) {
   if (isFilledHoneypot(input)) return { reference: newReference("corporate") };
   const data = corporateLeadSchema.parse(input);
-  return storeLead(
+  const { reference } = await storeLead(
     "corporate",
     { name: data.contactName, email: data.email, phone: data.phone },
     formFields(data),
     ctx,
   );
+  return { reference };
 }
 
 export async function submitShowSubmission(input: ShowSubmissionInput, ctx: LeadContext) {
   if (isFilledHoneypot(input)) return { reference: newReference("show_submission") };
   const data = showSubmissionSchema.parse(input);
-  return storeLead("show_submission", { name: data.name, email: data.email, phone: data.phone }, formFields(data), ctx);
+  const { reference, id } = await storeLead(
+    "show_submission",
+    { name: data.name, email: data.email, phone: data.phone },
+    formFields(data),
+    ctx,
+  );
+  await notify({
+    audience: "staff",
+    permission: "list-your-show:read",
+    type: "show_submission",
+    title: `New list-your-show request ${reference}`,
+    body: `${data.companyName} (${data.city}) wants to list a ${data.category} show.`,
+    ...(id ? { link: `/list-your-show/${id}` } : {}),
+  });
+  return { reference };
 }
 
 export interface LeadListItem {

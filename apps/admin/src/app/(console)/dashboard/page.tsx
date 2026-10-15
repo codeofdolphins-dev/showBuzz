@@ -1,288 +1,254 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import {
-  Calendar,
-  ChevronRight,
-  Clock,
-  Film,
-  IndianRupee,
-  type LucideIcon,
-  ShoppingBag,
-  Ticket,
-  TrendingUp,
-} from "lucide-react";
+import { Building2, ChevronRight, IndianRupee, Landmark, Store, Ticket } from "lucide-react";
+import { BarList, KpiCard, RangeTabs, SectionTitle, TrendChart } from "@showbuzz/console-ui/DashboardParts";
+import { TableError } from "@showbuzz/console-ui/DataTable";
+import { Card, PageHeader } from "@showbuzz/console-ui/PageParts";
+import { StatusBadge } from "@showbuzz/console-ui/StatusBadge";
+import { param } from "@showbuzz/console-ui/search-params";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
-import { Card, PageHeader, SampleBadge } from "@showbuzz/console-ui/PageParts";
+import { getAdminDashboard } from "@showbuzz/core/services/admin/dashboard.service";
+import { DASHBOARD_RANGE_LABELS, DASHBOARD_RANGES, dashboardRangeSchema } from "@showbuzz/schemas/dashboard";
+import { hasPermission } from "@showbuzz/schemas/permissions";
+import type { AdminDashboard, SalesSlice } from "@showbuzz/schemas/types/dashboard";
+import { formatDateShort, formatTime } from "@showbuzz/utils/dates";
+import { formatINR } from "@showbuzz/utils/money";
+import { load } from "@/lib/load";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
+const money = (paise: number) => formatINR(paise);
+const count = (n: number) => n.toLocaleString("en-IN");
+const RANGE_OPTIONS = DASHBOARD_RANGES.map((value) => ({ value, label: DASHBOARD_RANGE_LABELS[value] }));
+
 /**
- * Prototype dashboard.html layout with fixed sample figures (labelled as such) until bookings, shows and
- * payments are in MongoDB (Phase 7.7). Charts are plain CSS bars: no chart library until one is agreed.
+ * Prototype dashboard.html with live figures from MongoDB (getAdminDashboard: cached 2 minutes). Sales figures are
+ * shown to staff who may read bookings or reports; everyone else sees the welcome line only.
  */
-
-interface Kpi {
-  label: string;
-  value: string;
-  note: string;
-  icon: LucideIcon;
-  tone: string;
-  trend?: boolean;
-}
-
-const KPIS: Kpi[] = [
-  {
-    label: "Gross Value",
-    value: "₹18,42,600",
-    note: "+18.4% vs last week",
-    icon: IndianRupee,
-    tone: "bg-indigo-50 text-admin-indigo",
-    trend: true,
-  },
-  {
-    label: "Tickets Sold",
-    value: "6,284",
-    note: "+12.6% growth",
-    icon: Ticket,
-    tone: "bg-rose-50 text-admin-coral",
-    trend: true,
-  },
-  {
-    label: "Orders",
-    value: "2,915",
-    note: "98.2% payment success",
-    icon: ShoppingBag,
-    tone: "bg-teal-50 text-teal-600",
-  },
-  { label: "Active Shows", value: "148", note: "Across 20 cinemas", icon: Clock, tone: "bg-amber-50 text-amber-600" },
-  {
-    label: "Concerts & Gigs",
-    value: "24",
-    note: "8 stadium venues",
-    icon: Calendar,
-    tone: "bg-purple-50 text-purple-600",
-  },
-  { label: "Now Showing", value: "18", note: "5 languages", icon: Film, tone: "bg-slate-100 text-slate-700" },
-];
-
-// Same sample series as the prototype (admin/assets/js/dashboard.js).
-const MONTHLY_REVENUE = [
-  { label: "Sep", value: 42.5 },
-  { label: "Oct", value: 58.2 },
-  { label: "Nov", value: 74.8 },
-  { label: "Dec", value: 92.4 },
-  { label: "Jan", value: 88.0 },
-  { label: "Feb", value: 114.6 },
-];
-const CATEGORIES = [
-  { label: "Movies", value: 58, color: "bg-admin-indigo" },
-  { label: "Concerts", value: 22, color: "bg-admin-coral" },
-  { label: "Comedy", value: 10, color: "bg-admin-teal" },
-  { label: "Plays & Drama", value: 6, color: "bg-amber-500" },
-  { label: "Sports & Fun", value: 4, color: "bg-purple-500" },
-];
-const CITIES = [
-  { label: "Kolkata (HQ)", value: 4200 },
-  { label: "Mumbai", value: 3100 },
-  { label: "Bengaluru", value: 2450 },
-  { label: "Delhi-NCR", value: 2100 },
-  { label: "Chennai", value: 1400 },
-  { label: "Pune", value: 950 },
-];
-const RECENT = [
-  {
-    id: "SB-883921",
-    customer: "Ananya Sen",
-    content: "Chrono Nexus: Origins · INOX Quest Mall",
-    time: "Today, 06:15 PM",
-    total: "₹1,240",
-    status: "Confirmed",
-  },
-  {
-    id: "SB-883917",
-    customer: "Rohit Verma",
-    content: "Sunburn EDM Arena · Salt Lake Stadium",
-    time: "Sat, 05:00 PM",
-    total: "₹4,500",
-    status: "Confirmed",
-  },
-  {
-    id: "SB-883904",
-    customer: "Priya Nair",
-    content: "Macbeth · Academy of Fine Arts",
-    time: "Sun, 07:30 PM",
-    total: "₹900",
-    status: "Pending",
-  },
-  {
-    id: "SB-883899",
-    customer: "Arjun Das",
-    content: "Shadows of Varanasi · PVR Mani Square",
-    time: "Today, 09:45 PM",
-    total: "₹620",
-    status: "Refunded",
-  },
-];
-
-const STATUS_STYLES: Record<string, string> = {
-  Confirmed: "bg-emerald-50 text-admin-success",
-  Pending: "bg-amber-50 text-amber-700",
-  Refunded: "bg-slate-100 text-admin-muted",
-};
-
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const { staff } = await requireStaffPage("/dashboard");
-  const maxRevenue = Math.max(...MONTHLY_REVENUE.map((m) => m.value));
-  const maxCity = Math.max(...CITIES.map((c) => c.value));
+  const sp = await searchParams;
+  const range = dashboardRangeSchema.catch("7d").parse(param(sp, "range"));
+  const canSee = ["bookings:read", "reports:read"].some((p) => hasPermission(staff.permissions, p));
+  const result = canSee ? await load(() => getAdminDashboard(range, new Date())) : null;
 
   return (
     <>
       <PageHeader
         title="Box Office & Operations Dashboard"
-        subtitle={`Welcome back, ${staff.name.split(" ")[0]}. Ticketing metrics, active shows and revenue across hubs.`}
-        actions={<SampleBadge />}
+        subtitle={`Welcome back, ${staff.name.split(" ")[0]}. Sales, platform revenue and vendors across ShowBuzz (IST).`}
+        actions={
+          canSee ? (
+            <RangeTabs current={range} options={RANGE_OPTIONS} hrefFor={(value) => `/dashboard?range=${value}`} />
+          ) : null
+        }
       />
+      {result === null ? (
+        <Card className="p-6 text-xs text-admin-muted">
+          Use the menu to open the screens your role includes. Sales figures need the Bookings or Reports permission.
+        </Card>
+      ) : !result.ok ? (
+        <TableError message="Dashboard figures couldn't be loaded. Refresh to try again." />
+      ) : (
+        <Figures data={result.data} canOpenBookings={hasPermission(staff.permissions, "bookings:read")} />
+      )}
+    </>
+  );
+}
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-        {KPIS.map(({ label, value, note, icon: Icon, tone, trend }) => (
-          <Card key={label} className="space-y-2 p-4">
-            <div className="flex items-center justify-between text-admin-subtle">
-              <span className="text-[11px] font-bold tracking-wider uppercase">{label}</span>
-              <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${tone}`}>
-                <Icon className="h-4 w-4" aria-hidden />
-              </span>
-            </div>
-            <p className="text-xl font-black tracking-tight text-admin-dark">{value}</p>
-            <p
-              className={`flex items-center gap-1 text-[10px] ${trend ? "font-bold text-emerald-600" : "text-admin-subtle"}`}
-            >
-              {trend ? <TrendingUp className="h-3 w-3" aria-hidden /> : null}
-              {note}
-            </p>
-          </Card>
-        ))}
+function Figures({ data, canOpenBookings }: { data: AdminDashboard; canOpenBookings: boolean }) {
+  const { kpis } = data;
+  const r = kpis.revenue;
+  const slices = (items: SalesSlice[], hrefFor?: (key: string) => string) =>
+    items.map((i) => ({
+      ...(hrefFor ? { href: hrefFor(i.key) } : {}),
+      key: i.key,
+      label: i.label,
+      ...(i.detail ? { detail: i.detail } : {}),
+      value: i.salesPaise,
+      display: money(i.salesPaise),
+      extra: `${count(i.tickets)} tickets`,
+    }));
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <KpiCard
+          label="Gross sales"
+          value={money(kpis.grossSalesPaise)}
+          icon={<IndianRupee className="h-4 w-4" />}
+          tone="bg-indigo-50 text-admin-indigo"
+          current={kpis.grossSalesPaise}
+          previous={kpis.previousGrossSalesPaise}
+          note={`${count(kpis.bookings)} orders · refunds ${money(kpis.refundsPaise)}`}
+        />
+        <KpiCard
+          label="Platform revenue"
+          value={money(kpis.platformRevenuePaise)}
+          icon={<Landmark className="h-4 w-4" />}
+          tone="bg-teal-50 text-admin-teal"
+          current={kpis.platformRevenuePaise}
+          previous={kpis.previousPlatformRevenuePaise}
+          note={`Fees ${money(r.convenienceFeePaise)} · commission ${money(r.commissionPaise)} · subscriptions ${money(r.subscriptionPaise)}${r.cancellationFeesPaise ? ` · cancellation fees ${money(r.cancellationFeesPaise)}` : ""}`}
+        />
+        <KpiCard
+          label="Tickets sold"
+          value={count(kpis.tickets)}
+          icon={<Ticket className="h-4 w-4" />}
+          tone="bg-rose-50 text-admin-coral"
+          current={kpis.tickets}
+          previous={kpis.previousTickets}
+          note="Bookings still confirmed"
+        />
+        <KpiCard
+          label="Active vendors"
+          value={count(kpis.activeVendors)}
+          icon={<Store className="h-4 w-4" />}
+          tone="bg-amber-50 text-amber-700"
+          note="Active and onboarded (live on ShowBuzz)"
+        />
+        <KpiCard
+          label="New vendors"
+          value={count(kpis.newVendors)}
+          icon={<Building2 className="h-4 w-4" />}
+          tone="bg-purple-50 text-purple-700"
+          current={kpis.newVendors}
+          previous={kpis.previousNewVendors}
+          note={
+            kpis.giftCardsSold
+              ? `Gift cards sold: ${kpis.giftCardsSold} (${money(kpis.giftCardSalesPaise)})`
+              : undefined
+          }
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="space-y-4 overflow-hidden p-4 sm:p-5 lg:col-span-2">
           <SectionTitle
-            title="Ticket Sales & Revenue Growth Trend"
-            subtitle="Gross monthly box office collections (INR lakhs)"
+            title="Ticket sales trend"
+            subtitle={`Gross sales per ${data.range === "today" ? "hour" : "day"}, ${formatRange(data)}`}
           />
-          <div
-            className="flex h-64 items-end gap-3 border-b border-admin-border pb-2"
-            role="img"
-            aria-label="Monthly revenue, sample data"
-          >
-            {MONTHLY_REVENUE.map((m) => (
-              <div key={m.label} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
-                <span className="text-[10px] font-bold text-admin-muted">{m.value}</span>
-                <div
-                  className="w-full rounded-t-md bg-admin-indigo/85"
-                  style={{ height: `${(m.value / maxRevenue) * 85}%` }}
-                />
-                <span className="text-[10px] text-admin-subtle">{m.label}</span>
-              </div>
-            ))}
-          </div>
+          <TrendChart
+            caption="Gross sales over the period"
+            bars={data.trend.map((t) => ({
+              key: t.key,
+              label: t.label,
+              value: t.salesPaise,
+              display: `${money(t.salesPaise)} · ${count(t.tickets)} tickets`,
+            }))}
+          />
         </Card>
-
-        <Card className="space-y-4 overflow-hidden p-4 sm:p-5">
-          <SectionTitle title="Sales by Entertainment Category" subtitle="Share of ticket volume" />
-          <div className="flex h-3 overflow-hidden rounded-full" role="img" aria-label="Category share, sample data">
-            {CATEGORIES.map((c) => (
-              <div key={c.label} className={c.color} style={{ width: `${c.value}%` }} />
-            ))}
-          </div>
-          <ul className="space-y-2.5">
-            {CATEGORIES.map((c) => (
-              <li key={c.label} className="flex items-center gap-2 text-xs">
-                <span className={`h-2.5 w-2.5 rounded-full ${c.color}`} />
-                <span className="flex-1 text-admin-text">{c.label}</span>
-                <span className="font-bold text-admin-dark">{c.value}%</span>
-              </li>
-            ))}
-          </ul>
+        <Card className="space-y-4 p-4 sm:p-5">
+          <SectionTitle title="Sales by category" subtitle="Gross sales" />
+          <BarList items={slices(data.categories)} empty="No sales in this period." />
         </Card>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="space-y-4 overflow-hidden p-4 sm:p-5">
-          <SectionTitle title="Bookings by Metropolitan Hub" subtitle="Volume per city region" />
-          <ul className="space-y-3">
-            {CITIES.map((c) => (
-              <li key={c.label} className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-admin-text">{c.label}</span>
-                  <span className="font-bold text-admin-dark">{c.value.toLocaleString("en-IN")}</span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100">
-                  <div className="h-2 rounded-full bg-admin-teal" style={{ width: `${(c.value / maxCity) * 100}%` }} />
-                </div>
-              </li>
-            ))}
-          </ul>
+        <Card className="space-y-4 p-4 sm:p-5">
+          <SectionTitle title="Top vendors" subtitle="By gross sales" />
+          <BarList items={slices(data.topVendors, (id) => `/vendors/${id}`)} empty="No sales in this period." />
         </Card>
+        <Card className="space-y-4 p-4 sm:p-5">
+          <SectionTitle title="Top movies & events" subtitle="By gross sales" />
+          <BarList items={slices(data.topTitles)} empty="No sales in this period." />
+        </Card>
+        <Card className="space-y-4 p-4 sm:p-5">
+          <SectionTitle title="Sales by city" subtitle="Where the shows took place" />
+          <BarList items={slices(data.cities)} empty="No sales in this period." />
+        </Card>
+      </div>
 
-        <Card className="overflow-hidden lg:col-span-2">
-          <div className="flex items-center justify-between border-b border-admin-border bg-slate-50/50 p-4">
-            <SectionTitle
-              title="Recent Box Office Bookings"
-              subtitle="Customer transactions across cinemas and venues"
-            />
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-admin-border bg-slate-50/50 p-4">
+          <SectionTitle
+            title="Recent bookings"
+            subtitle="Latest sales across every vendor, online and at the counter"
+          />
+          {canOpenBookings ? (
             <Link
               href="/bookings"
               className="flex items-center gap-1 text-xs font-bold text-admin-indigo hover:underline"
             >
-              View All <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+              View all <ChevronRight className="h-3.5 w-3.5" aria-hidden />
             </Link>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-[11px] tracking-wider text-admin-muted uppercase">
+          ) : null}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <caption className="sr-only">Recent bookings</caption>
+            <thead className="bg-slate-50 text-[11px] tracking-wider text-admin-muted uppercase">
+              <tr>
+                <th className="px-4 py-2.5 font-bold">Booking</th>
+                <th className="px-4 py-2.5 font-bold">Customer</th>
+                <th className="px-4 py-2.5 font-bold">Show / venue</th>
+                <th className="px-4 py-2.5 font-bold">Showtime</th>
+                <th className="px-4 py-2.5 text-right font-bold">Total</th>
+                <th className="px-4 py-2.5 font-bold">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.recent.length === 0 ? (
                 <tr>
-                  <th className="px-4 py-2.5 font-bold">Booking ID</th>
-                  <th className="px-4 py-2.5 font-bold">Customer</th>
-                  <th className="px-4 py-2.5 font-bold">Content / Venue</th>
-                  <th className="px-4 py-2.5 font-bold">Showtime</th>
-                  <th className="px-4 py-2.5 font-bold">Total Paid</th>
-                  <th className="px-4 py-2.5 font-bold">Status</th>
+                  <td colSpan={6} className="px-4 py-8 text-center text-admin-muted">
+                    No bookings yet.
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {RECENT.map((row) => (
-                  <tr key={row.id}>
-                    <td className="px-4 py-3 font-mono font-bold text-admin-indigo">{row.id}</td>
-                    <td className="px-4 py-3 font-semibold text-admin-dark">{row.customer}</td>
-                    <td className="px-4 py-3 text-admin-muted">{row.content}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-admin-muted">{row.time}</td>
-                    <td className="px-4 py-3 font-bold text-admin-dark">{row.total}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLES[row.status] ?? ""}`}
-                      >
-                        {row.status}
+              ) : (
+                data.recent.map((b) => (
+                  <tr key={b.code} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-mono font-bold whitespace-nowrap">
+                      {canOpenBookings ? (
+                        <Link href={`/bookings/${b.code}`} className="text-admin-indigo hover:underline">
+                          {b.code}
+                        </Link>
+                      ) : (
+                        b.code
+                      )}
+                      <span className="block font-sans text-[10px] font-normal text-admin-subtle">
+                        {formatDateShort(new Date(b.bookedAt))}, {formatTime(new Date(b.bookedAt))}
                       </span>
                     </td>
+                    <td className="px-4 py-3 font-semibold text-admin-dark">
+                      {b.customer}
+                      {b.channel === "counter" ? (
+                        <span className="block text-[10px] font-normal text-admin-subtle">Counter sale</span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 text-admin-muted">
+                      <span className="font-semibold text-admin-dark">{b.title}</span>
+                      <span className="block text-[10px]">
+                        {b.venueName}
+                        {b.vendorName ? ` · ${b.vendorName}` : ""}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-admin-muted">{b.scheduleLabel}</td>
+                    <td className="px-4 py-3 text-right font-mono font-bold text-admin-dark">
+                      {formatINR(b.totalPaise, { exact: true })}
+                    </td>
+                    <td className="px-4 py-3">
+                      {b.checkedIn ? (
+                        <StatusBadge tone="info">Checked in</StatusBadge>
+                      ) : (
+                        <StatusBadge status={b.status} />
+                      )}
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      </div>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <p className="text-[10px] text-admin-subtle">
+        Figures as of {formatTime(new Date(data.generatedAt))} IST (refreshed every 2 minutes). Gross sales include fees
+        and GST, after discounts, for bookings paid in the period; platform revenue counts fees (without GST) and
+        commission on bookings still confirmed, cancellation fees kept, and subscription invoices paid in the period.
+      </p>
     </>
   );
 }
 
-function SectionTitle({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="flex items-start justify-between gap-2">
-      <div>
-        <h2 className="text-sm font-bold text-admin-dark">{title}</h2>
-        <p className="text-[11px] text-admin-subtle">{subtitle}</p>
-      </div>
-      <SampleBadge />
-    </div>
-  );
+function formatRange(data: AdminDashboard): string {
+  return data.fromKey === data.toKey ? "today" : `${data.fromKey} to ${data.toKey}`;
 }

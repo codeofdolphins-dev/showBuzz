@@ -59,7 +59,7 @@ function zoneSeats(zone: Screen["zones"][number]): number {
   return zone.rows.reduce((sum, row) => sum + row.count - new Set(row.blockedSeats).size, 0);
 }
 
-function screenCapacity(screen: Screen): number {
+export function screenCapacity(screen: Screen): number {
   return screen.zones.reduce((sum, zone) => sum + zoneSeats(zone), 0);
 }
 

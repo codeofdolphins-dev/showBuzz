@@ -226,6 +226,8 @@ bookingSchema.index({ vendorId: 1, status: 1, settlementId: 1, startsAt: 1 });
 bookingSchema.index({ status: 1, holdExpiresAt: 1 });
 // Admin bookings oversight (all vendors, newest first).
 bookingSchema.index({ createdAt: -1 });
+// Dashboards and reports across vendors: bookings sold in a period, newest first.
+bookingSchema.index({ status: 1, confirmedAt: -1 });
 
 export type BookingChannel = "online" | "counter";
 

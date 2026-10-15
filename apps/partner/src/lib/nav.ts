@@ -49,6 +49,7 @@ export const PARTNER_NAV: NavGroup[] = [
         href: "/cancellation-policy",
       },
       { id: "earnings", label: "Earnings", icon: "wallet", href: "/earnings" },
+      { id: "reports", label: "Reports", icon: "bar-chart", href: "/reports" },
       { id: "business-profile", label: "Business Profile", icon: "building", href: "/business-profile" },
     ],
   },

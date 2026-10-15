@@ -20,6 +20,7 @@ import {
   type PolicyFallback,
   canCancel,
   cancelConfirmedBooking,
+  notifyRefund,
   payableOf,
   policyFallback,
   policyOf,
@@ -404,7 +405,7 @@ export async function confirmPayment(
     if (payment) {
       await Payment.updateOne({ _id: payment._id }, { $set: { status: "succeeded", succeededAt: now } });
       const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: payment.amountPaise });
-      await Refund.updateOne(
+      const recorded = await Refund.updateOne(
         { bookingId: booking._id },
         {
           $setOnInsert: {
@@ -423,6 +424,9 @@ export async function confirmPayment(
         },
         { upsert: true },
       );
+      if (recorded.upsertedCount > 0) {
+        await notifyRefund(code, payment.amountPaise, "paid but couldn't be completed, so it was refunded in full");
+      }
     }
     log.warn("booking.confirm_aborted", { code, kind });
     return { status: "failed", code, reason };

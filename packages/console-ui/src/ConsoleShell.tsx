@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, Search, Ticket, UserRound, X } from "lucide-react";
+import { ChevronDown, LayoutDashboard, LogOut, Menu, Search, Ticket, UserRound, X } from "lucide-react";
 import { cn } from "@showbuzz/utils/cn";
 import { flattenNav, type NavGroup, type NavItem } from "./nav";
 import { CommandPalette } from "./CommandPalette";
 import { NAV_ICONS } from "./icons";
+import { NotificationBell } from "./NotificationBell";
 import { ToastProvider } from "./Toaster";
 
 export interface ConsoleBranding {
@@ -39,6 +40,8 @@ export interface ConsoleShellProps {
   tabIds?: string[];
   /** Bell link; omitted when the console has no notifications page. */
   notificationsHref?: string;
+  /** GET endpoint answering the unread count for the bell badge. */
+  notificationsCountUrl?: string;
   /** Shown above every page (e.g. "account suspended"). */
   banner?: ReactNode;
   children: ReactNode;
@@ -58,6 +61,7 @@ export function ConsoleShell({
   loginPath,
   tabIds = [],
   notificationsHref,
+  notificationsCountUrl,
   banner,
   children,
 }: ConsoleShellProps) {
@@ -118,13 +122,7 @@ export function ConsoleShell({
                 <Search className="h-5 w-5" />
               </button>
               {notificationsHref ? (
-                <Link
-                  href={notificationsHref}
-                  className="relative rounded-xl p-2 text-admin-muted hover:bg-slate-100 hover:text-admin-dark"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-5 w-5" />
-                </Link>
+                <NotificationBell href={notificationsHref} countUrl={notificationsCountUrl ?? ""} />
               ) : null}
               <ProfileMenu user={user} logoutPath={logoutPath} loginPath={loginPath} />
               <button

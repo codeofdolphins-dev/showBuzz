@@ -12,6 +12,8 @@ import type { BookingRecord } from "@showbuzz/schemas/types/booking";
 import type { CancellationPolicy } from "@showbuzz/schemas/vendor";
 import { AppError } from "../http/app-error";
 import { getPaymentGateway } from "../payments/gateway";
+import { formatINR } from "@showbuzz/utils/money";
+import { notify } from "./notification.service";
 import { getSettings } from "./settings.service";
 
 /**
@@ -185,6 +187,11 @@ export async function cancelConfirmedBooking(
     const fresh = await Booking.findById(booking._id, { refundPaise: 1 }).lean();
     return { refundPaise: fresh?.refundPaise ?? 0 };
   }
+  await notifyRefund(
+    booking.code,
+    refundPaise,
+    atCounter ? `cancelled by the ${by} (refund paid at the counter)` : `cancelled by the ${by}`,
+  );
 
   if (!payment || gatewayRefundPaise === 0 || atCounter) return { refundPaise };
   const refund = await gateway.refund({ paymentRef: payment.providerRef, amountPaise: gatewayRefundPaise });
@@ -199,4 +206,16 @@ export async function cancelConfirmedBooking(
     },
   );
   return { refundPaise };
+}
+
+/** Tells finance staff a refund was recorded (cancellation or a paid order that couldn't be completed). */
+export async function notifyRefund(code: string, refundPaise: number, how: string): Promise<void> {
+  await notify({
+    audience: "staff",
+    permission: "refunds:read",
+    type: "refund_created",
+    title: `Refund of ${formatINR(refundPaise, { exact: true })} for ${code}`,
+    body: `Booking ${code} was ${how}.`,
+    link: `/refunds?q=${encodeURIComponent(code)}`,
+  });
 }

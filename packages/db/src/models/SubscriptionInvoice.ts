@@ -52,6 +52,8 @@ subscriptionInvoiceSchema.index({ vendorId: 1, month: 1 }, { unique: true });
 // The overdue view and the month filter.
 subscriptionInvoiceSchema.index({ status: 1, dueAt: 1 });
 subscriptionInvoiceSchema.index({ month: -1, status: 1 });
+// Dashboard: subscription revenue received in a period.
+subscriptionInvoiceSchema.index({ status: 1, paidAt: 1 });
 
 export const SubscriptionInvoice: Model<SubscriptionInvoiceAttrs> =
   (models.SubscriptionInvoice as Model<SubscriptionInvoiceAttrs> | undefined) ??

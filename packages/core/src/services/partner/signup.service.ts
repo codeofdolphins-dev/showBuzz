@@ -12,6 +12,7 @@ import { consumeChallenge, issueChallenge, type OtpRequestResult } from "../../a
 import { hashPassword } from "../../auth/password";
 import { AppError } from "../../http/app-error";
 import { consumeRateLimit } from "../../security/rate-limit";
+import { notify } from "../notification.service";
 import { getSettings } from "../settings.service";
 import { availableSlug, newVendorTerms } from "./vendor-defaults";
 
@@ -109,6 +110,14 @@ export async function signupVendor(input: unknown, ctx: AuthRequestContext): Pro
   }
 
   log.info("Vendor signed up", { event: "vendor.signup", vendorId: vendorId.toString() });
+  await notify({
+    audience: "staff",
+    permission: "organisers:read",
+    type: "vendor_signup",
+    title: `New vendor signup: ${form.businessName}`,
+    body: `${form.contactName} signed up and is completing onboarding (KYC).`,
+    link: `/vendors/${vendorId.toString()}`,
+  });
   const user = await VendorUser.findById(userId);
   if (!user) throw new Error("Vendor user missing after signup");
   return user;

@@ -12,6 +12,7 @@ import { Genre } from "./Genre";
 import { Language } from "./Language";
 import { Lead } from "./Lead";
 import { Movie } from "./Movie";
+import { Notification } from "./Notification";
 import { OtpChallenge } from "./OtpChallenge";
 import { Payment } from "./Payment";
 import { Plan } from "./Plan";
@@ -72,4 +73,5 @@ export const allModels = [
   Banner,
   SitePage,
   SeoMeta,
+  Notification,
 ];

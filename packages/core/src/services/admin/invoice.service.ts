@@ -8,8 +8,10 @@ import { Types } from "@showbuzz/db/mongoose";
 import { log } from "@showbuzz/runtime/log";
 import { billingMonthSchema, paymentReferenceSchema, voidReasonSchema } from "@showbuzz/schemas/admin-marketplace";
 import type { GenerateInvoicesResult, InvoiceRow } from "@showbuzz/schemas/types/admin-marketplace";
-import { addDaysToKey, istDateKey, istDateTime } from "@showbuzz/utils/dates";
+import { addDaysToKey, formatDateShort, istDateKey, istDateTime } from "@showbuzz/utils/dates";
+import { formatINR } from "@showbuzz/utils/money";
 import { AppError } from "../../http/app-error";
+import { notify } from "../notification.service";
 import {
   type AdminListQuery,
   idOr404,
@@ -128,7 +130,7 @@ export async function generateInvoices(
       continue;
     }
     try {
-      await withCodeRetry(async () =>
+      const invoice = await withCodeRetry(async () =>
         SubscriptionInvoice.create({
           vendorId: vendor._id,
           planId: plan._id,
@@ -142,6 +144,14 @@ export async function generateInvoices(
         }),
       );
       result.created++;
+      await notify({
+        audience: "vendor",
+        vendorId: vendor._id.toString(),
+        type: "invoice_issued",
+        title: `Invoice ${invoice.code} for ${month}: ${formatINR(invoice.amountPaise, { exact: true })}`,
+        body: `${plan.name} subscription. Due by ${formatDateShort(dueAt)}.`,
+        link: "/earnings",
+      });
     } catch (err) {
       // Someone generated the same month at the same time: that vendor is invoiced already.
       if (!isDuplicateKey(err)) throw err;
