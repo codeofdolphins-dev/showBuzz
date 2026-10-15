@@ -12,11 +12,17 @@ import { formatDuration, istDateKey, isDateKey, upcomingDays } from "@showbuzz/u
 import { slugSchema } from "@showbuzz/schemas/common";
 import { getMovieBySlug, listMovies } from "@showbuzz/core/services/catalog.service";
 import { bookableDateKeys, listShowtimes } from "@showbuzz/core/services/show.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Cinemas & Showtimes",
   description: "Pick a cinema and showtime near you.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/cinemas", META);
+}
 
 const querySchema = z.object({
   movie: slugSchema.optional().catch(undefined),

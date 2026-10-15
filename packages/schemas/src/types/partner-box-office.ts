@@ -47,7 +47,7 @@ export interface VendorBookingDetail extends VendorBookingRow {
   /** The vendor can still cancel it (confirmed and not yet started). */
   vendorCanCancel: boolean;
   cancelledAt?: string;
-  cancelledBy?: "customer" | "vendor";
+  cancelledBy?: "customer" | "vendor" | "staff";
   cancelReason?: string;
   refundPaise?: number;
   checkedInByName?: string;

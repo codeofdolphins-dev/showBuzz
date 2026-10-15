@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@showbuzz/console-ui/PageParts";
 import { requireVendorPage } from "@showbuzz/core/auth/partner/current-vendor";
+import { getMasterOptions } from "@showbuzz/core/services/master-data.service";
 import { getVendorEvent } from "@showbuzz/core/services/partner/listing.service";
 import { listVenueScreenOptions } from "@showbuzz/core/services/partner/show-schedule.service";
 import { EVENT_KIND_LABELS } from "@showbuzz/schemas/partner-listing";
@@ -13,7 +14,11 @@ export const metadata: Metadata = { title: "Edit listing" };
 export default async function EditEventPage({ params }: PageProps<"/events/[eventId]/edit">) {
   const { eventId } = await params;
   const { vendor } = await requireVendorPage(`/events/${eventId}/edit`);
-  const [event, venues] = await Promise.all([getVendorEvent(vendor.id, eventId), listVenueScreenOptions(vendor.id)]);
+  const [event, venues, options] = await Promise.all([
+    getVendorEvent(vendor.id, eventId),
+    listVenueScreenOptions(vendor.id),
+    getMasterOptions(),
+  ]);
   if (!event) notFound();
   const labels = EVENT_KIND_LABELS[event.kind];
   return (
@@ -26,6 +31,7 @@ export default async function EditEventPage({ params }: PageProps<"/events/[even
       <EventForm
         kind={event.kind}
         venues={venues}
+        categories={options.eventCategories[event.kind]}
         event={{ id: event.id, values: event.values, usage: event.usage, locked: event.locked }}
       />
     </>

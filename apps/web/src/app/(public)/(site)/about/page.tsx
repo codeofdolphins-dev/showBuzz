@@ -1,66 +1,55 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Handshake, WandSparkles, Zap } from "lucide-react";
+import { Handshake, Sparkles, Star, WandSparkles, Zap, type LucideIcon } from "lucide-react";
+import { getSitePage, withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
-  title: "About Us",
-  description: "Our mission: India's smoothest entertainment ticketing platform.",
-};
+/** SEO overrides from the admin console apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/about", {
+    title: "About Us",
+    description: "Our mission: India's smoothest entertainment ticketing platform.",
+  });
+}
 
-const VALUES = [
-  {
-    icon: WandSparkles,
-    tone: "bg-rose-50 text-rose-600",
-    title: "Delightful Experience",
-    text: "We design interfaces that feel fast, intuitive, and enjoyable from the moment you explore a trailer to the second you scan your ticket.",
-  },
-  {
-    icon: Zap,
-    tone: "bg-blue-50 text-blue-600",
-    title: "Unmatched Speed",
-    text: "Infrastructure built to handle massive ticket demand during stadium cricket finals and viral concert drops.",
-  },
-  {
-    icon: Handshake,
-    tone: "bg-emerald-50 text-emerald-600",
-    title: "Empowering Organisers",
-    text: "Giving independent artists, playwrights, comedians, and cinema exhibitors world-class discovery, promotion, and analytics tools.",
-  },
+/** Card icons and colours by position (the cards' text is edited in the admin console). */
+const CARD_LOOKS: { icon: LucideIcon; tone: string }[] = [
+  { icon: WandSparkles, tone: "bg-rose-50 text-rose-600" },
+  { icon: Zap, tone: "bg-blue-50 text-blue-600" },
+  { icon: Handshake, tone: "bg-emerald-50 text-emerald-600" },
+  { icon: Sparkles, tone: "bg-purple-50 text-purple-600" },
+  { icon: Star, tone: "bg-amber-50 text-amber-600" },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const { content } = await getSitePage("about");
   return (
     <main className="w-full flex-1 space-y-12 px-4 py-12 sm:px-6 lg:px-8 xl:px-12">
       <div className="mx-auto max-w-2xl space-y-3 text-center">
-        <span className="text-xs font-black tracking-widest text-rose-600 uppercase">Our Mission</span>
-        <h1 className="text-3xl leading-tight font-black tracking-tight text-slate-900 sm:text-5xl">
-          Bringing Stories, Music & Experiences to Life
-        </h1>
-        <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">
-          ShowBuzz was founded with a singular ambition: to build India&apos;s smoothest, most visually inspiring
-          entertainment ticketing platform.
-        </p>
+        {content.eyebrow ? (
+          <span className="text-xs font-black tracking-widest text-rose-600 uppercase">{content.eyebrow}</span>
+        ) : null}
+        <h1 className="text-3xl leading-tight font-black tracking-tight text-slate-900 sm:text-5xl">{content.title}</h1>
+        {content.intro ? <p className="text-xs leading-relaxed text-slate-500 sm:text-sm">{content.intro}</p> : null}
       </div>
       <div className="relative aspect-[21/9] overflow-hidden rounded-3xl border border-slate-200 shadow-xl">
-        <Image
-          src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=1600&auto=format&fit=crop&q=80"
-          alt="Concert arena"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover"
-        />
+        <Image src={content.imageUrl} alt="" fill priority sizes="100vw" className="object-cover" />
       </div>
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {VALUES.map((v) => (
-          <div key={v.title} className="space-y-3 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
-            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${v.tone}`}>
-              <v.icon className="h-6 w-6" />
-            </span>
-            <h3 className="text-base font-black text-slate-900">{v.title}</h3>
-            <p className="text-xs leading-relaxed text-slate-500">{v.text}</p>
-          </div>
-        ))}
+        {content.cards.map((card, i) => {
+          const look = CARD_LOOKS[i % CARD_LOOKS.length]!;
+          return (
+            <div
+              key={`${i}-${card.title}`}
+              className="space-y-3 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8"
+            >
+              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${look.tone}`}>
+                <look.icon className="h-6 w-6" />
+              </span>
+              <h3 className="text-base font-black text-slate-900">{card.title}</h3>
+              <p className="text-xs leading-relaxed text-slate-500">{card.text}</p>
+            </div>
+          );
+        })}
       </div>
     </main>
   );

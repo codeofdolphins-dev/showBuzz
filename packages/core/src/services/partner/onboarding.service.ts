@@ -9,7 +9,7 @@ import {
 import { REQUIRED_KYC_DOCUMENTS, vendorAddressSchema, vendorContactSchema } from "@showbuzz/schemas/vendor";
 import type { OnboardingState, OnboardingStep, OnboardingStepId } from "@showbuzz/schemas/types/vendor";
 import { connect } from "@showbuzz/db/connect";
-import { City } from "@showbuzz/db/models/City";
+import { ACTIVE_CITY_FILTER, City } from "@showbuzz/db/models/City";
 import {
   Vendor,
   type StoredKycDocument,
@@ -51,10 +51,18 @@ export interface CityOption {
 const NOT_EDITABLE = "Onboarding is already complete. Edit your details from Business Profile.";
 const NOT_ONBOARDED = "Finish onboarding first.";
 
-/** Cities for the signup and business-details forms (the public city list). */
-export async function listCityOptions(): Promise<CityOption[]> {
+/**
+ * Cities for the signup, business-details and venue forms: the active cities (the public city list), plus `keep`
+ * (a record's current city, even if it was switched off later).
+ */
+export async function listCityOptions(keep?: string): Promise<CityOption[]> {
   await connect();
-  const cities = await City.find({}, { slug: 1, name: 1, state: 1 }).sort({ name: 1 }).lean();
+  const cities = await City.find(
+    keep ? { $or: [ACTIVE_CITY_FILTER, { slug: keep }] } : ACTIVE_CITY_FILTER,
+    { slug: 1, name: 1, state: 1 },
+  )
+    .sort({ name: 1 })
+    .lean();
   return cities.map((c) => ({ value: c.slug, label: c.state ? `${c.name}, ${c.state}` : c.name }));
 }
 

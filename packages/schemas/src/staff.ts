@@ -63,3 +63,21 @@ export const staffSnapshotSchema = z.object({
   lastLoginAt: z.iso.datetime().optional(),
 });
 export type StaffSnapshot = z.infer<typeof staffSnapshotSchema>;
+
+/** Staff created from /users: the password is generated on the server and shown once. */
+export const createStaffByAdminSchema = z.object({
+  name: personNameSchema,
+  email: staffEmailSchema,
+  roleId: objectIdSchema.or(z.literal("")).refine((v) => v !== "", "Choose a role"),
+});
+export type CreateStaffByAdminInput = z.infer<typeof createStaffByAdminSchema>;
+
+export const updateStaffSchema = z.object({
+  name: personNameSchema,
+  roleId: objectIdSchema.or(z.literal("")).refine((v) => v !== "", "Choose a role"),
+});
+export type UpdateStaffInput = z.infer<typeof updateStaffSchema>;
+
+export const staffStatusChangeSchema = z.object({ status: staffStatusSchema });
+
+export const STAFF_SORT_FIELDS = ["name", "email", "lastLoginAt", "createdAt"] as const;

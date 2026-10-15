@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { MultiSelect } from "@showbuzz/console-ui/fields";
-import { Button, Input } from "@showbuzz/console-ui/form";
+import { MultiSelect } from "../fields";
+import { Button, Input } from "../form";
 
 interface OptionChipsProps {
   label: string;
@@ -13,11 +13,14 @@ interface OptionChipsProps {
   value: string[];
   onChange: (value: string[]) => void;
   error?: string | undefined;
-  /** Placeholder of the "add your own" box. */
-  customPlaceholder: string;
+  /** Placeholder of the "add your own" box; omit to allow only the listed values (master data). */
+  customPlaceholder?: string;
 }
 
-/** Chips from a suggestion list plus the vendor's own values (languages, genres, formats). */
+/**
+ * Chips from a list (languages, genres, formats). Values already selected stay listed even when they are no longer in
+ * `suggestions`. With `customPlaceholder`, a box adds values that aren't on the list.
+ */
 export function OptionChips({
   label,
   hint,
@@ -49,6 +52,7 @@ export function OptionChips({
         onChange={onChange}
         error={error}
       />
+      {customPlaceholder ? (
       <div className="flex max-w-sm gap-2">
         <Input
           value={custom}
@@ -67,6 +71,7 @@ export function OptionChips({
           <Plus className="h-4 w-4" aria-hidden /> Add
         </Button>
       </div>
+      ) : null}
     </div>
   );
 }

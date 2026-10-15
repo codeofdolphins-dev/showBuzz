@@ -1,7 +1,7 @@
 import "server-only";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { connect } from "@showbuzz/db/connect";
-import { City, toCity } from "@showbuzz/db/models/City";
+import { ACTIVE_CITY_FILTER, City, toCity } from "@showbuzz/db/models/City";
 import { Coupon, toCoupon } from "@showbuzz/db/models/Coupon";
 import { ACTIVE_EVENT_FILTER, Event, toEvent } from "@showbuzz/db/models/Event";
 import { FoodItem, toFoodItem } from "@showbuzz/db/models/FoodItem";
@@ -111,7 +111,7 @@ export async function listCities() {
   cacheTag(CATALOG_TAGS.cities);
   cacheLife("days");
   await connect();
-  const docs = await City.find().sort({ sortOrder: 1 }).lean();
+  const docs = await City.find(ACTIVE_CITY_FILTER).sort({ sortOrder: 1 }).lean();
   return docs.map(toCity);
 }
 

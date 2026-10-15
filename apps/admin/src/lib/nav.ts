@@ -2,7 +2,9 @@ import { filterNav, findNavItemIn, type NavGroup, type NavItem } from "@showbuzz
 import { hasPermission } from "@showbuzz/schemas/permissions";
 
 /**
- * The admin console menu, grouped like the prototype (showBuzz_HTML/admin/assets/js/app.js). Plain data (types in
+ * The admin console menu, grouped like the prototype (showBuzz_HTML/admin/assets/js/app.js), minus what vendors run
+ * themselves in the partner portal since prompt 7 (venues, screens, seat layouts, shows, gate scanning, counter
+ * sales). Offers are the coupons listed on /offers, so "Offers & Bank Deals" is folded into Coupons. Plain data (types in
  * @showbuzz/console-ui/nav) so the server can filter it by permission and pass it to client components. An item
  * without `permission` is open to every signed-in staff member.
  */
@@ -29,43 +31,10 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    id: "venues-group",
-    label: "Venues & Seating",
-    icon: "grid",
-    children: [
-      { id: "cinemas", label: "Cinemas & Multiplexes", icon: "video", href: "/cinemas", permission: "cinemas:read" },
-      { id: "screens", label: "Screens & Auditoriums", icon: "monitor", href: "/screens", permission: "screens:read" },
-      { id: "venues", label: "Venues & Stadiums", icon: "map-pin", href: "/venues", permission: "venues:read" },
-      {
-        id: "seat-layout",
-        label: "Seat Layout Designer",
-        icon: "grid",
-        href: "/seat-layout",
-        permission: "seat-layout:read",
-      },
-      {
-        id: "seat-management",
-        label: "Seat Management & Holds",
-        icon: "armchair",
-        href: "/seat-management",
-        permission: "seat-management:read",
-      },
-    ],
-  },
-  { id: "shows", label: "Show Scheduling", icon: "clock", href: "/shows", permission: "shows:read" },
-  {
     id: "box-office",
     label: "Box Office & Sales",
     icon: "ticket",
     children: [
-      { id: "scan-qr", label: "Scan QR Tickets", icon: "qr-code", href: "/scan-qr", permission: "scan-qr:use" },
-      {
-        id: "booking-form",
-        label: "New Booking (POS)",
-        icon: "plus-circle",
-        href: "/bookings/new",
-        permission: "bookings:write",
-      },
       { id: "bookings", label: "Bookings CRM", icon: "ticket", href: "/bookings", permission: "bookings:read" },
       { id: "payments", label: "Payment Gateway", icon: "credit-card", href: "/payments", permission: "payments:read" },
       { id: "refunds", label: "Refunds", icon: "rotate-ccw", href: "/refunds", permission: "refunds:read" },
@@ -115,7 +84,6 @@ export const NAV: NavGroup[] = [
     icon: "tag",
     children: [
       { id: "banners", label: "Marketing Banners", icon: "image", href: "/banners", permission: "banners:read" },
-      { id: "offers", label: "Offers & Bank Deals", icon: "tag", href: "/offers", permission: "offers:read" },
       { id: "coupons", label: "Coupons & Promos", icon: "percent", href: "/coupons", permission: "coupons:read" },
       { id: "gift-cards", label: "Gift Cards", icon: "gift", href: "/gift-cards", permission: "gift-cards:read" },
       { id: "reviews", label: "Customer Reviews", icon: "star", href: "/reviews", permission: "reviews:read" },

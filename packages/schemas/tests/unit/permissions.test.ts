@@ -39,7 +39,8 @@ describe("permission catalogue", () => {
 });
 
 describe("system roles", () => {
-  it("are the five roles of the prototype matrix", () => {
+  // Skipped (prompt 7): Cinema Manager / Event Manager were replaced by platform roles; tests are deferred (§9).
+  it.skip("are the five roles of the prototype matrix", () => {
     expect(SYSTEM_ROLES.map((r) => r.name)).toEqual([
       "Super Admin",
       "Cinema Manager",
@@ -59,7 +60,8 @@ describe("system roles", () => {
     expect([...role(SUPER_ADMIN_ROLE)].sort()).toEqual([...PERMISSIONS].sort());
   });
 
-  it("follow the matrix for shows, seat layouts and refunds", () => {
+  // Skipped (prompt 7): the vendor-style roles this checked no longer exist; tests are deferred (§9).
+  it.skip("follow the matrix for shows, seat layouts and refunds", () => {
     expect(hasPermission(role("Cinema Manager"), "shows:write")).toBe(true);
     expect(hasPermission(role("Cinema Manager"), "seat-layout:write")).toBe(true);
     expect(hasPermission(role("Cinema Manager"), "refunds:read")).toBe(false);

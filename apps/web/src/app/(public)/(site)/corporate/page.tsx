@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { Crown, Film, Gift } from "lucide-react";
 import { CorporateEnquiryForm } from "@/components/public/leads/LeadForms";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Corporate Bookings",
   description: "Private screenings, bulk vouchers and VIP hospitality for teams.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/corporate", META);
+}
 
 const SERVICES = [
   {

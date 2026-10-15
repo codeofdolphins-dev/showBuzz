@@ -9,13 +9,22 @@
  * Partner listings: the demo vendors are flagged `demoShowGeneration` (only their cinemas get template shows),
  * events are written on first insert only (the organiser edits them in the partner portal), shows get `endsAt` /
  * `status`, and each demo vendor's "My movies" list is filled from the films it already shows.
+ * Prompt 7: cities are written on first insert only (the super-admin edits them) and get a tier and status; languages,
+ * genres (movie genres + event categories) and the website pages are seeded on first insert only.
  * Reads MONGODB_URI / MONGODB_DB from the environment (falls back to apps/web/.env.local if present).
  */
 import { SHOW_DATE_WINDOW_DAYS } from "@showbuzz/schemas/constants";
 import { SETTINGS_DEFAULTS } from "@showbuzz/schemas/settings";
 import { computeSettlement } from "@showbuzz/schemas/settlement";
 import { vendorKycSchema } from "@showbuzz/schemas/vendor";
-import { EVENT_DEFAULT_DURATION_MINUTES } from "@showbuzz/schemas/partner-listing";
+import {
+  EVENT_CATEGORY_OPTIONS,
+  EVENT_DEFAULT_DURATION_MINUTES,
+  MOVIE_GENRE_OPTIONS,
+  MOVIE_LANGUAGE_OPTIONS,
+} from "@showbuzz/schemas/partner-listing";
+import type { GenreScope } from "@showbuzz/schemas/master-data";
+import { DEFAULT_PAGES, SITE_PAGE_SLUGS } from "@showbuzz/schemas/site-content";
 import type { EventListing } from "@showbuzz/schemas/event";
 import type { Screen, SeatZone, ShowTemplate, VenueKind } from "@showbuzz/schemas/venue";
 import { connect, disconnect } from "@showbuzz/db/connect";
@@ -26,6 +35,8 @@ import { Event } from "@showbuzz/db/models/Event";
 import { FoodItem } from "@showbuzz/db/models/FoodItem";
 import { GiftCard } from "@showbuzz/db/models/GiftCard";
 import { GiftCardDesign } from "@showbuzz/db/models/GiftCardDesign";
+import { Genre } from "@showbuzz/db/models/Genre";
+import { Language } from "@showbuzz/db/models/Language";
 import { Lead } from "@showbuzz/db/models/Lead";
 import { Movie } from "@showbuzz/db/models/Movie";
 import { Payment } from "@showbuzz/db/models/Payment";
@@ -35,6 +46,7 @@ import { Review } from "@showbuzz/db/models/Review";
 import { SeatHold } from "@showbuzz/db/models/SeatHold";
 import { SETTINGS_KEY, Settings } from "@showbuzz/db/models/Settings";
 import { Show } from "@showbuzz/db/models/Show";
+import { SitePage } from "@showbuzz/db/models/SitePage";
 import { StreamTitle } from "@showbuzz/db/models/StreamTitle";
 import { type StoredKycDocument, Vendor } from "@showbuzz/db/models/Vendor";
 import { VendorMovie } from "@showbuzz/db/models/VendorMovie";
@@ -61,6 +73,22 @@ import {
   streamTitles,
   vendors,
 } from "./seed-data";
+
+/** The home page's browse chips before prompt 7, seeded first so they stay the chips. */
+const HOME_LANGUAGES = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Malayalam"];
+const HOME_GENRES = ["Action", "Sci-Fi", "Romance", "Animation", "Mythology"];
+const NATIVE_SCRIPTS: Record<string, string> = {
+  English: "English",
+  Hindi: "हिन्दी",
+  Bengali: "বাংলা",
+  Tamil: "தமிழ்",
+  Telugu: "తెలుగు",
+  Malayalam: "മലയാളം",
+  Kannada: "ಕನ್ನಡ",
+  Marathi: "मराठी",
+  Punjabi: "ਪੰਜਾਬੀ",
+  Gujarati: "ગુજરાતી",
+};
 
 /** The prototype's auditorium (rows A-G, three price zones); every seeded screen and stand uses it. */
 function standardZones(names: [string, string, string], recliner: boolean, topPricePaise: number): SeatZone[] {
@@ -500,6 +528,72 @@ async function seedVendorMovies(vendorIds: Types.ObjectId[]): Promise<void> {
   log.info("Seeded", { collection: "vendorMovies", added: links });
 }
 
+/** Cities from before prompt 7 get a tier (popular = metro) and an explicit status. */
+async function backfillCities(): Promise<void> {
+  const tiers = await City.updateMany({ tier: { $exists: false } }, [
+    { $set: { tier: { $cond: ["$popular", "metro", "tier2"] } } },
+  ]);
+  const statuses = await City.updateMany({ status: { $exists: false } }, { $set: { status: "active" } });
+  log.info("Backfilled", { collection: "cities", tier: tiers.modifiedCount, status: statuses.modifiedCount });
+}
+
+/**
+ * Languages and genres (prompt 7 master data), first insert only: the lists the forms used before (home page chips
+ * first, so they keep their order), plus every value movies and events already use.
+ */
+async function seedMasterData(): Promise<void> {
+  const usedLanguages = (await Movie.distinct("languages")) as string[];
+  const languageNames = [...new Set([...HOME_LANGUAGES, ...MOVIE_LANGUAGE_OPTIONS, ...usedLanguages])];
+  let languages = 0;
+  for (const [i, name] of languageNames.entries()) {
+    const result = await Language.updateOne(
+      { name },
+      { $setOnInsert: { name, nativeName: NATIVE_SCRIPTS[name] ?? "", status: "active", sortOrder: i + 1 } },
+      { upsert: true, collation: { locale: "en", strength: 2 } },
+    );
+    languages += result.upsertedCount;
+  }
+
+  const usedGenres = (await Movie.distinct("genres")) as string[];
+  const scopes: [GenreScope, string[]][] = [
+    ["movie", [...new Set([...HOME_GENRES, ...MOVIE_GENRE_OPTIONS, ...usedGenres])]],
+  ];
+  for (const kind of ["event", "play", "sport", "activity"] as const) {
+    const used = (await Event.distinct("category", { kind })) as string[];
+    scopes.push([kind, [...new Set([...EVENT_CATEGORY_OPTIONS[kind], ...used])]]);
+  }
+  let genres = 0;
+  for (const [appliesTo, names] of scopes) {
+    for (const [i, name] of names.entries()) {
+      const slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const result = await Genre.updateOne(
+        { appliesTo, slug },
+        { $setOnInsert: { name, slug, appliesTo, status: "active", sortOrder: i + 1 } },
+        { upsert: true },
+      );
+      genres += result.upsertedCount;
+    }
+  }
+  log.info("Seeded", { collection: "languages + genres", languages, genres, note: "first insert only" });
+}
+
+/** Website pages with the built-in text, first insert only (staff edit them in the console). */
+async function seedSitePages(): Promise<void> {
+  let inserted = 0;
+  for (const slug of SITE_PAGE_SLUGS) {
+    const result = await SitePage.updateOne(
+      { slug },
+      { $setOnInsert: { slug, status: "published", content: DEFAULT_PAGES[slug] } },
+      { upsert: true },
+    );
+    inserted += result.upsertedCount;
+  }
+  log.info("Seeded", { collection: "pages", inserted, note: "first insert only" });
+}
+
 async function main() {
   await connect();
   await dropLegacyFoodIndex();
@@ -516,6 +610,9 @@ async function main() {
     GiftCardDesign,
     Show,
     Settings,
+    Language,
+    Genre,
+    SitePage,
   ];
   // The unique indexes are what make upserts by slug/code safe (and, for seatHolds/bookings, what prevents double
   // booking in production, where autoIndex is off); createIndexes never drops anything.
@@ -539,13 +636,26 @@ async function main() {
   const vendorIds = await seedVendors();
   const organiserId = vendorIdFor(vendorIds, EVENT_ORGANISER);
 
+  // First insert only since prompt 7: the super-admin edits cities (name, order, status) in the console.
   await upsertBy("cities", cities, (c, sortOrder) =>
     City.updateOne(
       { slug: c.id },
-      { $set: { name: c.name, state: c.state, popular: c.popular, sortOrder } },
+      {
+        $setOnInsert: {
+          name: c.name,
+          state: c.state,
+          popular: c.popular,
+          tier: c.popular ? "metro" : "tier2",
+          status: "active",
+          sortOrder,
+        },
+      },
       { upsert: true },
     ),
   );
+  await backfillCities();
+  await seedMasterData();
+  await seedSitePages();
 
   await upsertBy("movies", movies, (m, sortOrder) =>
     Movie.updateOne(

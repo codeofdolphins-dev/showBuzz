@@ -320,7 +320,8 @@ async function Onboarding({ vendorId, canWrite }: { vendorId: string; canWrite: 
   if (!canWrite) {
     return <p className="text-xs text-admin-muted">Your role can view vendors but not fill in their KYC.</p>;
   }
-  const [state, cities] = await Promise.all([getOnboardingState(vendorId), listCityOptions()]);
+  const state = await getOnboardingState(vendorId);
+  const cities = await listCityOptions(state.vendor.address.cityId);
   return (
     <>
       <p className="text-xs text-admin-muted">

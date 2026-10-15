@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { GiftCardDesigner } from "@/components/public/gift-card/GiftCardDesigner";
 import { listGiftCardDesigns } from "@showbuzz/core/services/catalog.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "E-Gift Cards",
   description: "Gift movies, concerts, comedy nights and plays to your loved ones.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/gift-cards", META);
+}
 
 export default async function GiftCardsPage() {
   const designs = await listGiftCardDesigns();

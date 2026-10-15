@@ -15,6 +15,7 @@ import type {
 } from "@showbuzz/schemas/types/partner-listing";
 import { escapeRegex } from "@showbuzz/utils/text";
 import { AppError } from "../../http/app-error";
+import { assertMovieOptions } from "../master-data.service";
 import { changedKeys, isDuplicateKey, toObjectId } from "./ids";
 
 /**
@@ -338,6 +339,7 @@ function movieFields(input: MovieInput) {
 export async function createMovie(vendorId: string, raw: unknown): Promise<{ id: string; changedFields: string[] }> {
   const input = movieInputSchema.parse(raw);
   await connect();
+  await assertMovieOptions(input);
   if (await Movie.exists({ slug: input.slug })) throw slugTaken();
   const last = await Movie.findOne({}, { sortOrder: 1 }).sort({ sortOrder: -1 }).lean();
   const fields = movieFields(input);
@@ -381,6 +383,7 @@ export async function updateMovie(
   const doc = await Movie.findById(_id).lean();
   if (!doc) throw NOT_FOUND();
   if (!isOwn(doc, vendorId)) throw NOT_EDITABLE();
+  await assertMovieOptions(input, doc);
   if (await Movie.exists({ slug: input.slug, _id: { $ne: _id } })) throw slugTaken();
   const next = movieFields(input);
   const changedFields = changedKeys(movieFields(toValues(doc)), next);

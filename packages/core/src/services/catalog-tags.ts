@@ -13,6 +13,13 @@ export const CATALOG_TAGS = {
   giftCardDesigns: "catalog:gift-card-designs",
   shows: "catalog:shows",
   vendors: "catalog:vendors",
+  // Prompt 7: master data, home banners, website pages, SEO and the public part of Settings.
+  languages: "catalog:languages",
+  genres: "catalog:genres",
+  banners: "catalog:banners",
+  pages: "catalog:pages",
+  seo: "catalog:seo",
+  settings: "catalog:settings",
 } as const;
 
 export type CatalogTag = (typeof CATALOG_TAGS)[keyof typeof CATALOG_TAGS];

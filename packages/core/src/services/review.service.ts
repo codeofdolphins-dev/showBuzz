@@ -66,9 +66,12 @@ export async function addMovieReview(
       },
       { upsert: true, returnDocument: "before", session, lean: true },
     );
-    // A new review adds one vote; an edit only shifts the sum by the rating change.
-    const inc = previous ? { userRatingSum: rating - previous.rating } : { userRatingCount: 1, userRatingSum: rating };
-    await Movie.updateOne({ _id: filter.movieId }, { $inc: inc }, { session });
+    // A new review adds one vote; an edit only shifts the sum by the rating change. A review hidden by moderation
+    // stays hidden when edited and isn't in the totals, so its edits change nothing.
+    if (previous?.status !== "hidden") {
+      const inc = previous ? { userRatingSum: rating - previous.rating } : { userRatingCount: 1, userRatingSum: rating };
+      await Movie.updateOne({ _id: filter.movieId }, { $inc: inc }, { session });
+    }
     state.updated = previous !== null;
   });
 

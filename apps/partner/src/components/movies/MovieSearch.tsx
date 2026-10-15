@@ -8,19 +8,18 @@ import { Card } from "@showbuzz/console-ui/PageParts";
 import { SelectField, TextField } from "@showbuzz/console-ui/fields";
 import { Button } from "@showbuzz/console-ui/form";
 import { useToast } from "@showbuzz/console-ui/Toaster";
-import { MOVIE_LANGUAGE_OPTIONS } from "@showbuzz/schemas/partner-listing";
 import type { MovieSearchHit } from "@showbuzz/schemas/types/partner-listing";
 import { formatDuration } from "@showbuzz/utils/dates";
 import { addMovieAction, searchMoviesAction } from "@/app/_actions/movies";
 
-const LANGUAGE_OPTIONS = MOVIE_LANGUAGE_OPTIONS.map((l) => ({ value: l, label: l }));
 const SEARCH_DELAY_MS = 300;
 
 /**
  * "Add movie": search the shared catalogue first (title, language, release year) and reuse the film; only if it
  * isn't there, create it.
  */
-export function MovieSearch() {
+export function MovieSearch({ languages }: { languages: string[] }) {
+  const languageOptions = languages.map((l) => ({ value: l, label: l }));
   const router = useRouter();
   const toast = useToast();
   const [q, setQ] = useState("");
@@ -84,7 +83,7 @@ export function MovieSearch() {
         />
         <SelectField
           label="Language"
-          options={LANGUAGE_OPTIONS}
+          options={languageOptions}
           placeholder="Any language"
           value={language}
           onChange={(event) => setLanguage(event.target.value)}

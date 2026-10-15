@@ -11,9 +11,19 @@ import { WishlistItem } from "@showbuzz/db/models/WishlistItem";
 import { type ClientSession, Types } from "@showbuzz/db/mongoose";
 import { log } from "@showbuzz/runtime/log";
 import { movieMergeSchema } from "@showbuzz/schemas/admin-marketplace";
+import { type AdminMovieInput, adminMovieInputSchema } from "@showbuzz/schemas/admin-platform";
 import type { AdminMovieDetail, AdminMovieRow, MovieMergePreview } from "@showbuzz/schemas/types/admin-marketplace";
 import { AppError } from "../../http/app-error";
-import { type AdminListQuery, optionalId, searchPattern, sortSpec, vendorNames } from "./shared";
+import { assertMovieOptions } from "../master-data.service";
+import {
+  type AdminListQuery,
+  changedKeys,
+  isDuplicateKey,
+  optionalId,
+  searchPattern,
+  sortSpec,
+  vendorNames,
+} from "./shared";
 
 /**
  * The platform-wide movie catalogue for the super-admin, and merging duplicates (two vendors created the same film).
@@ -327,4 +337,77 @@ export async function mergeMovies(
   if (!result) throw new Error("Merge transaction finished without a result");
   log.info("Movies merged", { event: "movie.merged", sourceId, keepId });
   return result;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Film editor (prompt 7): every field, including the editorial ones vendors can't set.
+
+/** The film as the admin movie form edits it (archived films can't be edited: they redirect to the kept film). */
+export async function getMovieAdminValues(movieId: string): Promise<AdminMovieInput | null> {
+  const _id = optionalId(movieId);
+  if (!_id) return null;
+  await connect();
+  const doc = await Movie.findOne({ _id, ...ACTIVE_MOVIE_FILTER }).lean();
+  if (!doc) return null;
+  return {
+    title: doc.title,
+    slug: doc.slug,
+    synopsis: doc.synopsis,
+    durationMinutes: doc.durationMinutes,
+    certificate: doc.certificate as AdminMovieInput["certificate"],
+    languages: [...doc.languages],
+    genres: [...doc.genres],
+    formats: [...doc.formats],
+    releaseDate: doc.releaseDate,
+    status: doc.status,
+    poster: doc.poster,
+    backdrop: doc.backdrop,
+    trailerUrl: doc.trailerUrl,
+    director: doc.director,
+    cast: doc.cast.map((c) => ({ name: c.name, role: c.role, image: c.image })),
+    crew: doc.crew.map((c) => ({ name: c.name, role: c.role })),
+    rating: doc.rating,
+    votesLabel: doc.votesLabel,
+    isTrending: doc.isTrending,
+  };
+}
+
+/**
+ * Staff edit any film (the creating vendor keeps its own edit right too). A new running time applies to shows
+ * scheduled from now on; a slug change breaks old links (no redirect is kept for renamed slugs).
+ */
+export async function updateMovieByStaff(
+  movieId: string,
+  input: unknown,
+): Promise<{ title: string; changedFields: string[] }> {
+  const data = adminMovieInputSchema.parse(input);
+  const _id = optionalId(movieId);
+  if (!_id) throw new AppError("NOT_FOUND", "Film not found.", 404);
+  const before = await getMovieAdminValues(movieId);
+  if (!before) throw new AppError("NOT_FOUND", "Film not found (merged films can't be edited).", 404);
+  await assertMovieOptions(data, before);
+  if (await Movie.exists({ slug: data.slug, _id: { $ne: _id } })) {
+    throw new AppError("CONFLICT", "That URL name is already used by another film.", 409, {
+      fieldErrors: { slug: ["Already used by another film: pick another"] },
+    });
+  }
+  const next = {
+    ...data,
+    languages: [...new Set(data.languages)],
+    genres: [...new Set(data.genres)],
+    formats: [...new Set(data.formats)],
+  };
+  const changedFields = changedKeys({ ...before }, { ...next });
+  if (changedFields.length === 0) return { title: data.title, changedFields };
+  try {
+    await Movie.updateOne({ _id, ...ACTIVE_MOVIE_FILTER }, { $set: next });
+  } catch (err) {
+    if (isDuplicateKey(err)) {
+      throw new AppError("CONFLICT", "That URL name is already used by another film.", 409, {
+        fieldErrors: { slug: ["Already used by another film: pick another"] },
+      });
+    }
+    throw err;
+  }
+  return { title: data.title, changedFields };
 }

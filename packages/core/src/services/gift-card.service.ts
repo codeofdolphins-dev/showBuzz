@@ -1,19 +1,14 @@
 import "server-only";
-import { randomInt } from "node:crypto";
 import { connect } from "@showbuzz/db/connect";
 import { GiftCard, type GiftCardAttrs } from "@showbuzz/db/models/GiftCard";
 import type { Types } from "@showbuzz/db/mongoose";
-import { GIFT_CARD_LOOKUP_LIMITS, GIFT_CARD_VALIDITY_DAYS } from "@showbuzz/schemas/constants";
-import {
-  GIFT_CARD_CODE_ALPHABET,
-  GIFT_CARD_CODE_LENGTH,
-  formatGiftCardCode,
-  normalizeGiftCardCode,
-} from "@showbuzz/schemas/gift-card";
-import type { GiftCardStatus, GiftCardSummary } from "@showbuzz/schemas/types/gift-card";
+import { GIFT_CARD_LOOKUP_LIMITS } from "@showbuzz/schemas/constants";
+import { formatGiftCardCode, normalizeGiftCardCode } from "@showbuzz/schemas/gift-card";
+import type { GiftCardSummary } from "@showbuzz/schemas/types/gift-card";
 import { ipPrefix } from "../http/request";
 import { consumeRateLimit } from "../security/rate-limit";
 import { listGiftCardDesigns } from "./catalog.service";
+import { effectiveGiftCardStatus } from "./gift-card-codes";
 
 /**
  * Gift cards (`giftCards`). Cards are created when a gift card order's payment is confirmed (booking.service,
@@ -24,21 +19,7 @@ import { listGiftCardDesigns } from "./catalog.service";
 
 type LeanGiftCard = GiftCardAttrs & { _id: Types.ObjectId };
 
-/** 16 random characters from a 32-symbol alphabet: 80 bits, never guessable within the lookup limits. */
-export function generateGiftCardCode(): string {
-  return Array.from({ length: GIFT_CARD_CODE_LENGTH }, () =>
-    GIFT_CARD_CODE_ALPHABET.charAt(randomInt(GIFT_CARD_CODE_ALPHABET.length)),
-  ).join("");
-}
-
-export function giftCardExpiry(from: Date): Date {
-  return new Date(from.getTime() + GIFT_CARD_VALIDITY_DAYS * 24 * 60 * 60_000);
-}
-
-/** Stored status, with an active card past its expiry shown as expired (no cron job needed). */
-export function effectiveGiftCardStatus(card: Pick<GiftCardAttrs, "status" | "expiresAt">, now: Date): GiftCardStatus {
-  return card.status === "active" && card.expiresAt <= now ? "expired" : card.status;
-}
+export { effectiveGiftCardStatus, generateGiftCardCode, giftCardExpiry } from "./gift-card-codes";
 
 export interface GiftCardLookupContext {
   userId?: string;
@@ -119,7 +100,7 @@ export async function getIssuedGiftCards(
   const issued = new Map<string, GiftCardSummary>();
   cards.forEach((card, i) => {
     const summary = summaries[i];
-    if (summary) issued.set(card.purchaseBookingId.toString(), summary);
+    if (summary && card.purchaseBookingId) issued.set(card.purchaseBookingId.toString(), summary);
   });
   return issued;
 }

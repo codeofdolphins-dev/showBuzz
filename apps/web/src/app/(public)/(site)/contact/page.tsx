@@ -1,25 +1,33 @@
 import type { Metadata } from "next";
 import { Headset, Mail, MapPin } from "lucide-react";
 import { ContactForm } from "@/components/public/leads/LeadForms";
+import { getPublicSettings, withSeoOverride } from "@showbuzz/core/services/site-content.service";
+import type { PublicSettings } from "@showbuzz/schemas/settings";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Contact & Help Center",
   description: "Get help with tickets, refunds and payments. Available 24x7.",
 };
 
-const CHANNELS = [
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/contact", META);
+}
+
+/** Helpline and support email come from Platform Settings (prompt 7). */
+const channels = (settings: PublicSettings) => [
   {
     icon: Headset,
     tone: "bg-rose-50 text-rose-600",
     title: "24x7 Customer Helpline",
-    lines: ["+91 (033) 4000-SHOW / 1800-200-8899"],
+    lines: [settings.supportPhone],
     note: "Toll Free Across India",
   },
   {
     icon: Mail,
     tone: "bg-blue-50 text-blue-600",
     title: "Email Support",
-    lines: ["support@showbuzz.in", "partnerships@showbuzz.in"],
+    lines: [settings.supportEmail, "partnerships@showbuzz.in"],
   },
   {
     icon: MapPin,
@@ -29,7 +37,8 @@ const CHANNELS = [
   },
 ];
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const settings = await getPublicSettings();
   return (
     <main className="w-full flex-1 px-4 py-10 sm:px-6 lg:px-8 xl:px-12">
       <div className="mx-auto mb-10 max-w-xl text-center">
@@ -44,7 +53,7 @@ export default function ContactPage() {
       </div>
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-3">
         <div className="space-y-4">
-          {CHANNELS.map((c) => (
+          {channels(settings).map((c) => (
             <div
               key={c.title}
               className="flex items-start gap-4 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-xs"

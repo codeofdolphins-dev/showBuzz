@@ -20,12 +20,12 @@ import {
 import { Button, FieldError, FormMessage, Input } from "@showbuzz/console-ui/form";
 import { useToast } from "@showbuzz/console-ui/Toaster";
 import type { EventKind } from "@showbuzz/schemas/event";
-import { EVENT_CATEGORY_OPTIONS, EVENT_KIND_LABELS, eventInputSchema } from "@showbuzz/schemas/partner-listing";
+import { EVENT_KIND_LABELS, eventInputSchema } from "@showbuzz/schemas/partner-listing";
 import type { TierUsage, VenueScreenOption } from "@showbuzz/schemas/types/partner-listing";
 import { slugify } from "@showbuzz/utils/text";
 import { createEventAction, updateEventAction } from "@/app/_actions/events";
 import { applyActionError } from "@/lib/action-errors";
-import { PeopleRows, rowErrors } from "@/components/listings/PeopleRows";
+import { PeopleRows, rowErrors } from "@showbuzz/console-ui/listings/PeopleRows";
 import { ShowClashes, type ShowClashList } from "@/components/shows/ShowClashes";
 
 type EventFormInput = z.input<typeof eventInputSchema>;
@@ -44,6 +44,8 @@ const SCHEDULE_OPTIONS = [
 interface EventFormProps {
   kind: EventKind;
   venues: VenueScreenOption[];
+  /** Active categories for this kind (super-admin master data). */
+  categories: string[];
   /** Editing: the listing, its tier usage and whether sales lock the schedule. */
   event?: { id: string; values: EventFormInput; usage: TierUsage[]; locked: boolean };
 }
@@ -70,7 +72,7 @@ function tiersForScreen(venues: VenueScreenOption[], venueId: string, screenId: 
  * and status. Events, plays and activities sell passes per tier (capacity can't go below what's sold or in
  * checkout); sports pick a stadium screen and price its seat categories.
  */
-export function EventForm({ kind, venues, event }: EventFormProps) {
+export function EventForm({ kind, venues, categories, event }: EventFormProps) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
@@ -160,7 +162,12 @@ export function EventForm({ kind, venues, event }: EventFormProps) {
     }),
   );
 
-  const categories = EVENT_CATEGORY_OPTIONS[kind];
+  // A listing keeps its category even if it was switched off in master data later.
+  const currentCategory = event?.values.category;
+  const categoryOptions = [...new Set([...categories, ...(currentCategory ? [currentCategory] : [])])].map((c) => ({
+    value: c,
+    label: c,
+  }));
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
@@ -193,19 +200,15 @@ export function EventForm({ kind, venues, event }: EventFormProps) {
             error={errors.slug?.message}
             {...form.register("slug", { onChange: () => setSlugTouched(true) })}
           />
-          <TextField
+          <SelectField
             label="Category"
             required
-            list="event-categories"
-            placeholder={categories[0]}
+            options={categoryOptions}
+            placeholder="Choose a category"
+            hint="Missing one? Ask ShowBuzz to add it."
             error={errors.category?.message}
             {...form.register("category")}
           />
-          <datalist id="event-categories">
-            {categories.map((c) => (
-              <option key={c} value={c} />
-            ))}
-          </datalist>
           <NumberField
             label="Duration (minutes)"
             required

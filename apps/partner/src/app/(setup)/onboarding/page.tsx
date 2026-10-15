@@ -12,7 +12,8 @@ export const metadata: Metadata = { title: "Onboarding" };
  */
 export default async function OnboardingPage() {
   const { vendor } = await requireVendorPage("/onboarding", { stage: "onboarding" });
-  const [state, cities] = await Promise.all([getOnboardingState(vendor.id), listCityOptions()]);
+  const state = await getOnboardingState(vendor.id);
+  const cities = await listCityOptions(state.vendor.address.cityId);
 
   return (
     <>

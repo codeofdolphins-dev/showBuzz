@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { ArrowDown, ChartPie, Megaphone, QrCode } from "lucide-react";
 import { ShowSubmissionForm } from "@/components/public/leads/LeadForms";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "List Your Show",
   description: "Sell tickets for your concert, play, comedy show or sports event on ShowBuzz.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/list-your-show", META);
+}
 
 const STATS = [
   { value: "10M+", label: "Active Monthly Users", color: "text-rose-600" },

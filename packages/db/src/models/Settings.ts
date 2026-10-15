@@ -19,6 +19,9 @@ const settingsSchema = new Schema<SettingsAttrs>(
     cancellationFeePaise: { type: Number, default: SETTINGS_DEFAULTS.cancellationFeePaise },
     seatHoldMinutes: { type: Number, default: SETTINGS_DEFAULTS.seatHoldMinutes },
     defaultCommissionBps: { type: Number, default: SETTINGS_DEFAULTS.defaultCommissionBps },
+    supportEmail: { type: String, default: SETTINGS_DEFAULTS.supportEmail },
+    supportPhone: { type: String, default: SETTINGS_DEFAULTS.supportPhone },
+    defaultCityId: { type: String, default: SETTINGS_DEFAULTS.defaultCityId },
   },
   { timestamps: true, versionKey: false },
 );

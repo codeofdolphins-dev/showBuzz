@@ -1,10 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Clapperboard, Languages, Play } from "lucide-react";
 import { EventCard } from "@/components/public/cards/EventCard";
 import { SectionHeading } from "@/components/public/common/SectionHeading";
 import { CategoryHubs } from "@/components/public/home/CategoryHubs";
 import { CityCinemas } from "@/components/public/home/CityCinemas";
-import { HeroCarousel, type HeroSlide } from "@/components/public/home/HeroCarousel";
+import type { HeroSlide } from "@/components/public/home/HeroCarousel";
+import { HomeHero } from "@/components/public/home/HomeHero";
 import { MovieCarousel } from "@/components/public/home/MovieCarousel";
 import { formatINR } from "@showbuzz/utils/money";
 import {
@@ -15,10 +17,19 @@ import {
   listEvents,
   listMovies,
 } from "@showbuzz/core/services/catalog.service";
+import { listBrowseOptions, listHomeBanners } from "@showbuzz/core/services/site-content.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
+/** SEO overrides for "/" from the admin console (the defaults come from the root layout). */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/", {});
+}
+
+/** Fallback chips until master data is seeded (prompt 7: the first active languages / movie genres, in order). */
 const BROWSE_LANGUAGES = ["English", "Hindi", "Bengali", "Tamil", "Telugu", "Malayalam"];
 const BROWSE_GENRES = ["Action", "Sci-Fi", "Romance", "Animation", "Mythology"];
 
+/** The built-in hero slides, shown when no home banner is live for the visitor (prompt 7 banners come first). */
 async function getHeroSlides(): Promise<HeroSlide[]> {
   const [movie, concert, match] = await Promise.all([
     getMovieBySlug("chrono-nexus-origins"),
@@ -71,19 +82,23 @@ async function getHeroSlides(): Promise<HeroSlide[]> {
 }
 
 export default async function HomePage() {
-  const [slides, movies, events, cinemas] = await Promise.all([
+  const [slides, banners, browse, movies, events, cinemas] = await Promise.all([
     getHeroSlides(),
+    listHomeBanners(),
+    listBrowseOptions(),
     listMovies(),
     listEvents("event"),
     listCinemas(),
   ]);
+  const browseLanguages = browse?.languages.length ? browse.languages : BROWSE_LANGUAGES;
+  const browseGenres = browse?.genres.length ? browse.genres : BROWSE_GENRES;
 
   return (
     <main className="flex-1 pb-16">
       <CategoryHubs />
 
       <section className="mt-4 w-full px-3 sm:mt-6 sm:px-6 lg:px-8 xl:px-12">
-        <HeroCarousel slides={slides} />
+        <HomeHero banners={banners} fallback={slides} />
       </section>
 
       <section className="mt-8 w-full px-4 sm:mt-12 sm:px-6 lg:px-8">
@@ -137,7 +152,7 @@ export default async function HomePage() {
               <Languages className="h-4 w-4 text-rose-500" /> Browse Movies by Language
             </h4>
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {BROWSE_LANGUAGES.map((language) => (
+              {browseLanguages.map((language) => (
                 <Link
                   key={language}
                   href={`/movies?language=${language}`}
@@ -153,7 +168,7 @@ export default async function HomePage() {
               <Clapperboard className="h-4 w-4 text-purple-500" /> Explore by Genre
             </h4>
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {BROWSE_GENRES.map((genre) => (
+              {browseGenres.map((genre) => (
                 <Link
                   key={genre}
                   href={`/movies?genre=${genre}`}

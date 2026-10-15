@@ -41,6 +41,9 @@ activityLogSchema.index({ createdAt: -1 });
 activityLogSchema.index({ vendorId: 1, createdAt: -1 });
 activityLogSchema.index({ actorType: 1, actorId: 1, createdAt: -1 });
 activityLogSchema.index({ resource: 1, resourceId: 1, createdAt: -1 });
+// Admin activity-log filters (prompt 7).
+activityLogSchema.index({ actorType: 1, createdAt: -1 });
+activityLogSchema.index({ resource: 1, createdAt: -1 });
 
 export const ActivityLog: Model<ActivityLogAttrs> =
   (models.ActivityLog as Model<ActivityLogAttrs> | undefined) ??

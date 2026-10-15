@@ -18,7 +18,8 @@ const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.00$/, "")}%`;
  */
 export default async function BusinessProfilePage() {
   const { vendor: current } = await requireVendorPage("/business-profile");
-  const [state, cities] = await Promise.all([getOnboardingState(current.id), listCityOptions()]);
+  const state = await getOnboardingState(current.id);
+  const cities = await listCityOptions(state.vendor.address.cityId);
   const { vendor, kyc } = state;
 
   return (

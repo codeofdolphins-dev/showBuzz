@@ -15,8 +15,8 @@ import { getPaymentGateway } from "../payments/gateway";
 import { getSettings } from "./settings.service";
 
 /**
- * Cancelling a confirmed booking: the rules both the customer (My Bookings) and the vendor (partner Bookings) go
- * through. Split from booking.service (like order-release.service) so the partner portal, which must not import the
+ * Cancelling a confirmed booking: the rules the customer (My Bookings), the vendor (partner Bookings) and staff
+ * (admin bookings oversight) go through. Split from booking.service (like order-release.service) so the partner portal, which must not import the
  * cached catalogue reads, can use it.
  *
  * One transaction frees the inventory (seats deleted or passes returned), gives a counted coupon use back, returns
@@ -74,9 +74,11 @@ export function splitRefund(booking: Pick<LeanBooking, "amounts">, feePaise: num
 export interface CancelOptions {
   /** Cancellation fee kept (the policy's, or 0 when the vendor waives it). */
   feePaise: number;
-  by: "customer" | "vendor";
-  /** Vendor cancellations: why (required by the caller outside the policy). */
+  by: "customer" | "vendor" | "staff";
+  /** Vendor and staff cancellations: why (required by the caller outside the policy; always for staff). */
   reason?: string;
+  /** Staff cancellations: the staff member. */
+  staffId?: string;
   now: Date;
 }
 
@@ -86,7 +88,7 @@ export interface CancelOptions {
  */
 export async function cancelConfirmedBooking(
   booking: LeanBooking,
-  { feePaise, by, reason, now }: CancelOptions,
+  { feePaise, by, reason, staffId, now }: CancelOptions,
 ): Promise<{ refundPaise: number }> {
   if (booking.status === "cancelled") return { refundPaise: booking.refundPaise ?? 0 };
   if (booking.status !== "confirmed")
@@ -116,6 +118,7 @@ export async function cancelConfirmedBooking(
           refundPaise,
           cancelledBy: by,
           ...(reason ? { cancelReason: reason } : {}),
+          ...(staffId ? { cancelledByStaffId: staffId } : {}),
         },
       },
       { session },

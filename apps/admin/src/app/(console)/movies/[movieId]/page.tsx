@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { LinkButton } from "@showbuzz/console-ui/LinkButton";
 import { Card, NoAccess, PageHeader } from "@showbuzz/console-ui/PageParts";
 import { StatusBadge } from "@showbuzz/console-ui/StatusBadge";
 import { requireStaffPage } from "@showbuzz/core/auth/admin/current-staff";
@@ -21,7 +22,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** One catalogue film: who added it, which vendors list it, its shows, and "merge into…" for duplicates. */
+/** One catalogue film: who added it, which vendors list it, its shows, "Edit film" and "merge into…" for duplicates. */
 export default async function MoviePage({ params }: PageProps<"/movies/[movieId]">) {
   const { movieId } = await params;
   const { staff } = await requireStaffPage(`/movies/${movieId}`);
@@ -35,6 +36,11 @@ export default async function MoviePage({ params }: PageProps<"/movies/[movieId]
         title={movie.title}
         crumb="Movies Catalog"
         subtitle={`${movie.certificate} · ${formatDuration(movie.durationMinutes)} · ${movie.languages.join(", ")} · released ${movie.releaseDate}`}
+        actions={
+          !movie.archived && hasPermission(staff.permissions, "movies:write") ? (
+            <LinkButton href={`/movies/${movie.id}/edit`}>Edit film</LinkButton>
+          ) : null
+        }
       />
       {movie.archived ? (
         <p

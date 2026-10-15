@@ -77,9 +77,11 @@ export interface BookingAttrs {
   confirmedAt?: Date;
   cancelledAt?: Date;
   /** Who cancelled (missing on older bookings = the customer). */
-  cancelledBy?: "customer" | "vendor";
-  /** Vendor cancellations: the reason given (required after the cutoff). */
+  cancelledBy?: "customer" | "vendor" | "staff";
+  /** Vendor cancellations: the reason given (required after the cutoff); staff cancellations always have one. */
   cancelReason?: string;
+  /** Staff cancellations (admin bookings oversight): who cancelled. */
+  cancelledByStaffId?: Types.ObjectId;
   refundPaise?: number;
   failureReason?: string;
   /** Gate check-in (partner Scan Tickets): set once, by one atomic update. */
@@ -199,8 +201,9 @@ const bookingSchema = new Schema<BookingAttrs>(
     cancellable: { type: Boolean, default: false },
     confirmedAt: Date,
     cancelledAt: Date,
-    cancelledBy: { type: String, enum: ["customer", "vendor"] },
+    cancelledBy: { type: String, enum: ["customer", "vendor", "staff"] },
     cancelReason: String,
+    cancelledByStaffId: { type: Schema.Types.ObjectId, ref: "Staff" },
     refundPaise: Number,
     failureReason: String,
     checkedInAt: Date,
@@ -221,6 +224,8 @@ bookingSchema.index({ vendorId: 1, confirmedAt: 1 });
 bookingSchema.index({ vendorId: 1, status: 1, settlementId: 1, startsAt: 1 });
 // Finds orders whose payment window lapsed so their tier passes can be given back.
 bookingSchema.index({ status: 1, holdExpiresAt: 1 });
+// Admin bookings oversight (all vendors, newest first).
+bookingSchema.index({ createdAt: -1 });
 
 export type BookingChannel = "online" | "counter";
 

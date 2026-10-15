@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { Button, FieldError, Input } from "@showbuzz/console-ui/form";
+import { Button, FieldError, Input } from "../form";
 
 export interface PersonRow {
   name: string;

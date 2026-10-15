@@ -7,8 +7,12 @@ export interface RoleAttrs {
   name: string;
   description: string;
   permissions: string[];
-  /** Seeded from the prototype matrix; can be edited but not deleted. */
+  /** One of SYSTEM_ROLES (seeded); can be edited but not deleted. */
   isSystem: boolean;
+  /** Edited in the role editor: db:seed-roles then leaves its permissions alone. */
+  customised?: boolean;
+  /** Bumped inside staff transactions that must not run concurrently (last Super Admin guard). */
+  guardVersion?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +26,8 @@ const roleSchema = new Schema<RoleAttrs, RoleModel>(
     description: { type: String, trim: true, maxlength: 300, default: "" },
     permissions: { type: [String], default: [] },
     isSystem: { type: Boolean, default: false },
+    customised: Boolean,
+    guardVersion: Number,
   },
   { timestamps: true, toJSON: serialisationOptions, toObject: serialisationOptions },
 );

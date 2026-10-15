@@ -3,11 +3,17 @@ import { Suspense } from "react";
 import { MovieBrowser } from "@/components/public/movie/MovieBrowser";
 import { movieListQuerySchema } from "@showbuzz/schemas/movie";
 import { listMovies } from "@showbuzz/core/services/catalog.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Movies",
   description: "Now showing blockbusters and upcoming theatrical releases near you.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/movies", META);
+}
 
 function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;

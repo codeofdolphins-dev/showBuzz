@@ -14,6 +14,7 @@ import { formatINR } from "@showbuzz/utils/money";
 import type { Movie } from "@showbuzz/schemas/movie";
 import { getMergedMovieSlug, getMovieBySlug, listCinemas, listMovies } from "@showbuzz/core/services/catalog.service";
 import { listMovieReviews } from "@showbuzz/core/services/review.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
 export async function generateStaticParams() {
   const movies = await listMovies();
@@ -23,11 +24,11 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps<"/movies/[slug]">): Promise<Metadata> {
   const movie = await getMovieBySlug((await params).slug);
   if (!movie) return { title: "Movie not found" };
-  return {
+  return withSeoOverride(`/movies/${movie.slug}`, {
     title: `${movie.title} - Book Tickets Online`,
     description: movie.synopsis,
     openGraph: { images: [movie.poster] },
-  };
+  });
 }
 
 async function Reviews({ movieId }: { movieId: string }) {

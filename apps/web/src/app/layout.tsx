@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { getSeoGlobal } from "@showbuzz/core/services/site-content.service";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -13,20 +14,20 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "ShowBuzz - Movie Tickets, Concerts, Plays, Sports & Activities",
-    template: "%s | ShowBuzz",
-  },
-  description:
-    "ShowBuzz is India's entertainment booking platform. Book movie tickets, IMAX shows, concerts, live theatre and T20 cricket matches.",
-  applicationName: "ShowBuzz",
+/** Site-wide title and description come from the admin console's SEO page (built-in defaults until saved). */
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = await getSeoGlobal();
+  return {
+    title: { default: seo.title, template: "%s | ShowBuzz" },
+    description: seo.description,
+    applicationName: "ShowBuzz",
   openGraph: {
     title: "ShowBuzz - Entertainment Ticket Booking",
     description: "Book movies, events, sports and experiences all in one place.",
     type: "website",
   },
-};
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#FF385C",

@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { OfferBrowser } from "@/components/public/offer/OfferBrowser";
 import { listOffers } from "@showbuzz/core/services/catalog.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Offers & Promo Codes",
   description: "Save on movies, concerts, food combos and sports tickets.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/offers", META);
+}
 
 export default async function OffersPage() {
   const offers = await listOffers();

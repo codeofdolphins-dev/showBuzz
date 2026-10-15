@@ -4,7 +4,13 @@ import { requirePermission } from "@showbuzz/core/auth/admin/current-staff";
 import { type ActionResult, runAction } from "@showbuzz/core/http/action-result";
 import { logActivity } from "@showbuzz/core/services/activity-log.service";
 import { CATALOG_TAGS } from "@showbuzz/core/services/catalog-tags";
-import { mergeMovies, previewMovieMerge, searchMergeTargets } from "@showbuzz/core/services/admin/movie-admin.service";
+import {
+  mergeMovies,
+  previewMovieMerge,
+  searchMergeTargets,
+  updateMovieByStaff,
+} from "@showbuzz/core/services/admin/movie-admin.service";
+import { findPossibleDuplicates } from "@showbuzz/core/services/partner/movie.service";
 import { addShowRequestNote, setShowRequestStatus } from "@showbuzz/core/services/admin/show-request.service";
 import { revalidateWeb } from "@showbuzz/core/services/web-revalidate.service";
 import { movieMergeSchema } from "@showbuzz/schemas/admin-marketplace";
@@ -89,5 +95,41 @@ export async function mergeMoviesAction(input: unknown): Promise<ActionResult<{ 
     });
     revalidateWeb([CATALOG_TAGS.movies, CATALOG_TAGS.shows, CATALOG_TAGS.coupons]);
     return { keepSlug: result.keepSlug };
+  });
+}
+
+// Film editor (prompt 7)
+
+export async function updateMovieByStaffAction(
+  movieId: unknown,
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const current = await requirePermission("movies:write");
+    const id = objectIdSchema.parse(movieId);
+    const { title, changedFields } = await updateMovieByStaff(id, input);
+    if (changedFields.length > 0) {
+      await logActivity(actorOf(current), {
+        action: "movie_update",
+        resource: "movie",
+        resourceId: id,
+        summary: `Edited film ${title}`,
+        changedFields,
+      });
+      revalidateWeb([CATALOG_TAGS.movies]);
+    }
+    return { id };
+  });
+}
+
+export async function findMovieDuplicatesAction(
+  title: unknown,
+  exceptId?: unknown,
+): Promise<ActionResult<{ id: string; title: string; year: string; languages: string[] }[]>> {
+  return runAction(async () => {
+    await requirePermission("movies:read");
+    const text = typeof title === "string" ? title.slice(0, 150) : "";
+    const except = exceptId === undefined ? undefined : objectIdSchema.parse(exceptId);
+    return findPossibleDuplicates(text, except);
   });
 }

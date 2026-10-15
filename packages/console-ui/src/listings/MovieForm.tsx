@@ -7,34 +7,29 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
 import { AlertTriangle } from "lucide-react";
-import { ConfirmDialog } from "@showbuzz/console-ui/ConfirmDialog";
-import { Card } from "@showbuzz/console-ui/PageParts";
-import {
-  DateTimeField,
-  ImageUrlField,
-  NumberField,
-  SelectField,
-  TextAreaField,
-  TextField,
-} from "@showbuzz/console-ui/fields";
-import { Button, FormMessage } from "@showbuzz/console-ui/form";
-import { useToast } from "@showbuzz/console-ui/Toaster";
-import {
-  MOVIE_CERTIFICATE_OPTIONS,
-  MOVIE_FORMAT_OPTIONS,
-  MOVIE_GENRE_OPTIONS,
-  MOVIE_LANGUAGE_OPTIONS,
-  movieInputSchema,
-} from "@showbuzz/schemas/partner-listing";
+import { adminMovieInputSchema } from "@showbuzz/schemas/admin-platform";
+import { MOVIE_CERTIFICATE_OPTIONS, MOVIE_FORMAT_OPTIONS } from "@showbuzz/schemas/partner-listing";
 import { slugify } from "@showbuzz/utils/text";
-import { addMovieAction, createMovieAction, findDuplicatesAction, updateMovieAction } from "@/app/_actions/movies";
-import { applyActionError } from "@/lib/action-errors";
-import { OptionChips } from "@/components/listings/OptionChips";
-import { PeopleRows, rowErrors } from "@/components/listings/PeopleRows";
+import { applyActionError } from "../action-errors";
+import { ConfirmDialog } from "../ConfirmDialog";
+import { Card } from "../PageParts";
+import { DateTimeField, ImageUrlField, NumberField, SelectField, TextAreaField, TextField, Toggle } from "../fields";
+import { Button, FormMessage } from "../form";
+import { useToast } from "../Toaster";
+import type { ActionOutcome } from "../vendor-kyc/KycActions";
+import { OptionChips } from "./OptionChips";
+import { PeopleRows, rowErrors } from "./PeopleRows";
 
-type MovieFormInput = z.input<typeof movieInputSchema>;
-type MovieFormOutput = z.output<typeof movieInputSchema>;
-type Duplicate = { id: string; title: string; year: string; languages: string[] };
+/**
+ * Prototype movie-form, shared by the partner portal (vendor-created films) and the admin film editor. The form always
+ * carries the editorial fields (rating, votes label, trending); only the admin shows them (`editorial`), and the
+ * partner's server schema drops them. Languages and genres come from the super-admin's master data (prompt 7):
+ * pick from the list (values the film already had stay selectable).
+ */
+
+export type MovieFormInput = z.input<typeof adminMovieInputSchema>;
+export type MovieFormOutput = z.output<typeof adminMovieInputSchema>;
+export type MovieDuplicate = { id: string; title: string; year: string; languages: string[] };
 
 const CERTIFICATE_OPTIONS = MOVIE_CERTIFICATE_OPTIONS.map((c) => ({ value: c, label: c }));
 const STATUS_OPTIONS = [
@@ -44,47 +39,73 @@ const STATUS_OPTIONS = [
 
 const DUPLICATE_CHECK_DELAY_MS = 500;
 
-interface MovieFormProps {
-  /** Editing: the film's id and current values. */
-  movie?: { id: string; values: MovieFormInput };
-  /** New film: title typed on the search page. */
-  initialTitle?: string;
+const EDITORIAL_DEFAULTS = { rating: 0, votesLabel: "", isTrending: false };
+
+export interface MovieFormActions {
+  /** Create (no id) or update; answers the film id. */
+  save: (values: MovieFormOutput) => Promise<ActionOutcome<{ id: string }>>;
+  findDuplicates: (title: string, exceptId?: string) => Promise<ActionOutcome<MovieDuplicate[]>>;
+  /** Partner only: put an existing film on the vendor's list instead of creating a duplicate. */
+  adopt?: (movieId: string) => Promise<ActionOutcome<{ title: string }>>;
 }
 
-/**
- * Prototype movie-form: basic information, visuals & synopsis, cast & crew, booking status. While the title is typed,
- * films with a similar title are listed as possible duplicates (a warning: creating anyway needs one confirmation).
- */
-export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
+interface MovieFormProps {
+  /** Editing: the film's id and current values (editorial fields optional). */
+  movie?: { id: string; values: Omit<MovieFormInput, "rating" | "votesLabel" | "isTrending"> & Partial<MovieFormInput> };
+  /** New film: title typed on the search page. */
+  initialTitle?: string;
+  /** Active master data: languages and movie genres. */
+  options: { languages: string[]; genres: string[] };
+  actions: MovieFormActions;
+  /** Where the film's own page lives in this console ("/movies"). */
+  basePath?: string;
+  /** Admin film editor: show the editorial fields. */
+  editorial?: boolean;
+  savedMessage?: string;
+}
+
+export function MovieForm({
+  movie,
+  initialTitle = "",
+  options,
+  actions,
+  basePath = "/movies",
+  editorial = false,
+  savedMessage,
+}: MovieFormProps) {
   const router = useRouter();
   const toast = useToast();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [slugTouched, setSlugTouched] = useState(Boolean(movie));
-  const [duplicates, setDuplicates] = useState<Duplicate[]>([]);
+  const [duplicates, setDuplicates] = useState<MovieDuplicate[]>([]);
   const [confirming, setConfirming] = useState<MovieFormOutput | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const { findDuplicates } = actions;
 
   const form = useForm<MovieFormInput, unknown, MovieFormOutput>({
-    resolver: zodResolver(movieInputSchema),
-    defaultValues: movie?.values ?? {
-      title: initialTitle,
-      slug: slugify(initialTitle),
-      synopsis: "",
-      durationMinutes: 150,
-      certificate: "UA 13+",
-      languages: [],
-      genres: [],
-      formats: ["2D"],
-      releaseDate: "",
-      status: "now-showing",
-      poster: "",
-      backdrop: "",
-      trailerUrl: "",
-      director: "",
-      cast: [],
-      crew: [],
-    },
+    resolver: zodResolver(adminMovieInputSchema),
+    defaultValues: movie
+      ? { ...EDITORIAL_DEFAULTS, ...movie.values }
+      : {
+          title: initialTitle,
+          slug: slugify(initialTitle),
+          synopsis: "",
+          durationMinutes: 150,
+          certificate: "UA 13+",
+          languages: [],
+          genres: [],
+          formats: ["2D"],
+          releaseDate: "",
+          status: "now-showing",
+          poster: "",
+          backdrop: "",
+          trailerUrl: "",
+          director: "",
+          cast: [],
+          crew: [],
+          ...EDITORIAL_DEFAULTS,
+        },
   });
   const errors = form.formState.errors;
   const title = useWatch({ control: form.control, name: "title" });
@@ -95,11 +116,11 @@ export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
     const text = (title ?? "").trim();
     if (text.length < 3) return;
     timer.current = setTimeout(async () => {
-      const result = await findDuplicatesAction(text, movie?.id);
+      const result = await findDuplicates(text, movie?.id);
       if (result.success) setDuplicates(result.data);
     }, DUPLICATE_CHECK_DELAY_MS);
     return () => clearTimeout(timer.current);
-  }, [title, movie?.id]);
+  }, [title, movie?.id, findDuplicates]);
   const shownDuplicates = (title ?? "").trim().length < 3 ? [] : duplicates;
 
   const nameField = form.register("title", {
@@ -112,13 +133,13 @@ export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
     startTransition(async () => {
       setMessage(null);
       setConfirming(null);
-      const result = movie ? await updateMovieAction(movie.id, values) : await createMovieAction(values);
+      const result = await actions.save(values);
       if (!result.success) {
         setMessage(applyActionError(form, result.error));
         return;
       }
-      toast.success(movie ? "Film saved." : "Film added to ShowBuzz and to your movies.");
-      router.push(`/movies/${result.data.id}`);
+      toast.success(savedMessage ?? (movie ? "Film saved." : "Film added to ShowBuzz and to your movies."));
+      router.push(`${basePath}/${result.data.id}`);
       router.refresh();
     });
   }
@@ -129,14 +150,16 @@ export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
   });
 
   function adoptExisting(id: string) {
+    const adopt = actions.adopt;
+    if (!adopt) return;
     startTransition(async () => {
-      const result = await addMovieAction(id);
+      const result = await adopt(id);
       if (!result.success) {
         setMessage(result.error.message);
         return;
       }
       toast.success(`${result.data.title} is on your list.`);
-      router.push(`/movies/${id}`);
+      router.push(`${basePath}/${id}`);
       router.refresh();
     });
   }
@@ -178,13 +201,13 @@ export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
             <ul className="space-y-1.5">
               {shownDuplicates.map((d) => (
                 <li key={d.id} className="flex flex-wrap items-center gap-2">
-                  <Link href={`/movies/${d.id}`} className="font-semibold underline" target="_blank">
+                  <Link href={`${basePath}/${d.id}`} className="font-semibold underline" target="_blank">
                     {d.title}
                   </Link>
                   <span>
                     · {d.year} · {d.languages.join(", ")}
                   </span>
-                  {movie ? null : (
+                  {movie || !actions.adopt ? null : (
                     <Button type="button" variant="secondary" disabled={pending} onClick={() => adoptExisting(d.id)}>
                       Use this film
                     </Button>
@@ -232,12 +255,11 @@ export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
             <OptionChips
               label="Languages"
               required
-              hint="The audio languages you can screen it in."
-              suggestions={MOVIE_LANGUAGE_OPTIONS}
+              hint="The audio languages it can be screened in. Missing one? Ask ShowBuzz to add it."
+              suggestions={options.languages}
               value={field.value}
               onChange={field.onChange}
               error={errors.languages?.message}
-              customPlaceholder="Another language"
             />
           )}
         />
@@ -248,11 +270,10 @@ export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
             <OptionChips
               label="Genres"
               required
-              suggestions={MOVIE_GENRE_OPTIONS}
+              suggestions={options.genres}
               value={field.value}
               onChange={field.onChange}
               error={errors.genres?.message}
-              customPlaceholder="Another genre"
             />
           )}
         />
@@ -376,9 +397,46 @@ export function MovieForm({ movie, initialTitle = "" }: MovieFormProps) {
         />
       </Card>
 
+      {editorial ? (
+        <Card className="space-y-4 p-6">
+          <h2 className="border-b border-admin-border pb-2 text-sm font-bold text-admin-dark">
+            5. Editorial (ShowBuzz only)
+          </h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <NumberField
+              label="Catalogue rating (0–10)"
+              step="0.1"
+              min={0}
+              max={10}
+              hint="The critics' score shown next to the customer rating."
+              error={errors.rating?.message}
+              {...form.register("rating", { valueAsNumber: true })}
+            />
+            <TextField
+              label="Votes label"
+              placeholder="e.g. 45.2K votes"
+              error={errors.votesLabel?.message}
+              {...form.register("votesLabel")}
+            />
+          </div>
+          <Controller
+            control={form.control}
+            name="isTrending"
+            render={({ field }) => (
+              <Toggle
+                label="Trending"
+                hint="Shows the film in the trending row and with a trending badge."
+                value={field.value}
+                onChange={field.onChange}
+              />
+            )}
+          />
+        </Card>
+      ) : null}
+
       <div className="flex items-center justify-end gap-3">
         <Link
-          href={movie ? `/movies/${movie.id}` : "/movies"}
+          href={movie ? `${basePath}/${movie.id}` : basePath}
           className="rounded-md border border-admin-border bg-white px-4 py-2 text-xs font-bold text-admin-text hover:bg-slate-50"
         >
           Cancel

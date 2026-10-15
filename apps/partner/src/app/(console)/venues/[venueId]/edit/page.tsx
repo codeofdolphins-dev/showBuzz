@@ -11,8 +11,9 @@ export const metadata: Metadata = { title: "Edit venue" };
 export default async function EditVenuePage({ params }: PageProps<"/venues/[venueId]/edit">) {
   const { venueId } = await params;
   const { vendor } = await requireVendorPage(`/venues/${venueId}/edit`);
-  const [venue, cities] = await Promise.all([getVendorVenue(vendor.id, venueId, new Date()), listCityOptions()]);
+  const venue = await getVendorVenue(vendor.id, venueId, new Date());
   if (!venue) notFound();
+  const cities = await listCityOptions(venue.cityId);
 
   return (
     <>

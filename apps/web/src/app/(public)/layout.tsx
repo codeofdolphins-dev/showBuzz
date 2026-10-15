@@ -7,17 +7,23 @@ import { StoreHydrator } from "@/components/public/layout/StoreHydrator";
 import { WishlistSync } from "@/components/public/layout/WishlistSync";
 import { Toaster } from "@/components/ui/Toaster";
 import { listCities } from "@showbuzz/core/services/catalog.service";
+import { getPublicSettings } from "@showbuzz/core/services/site-content.service";
 
 /** Shared by every customer page, including the full-screen seat map. */
 export default async function PublicLayout({ children }: { children: ReactNode }) {
-  const cities = await listCities();
+  const [cities, settings] = await Promise.all([listCities(), getPublicSettings()]);
+  const defaultCity = cities.find((c) => c.id === settings.defaultCityId);
   return (
     <>
       {children}
       <CityModal cities={cities} />
       <AuthModal />
       <Toaster />
-      <StoreHydrator />
+      <StoreHydrator
+        {...(defaultCity
+          ? { defaultCity: { id: defaultCity.id, name: defaultCity.name, ...(defaultCity.state ? { state: defaultCity.state } : {}) } }
+          : {})}
+      />
       <WishlistSync />
       {/* Per-request parts stream in after the static shell (Cache Components). */}
       <Suspense fallback={null}>

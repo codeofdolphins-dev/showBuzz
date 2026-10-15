@@ -1,6 +1,6 @@
 import "server-only";
 import { connect } from "@showbuzz/db/connect";
-import { City } from "@showbuzz/db/models/City";
+import { ACTIVE_CITY_FILTER, City } from "@showbuzz/db/models/City";
 import { Event } from "@showbuzz/db/models/Event";
 import { Movie } from "@showbuzz/db/models/Movie";
 import { SeatHold } from "@showbuzz/db/models/SeatHold";
@@ -286,8 +286,9 @@ export async function listVendorVenueOptions(vendorId: string): Promise<{ value:
   return venues.map((v) => ({ value: v._id.toString(), label: v.name }));
 }
 
-async function assertCity(cityId: string): Promise<void> {
-  if (!(await City.exists({ slug: cityId }))) {
+/** An active city (prompt 7), or the venue's current city when editing (a city switched off later stays valid). */
+async function assertCity(cityId: string, current?: string): Promise<void> {
+  if (!(await City.exists({ slug: cityId, ...(cityId === current ? {} : ACTIVE_CITY_FILTER) }))) {
     throw new AppError("VALIDATION_FAILED", "Choose a city from the list.", 422, {
       fieldErrors: { cityId: ["Choose a city from the list"] },
     });
@@ -361,7 +362,7 @@ export async function updateVenue(
 ): Promise<{ changedFields: string[] }> {
   const input = venueInputSchema.parse(raw);
   const venue = await requireOwnVenue(vendorId, venueId);
-  await Promise.all([assertCity(input.cityId), assertSlugFree(input.slug, venue._id)]);
+  await Promise.all([assertCity(input.cityId, venue.cityId), assertSlugFree(input.slug, venue._id)]);
 
   if (input.status === "inactive" && (venue.status ?? "active") !== "inactive") {
     const withSales = await showsWithSales({ venueId: venue._id, ...upcomingShowFilter(now) });

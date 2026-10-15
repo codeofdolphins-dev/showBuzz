@@ -21,6 +21,9 @@ export interface UserAttrs {
   lastLoginAt?: Date;
   /** Set when the customer deleted their account (the document stays, anonymised, for booking records). */
   deletedAt?: Date;
+  /** Blocked by staff (prompt 7): when and why. Unblocking clears both. */
+  blockedAt?: Date;
+  blockReason?: string;
   sessions: UserSession[];
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +47,8 @@ const userSchema = new Schema<UserAttrs, UserModel, UserMethods>(
     status: { type: String, enum: ["active", "blocked", "deleted"], default: "active", required: true },
     lastLoginAt: Date,
     deletedAt: Date,
+    blockedAt: Date,
+    blockReason: { type: String, trim: true, maxlength: 300 },
     sessions: { type: [sessionSchema], default: [] },
   },
   { timestamps: true, toJSON: serialisationOptions, toObject: serialisationOptions },
@@ -55,6 +60,7 @@ userSchema.index({ phone: 1 }, { unique: true, partialFilterExpression: { phone:
 userSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: "string" } } });
 // Not unique: users without sessions would all index the same missing value.
 userSchema.index({ "sessions.sid": 1 });
+userSchema.index({ status: 1, createdAt: -1 });
 
 userSchema.pre("validate", function requireContact() {
   // Deleted accounts are anonymised (batch 1.7) and may keep neither.

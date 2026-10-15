@@ -1,5 +1,6 @@
 import "server-only";
 import { ActivityLog } from "./ActivityLog";
+import { Banner } from "./Banner";
 import { Booking } from "./Booking";
 import { City } from "./City";
 import { Coupon } from "./Coupon";
@@ -7,6 +8,8 @@ import { Event } from "./Event";
 import { FoodItem } from "./FoodItem";
 import { GiftCard } from "./GiftCard";
 import { GiftCardDesign } from "./GiftCardDesign";
+import { Genre } from "./Genre";
+import { Language } from "./Language";
 import { Lead } from "./Lead";
 import { Movie } from "./Movie";
 import { OtpChallenge } from "./OtpChallenge";
@@ -17,9 +20,11 @@ import { Refund } from "./Refund";
 import { Review } from "./Review";
 import { Role } from "./Role";
 import { SeatHold } from "./SeatHold";
+import { SeoMeta } from "./SeoMeta";
 import { Settings } from "./Settings";
 import { Settlement } from "./Settlement";
 import { Show } from "./Show";
+import { SitePage } from "./SitePage";
 import { Staff } from "./Staff";
 import { StreamTitle } from "./StreamTitle";
 import { SubscriptionInvoice } from "./SubscriptionInvoice";
@@ -62,4 +67,9 @@ export const allModels = [
   VendorMovie,
   Settlement,
   SubscriptionInvoice,
+  Language,
+  Genre,
+  Banner,
+  SitePage,
+  SeoMeta,
 ];

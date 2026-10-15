@@ -1,5 +1,5 @@
 import "server-only";
-import { SUPER_ADMIN_ROLE, SYSTEM_ROLES } from "@showbuzz/schemas/permissions";
+import { LEGACY_SYSTEM_ROLES, SUPER_ADMIN_ROLE, SYSTEM_ROLES } from "@showbuzz/schemas/permissions";
 import { newStaffSchema, resetStaffPasswordSchema } from "@showbuzz/schemas/staff";
 import { connect } from "@showbuzz/db/connect";
 import { Role } from "@showbuzz/db/models/Role";
@@ -53,10 +53,20 @@ export async function resetStaffPassword(actor: { staffId: string }, input: unkn
 }
 
 /**
- * Writes the five system roles. Idempotent: missing roles are created; Super Admin's permissions are re-synced
- * to the full catalogue (it grows over time); other roles keep any edits made in the console.
+ * Writes the system roles. Idempotent: missing roles are created; Super Admin's permissions are re-synced to the
+ * full catalogue (it grows over time); every other system role is re-synced to its definition unless it was edited
+ * in the role editor (`customised`), whose edits are kept.
+ *
+ * Prompt 7 replaced the vendor-style Cinema Manager and Event Manager: a stored legacy role nobody uses is deleted;
+ * one still assigned to staff becomes a custom role with the same name and permissions, so nobody's access changes
+ * silently (a Super Admin then moves those people and deletes it).
  */
-export async function seedSystemRoles(): Promise<{ created: string[]; synced: string[] }> {
+export async function seedSystemRoles(): Promise<{
+  created: string[];
+  synced: string[];
+  retired: string[];
+  keptAsCustom: string[];
+}> {
   await connect();
   const created: string[] = [];
   const synced: string[] = [];
@@ -65,15 +75,38 @@ export async function seedSystemRoles(): Promise<{ created: string[]; synced: st
     const result = await Role.updateOne(
       { name: role.name },
       {
-        $set: { isSystem: true, ...(isSuperAdmin ? { permissions: role.permissions } : {}) },
-        $setOnInsert: { description: role.description, ...(isSuperAdmin ? {} : { permissions: role.permissions }) },
+        $set: { isSystem: true },
+        $setOnInsert: { description: role.description, permissions: role.permissions },
       },
       { upsert: true },
     );
-    if (result.upsertedCount) created.push(role.name);
-    else if (isSuperAdmin && result.modifiedCount) synced.push(role.name);
+    if (result.upsertedCount) {
+      created.push(role.name);
+      continue;
+    }
+    const sync = await Role.updateOne(
+      isSuperAdmin ? { name: role.name } : { name: role.name, customised: { $ne: true } },
+      { $set: { permissions: role.permissions, ...(isSuperAdmin ? {} : { description: role.description }) } },
+    );
+    if (sync.modifiedCount) synced.push(role.name);
   }
-  return { created, synced };
+
+  const retired: string[] = [];
+  const keptAsCustom: string[] = [];
+  for (const name of LEGACY_SYSTEM_ROLES) {
+    const legacy = await Role.findOne({ name }, { _id: 1, isSystem: 1 }).lean();
+    if (!legacy) continue;
+    if (await Staff.exists({ roleId: legacy._id })) {
+      if (legacy.isSystem) {
+        await Role.updateOne({ _id: legacy._id }, { $set: { isSystem: false } });
+        keptAsCustom.push(name);
+      }
+    } else {
+      await Role.deleteOne({ _id: legacy._id });
+      retired.push(name);
+    }
+  }
+  return { created, synced, retired, keptAsCustom };
 }
 
 /** Creates a staff account with an existing role (create-admin script; later the /users screen). */

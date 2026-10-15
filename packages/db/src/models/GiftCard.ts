@@ -3,9 +3,13 @@ import { type Model, Schema, type Types, model, models } from "mongoose";
 import type { GiftCardStatus } from "@showbuzz/schemas/types/gift-card";
 
 export interface GiftCardTransaction {
-  type: "purchase" | "redeem" | "refund";
+  /** issue = complimentary card created by staff; cancel = staff cancelled the card (remaining balance zeroed). */
+  type: "purchase" | "redeem" | "refund" | "issue" | "cancel";
   amountPaise: number;
-  bookingId: Types.ObjectId;
+  /** Absent for issue/cancel entries (no booking involved). */
+  bookingId?: Types.ObjectId;
+  /** Staff member behind an issue/cancel entry. */
+  staffId?: Types.ObjectId;
   at: Date;
 }
 
@@ -21,8 +25,16 @@ export interface GiftCardAttrs {
   designId: string;
   amountPaise: number;
   balancePaise: number;
-  purchaserUserId: Types.ObjectId;
-  purchaseBookingId: Types.ObjectId;
+  /** purchase = bought on showbuzz.com; complimentary = issued by staff (prompt 7), no buyer and no purchase. */
+  source?: "purchase" | "complimentary";
+  /** Purchased cards only. */
+  purchaserUserId?: Types.ObjectId;
+  purchaseBookingId?: Types.ObjectId;
+  /** Complimentary cards: who issued it and why. */
+  issuedByStaffId?: Types.ObjectId;
+  issueReason?: string;
+  cancelledAt?: Date;
+  cancelReason?: string;
   recipientName: string;
   /** Email or mobile number, as entered when buying (no delivery provider yet). */
   recipientContact: string;
@@ -37,9 +49,10 @@ export interface GiftCardAttrs {
 
 const transactionSchema = new Schema(
   {
-    type: { type: String, enum: ["purchase", "redeem", "refund"], required: true },
+    type: { type: String, enum: ["purchase", "redeem", "refund", "issue", "cancel"], required: true },
     amountPaise: { type: Number, required: true, min: 0 },
-    bookingId: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
+    bookingId: { type: Schema.Types.ObjectId, ref: "Booking" },
+    staffId: { type: Schema.Types.ObjectId, ref: "Staff" },
     at: { type: Date, required: true },
   },
   { _id: false },
@@ -51,8 +64,13 @@ const giftCardSchema = new Schema<GiftCardAttrs>(
     designId: { type: String, required: true },
     amountPaise: { type: Number, required: true, min: 0 },
     balancePaise: { type: Number, required: true, min: 0 },
-    purchaserUserId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    purchaseBookingId: { type: Schema.Types.ObjectId, ref: "Booking", required: true },
+    source: { type: String, enum: ["purchase", "complimentary"] },
+    purchaserUserId: { type: Schema.Types.ObjectId, ref: "User" },
+    purchaseBookingId: { type: Schema.Types.ObjectId, ref: "Booking" },
+    issuedByStaffId: { type: Schema.Types.ObjectId, ref: "Staff" },
+    issueReason: { type: String, trim: true, maxlength: 300 },
+    cancelledAt: Date,
+    cancelReason: { type: String, trim: true, maxlength: 300 },
     recipientName: { type: String, required: true, trim: true, maxlength: 80 },
     recipientContact: { type: String, required: true, trim: true, maxlength: 254 },
     message: { type: String, trim: true, maxlength: 200 },
@@ -69,7 +87,12 @@ const giftCardSchema = new Schema<GiftCardAttrs>(
 );
 
 giftCardSchema.index({ code: 1 }, { unique: true });
-giftCardSchema.index({ purchaseBookingId: 1 }, { unique: true });
+// Partial: complimentary cards have no purchase booking.
+giftCardSchema.index(
+  { purchaseBookingId: 1 },
+  { unique: true, partialFilterExpression: { purchaseBookingId: { $exists: true } } },
+);
+giftCardSchema.index({ createdAt: -1 });
 giftCardSchema.index({ purchaserUserId: 1, createdAt: -1 });
 
 export const GiftCard: Model<GiftCardAttrs> =

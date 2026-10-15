@@ -5,11 +5,17 @@ import { StreamActionButton } from "@/components/public/stream/StreamActions";
 import { formatDuration } from "@showbuzz/utils/dates";
 import { formatINR } from "@showbuzz/utils/money";
 import { listStreamTitles } from "@showbuzz/core/services/catalog.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Stream Premieres",
   description: "Rent or buy new releases, documentaries and concerts in 4K HDR.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/stream", META);
+}
 
 export default async function StreamPage() {
   const titles = await listStreamTitles();

@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import { EventBrowser } from "@/components/public/event/EventBrowser";
 import { listEvents } from "@showbuzz/core/services/catalog.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Events & Concerts",
   description: "Music concerts, standup comedy, magic shows and festivals near you.",
 };
+
+/** SEO overrides from the admin console (prompt 7) apply over this. */
+export function generateMetadata(): Promise<Metadata> {
+  return withSeoOverride("/events", META);
+}
 
 export default async function EventsPage() {
   const events = await listEvents("event");

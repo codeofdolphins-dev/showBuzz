@@ -7,6 +7,7 @@ import { WishlistButton } from "@/components/public/common/WishlistButton";
 import { LiveTierPicker } from "@/components/public/event/LiveTierPicker";
 import { describeSchedule } from "@showbuzz/utils/schedule";
 import { getEventBySlug, listEvents } from "@showbuzz/core/services/catalog.service";
+import { withSeoOverride } from "@showbuzz/core/services/site-content.service";
 
 export async function generateStaticParams() {
   return (await listEvents("event")).map((e) => ({ slug: e.slug }));
@@ -14,7 +15,8 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps<"/events/[slug]">): Promise<Metadata> {
   const event = await getEventBySlug("event", (await params).slug);
-  return event ? { title: `${event.title} - Book Passes`, description: event.about } : { title: "Event not found" };
+  if (!event) return { title: "Event not found" };
+  return withSeoOverride(`/events/${event.slug}`, { title: `${event.title} - Book Passes`, description: event.about });
 }
 
 export default async function EventDetailsPage({ params }: PageProps<"/events/[slug]">) {

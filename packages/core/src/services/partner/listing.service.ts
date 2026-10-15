@@ -17,6 +17,7 @@ import type { Screen } from "@showbuzz/schemas/venue";
 import { formatDateShort, formatDuration, formatTime } from "@showbuzz/utils/dates";
 import { escapeRegex, slugify } from "@showbuzz/utils/text";
 import { AppError } from "../../http/app-error";
+import { assertEventCategory } from "../master-data.service";
 import { releaseLapsedOrders } from "../order-release.service";
 import { changedKeys, isDuplicateKey, toObjectId } from "./ids";
 import { claimScreenTime, requireOwnVenueScreen } from "./show-schedule.service";
@@ -346,6 +347,8 @@ interface ListingContext {
 async function prepare(vendorId: string, raw: unknown, current: LeanEvent | null): Promise<ListingContext> {
   const input = eventInputSchema.parse(raw);
   if (current && input.kind !== current.kind) throw fieldError("kind", "A listing can't move to another section");
+  // Categories come from the super-admin's master data (prompt 7); a listing keeps a category switched off later.
+  await assertEventCategory(input.kind, input.category, current?.category);
   if (input.kind === "sport") {
     const { venue, screen } = await requireOwnVenueScreen(vendorId, input.venueId, input.screenId);
     return { input, venue, screen, tiers: fixtureTiers(input, screen) };

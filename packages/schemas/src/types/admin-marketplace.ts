@@ -173,7 +173,7 @@ export interface AdminRefundRow {
   giftCardPaise: number;
   feePaise: number;
   reason: "cancelled" | "booking_failed";
-  cancelledBy?: "customer" | "vendor";
+  cancelledBy?: "customer" | "vendor" | "staff";
   cancelReason?: string;
   provider: "simulated" | "counter";
   status: "processing" | "processed";

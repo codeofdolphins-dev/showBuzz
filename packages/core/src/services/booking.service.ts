@@ -369,6 +369,7 @@ export async function confirmPayment(
               designId: booking.giftCard.designId,
               amountPaise: booking.giftCard.amountPaise,
               balancePaise: booking.giftCard.amountPaise,
+              source: "purchase",
               purchaserUserId: booking.userId,
               purchaseBookingId: booking._id,
               recipientName: booking.giftCard.recipientName,
