@@ -9,7 +9,7 @@ import { SeatHold } from "@showbuzz/db/models/SeatHold";
 import { Show } from "@showbuzz/db/models/Show";
 import { Types } from "@showbuzz/db/mongoose";
 import { log } from "@showbuzz/runtime/log";
-import { placeOrderSchema, type PlaceOrderInput } from "@showbuzz/schemas/booking";
+import { placeOrderSchema, type PaymentMethod, type PlaceOrderInput } from "@showbuzz/schemas/booking";
 import type { BookingRecord, BookingStatus, BookingView } from "@showbuzz/schemas/types/booking";
 import type { CustomerSnapshot } from "@showbuzz/schemas/user";
 import { insertWithUniqueCode } from "../booking/booking-code";
@@ -199,7 +199,9 @@ export async function placeOrder(
       amounts: quote.amounts,
       couponCode: quote.coupon?.code,
       ...(giftCardId ? { giftCardId } : {}),
-      paymentMethod: order.paymentMethod,
+      // The gateway's own checkout is where the customer picks UPI / card / bank / wallet, so the real method
+      // is only known once it confirms (confirmPayment overwrites this).
+      paymentMethod: "online",
       contact: {
         name: order.contact.name,
         phone: customer.phone ?? order.contact.phone,
@@ -218,11 +220,7 @@ export async function placeOrder(
   const payablePaise = quote.amounts.payablePaise;
   if (payablePaise === 0) return { code, holdExpiresAt: holdExpiresAt.toISOString() };
   const gateway = getPaymentGateway();
-  const { providerRef } = await gateway.createPayment({
-    bookingCode: code,
-    amountPaise: payablePaise,
-    method: order.paymentMethod,
-  });
+  const { providerRef } = await gateway.createPayment({ bookingCode: code, amountPaise: payablePaise });
   await Payment.create({
     bookingId,
     userId: customer.id,
@@ -230,7 +228,7 @@ export async function placeOrder(
     provider: gateway.provider,
     providerRef,
     amountPaise: payablePaise,
-    method: order.paymentMethod,
+    method: "online",
     status: "created",
   });
   // Only the key id and order id reach the browser; the secret stays on the server.
@@ -263,7 +261,7 @@ export async function confirmPayment(
     simulate?: SimulatedOutcome;
     handshake?: PaymentHandshake;
     /** The gateway already verified this payment (webhook), so it is not asked again. */
-    verified?: { paymentRef: string };
+    verified?: { paymentRef: string; method?: PaymentMethod };
   },
   now: Date,
 ): Promise<PaymentResult> {
@@ -282,6 +280,8 @@ export async function confirmPayment(
   const gateway = getPaymentGateway();
   // The gateway's own payment id, known only once it confirms; refunds below target it rather than the order.
   let capturedRef: string | undefined;
+  // How the customer paid, as the gateway reports it. The booking keeps `online` when it doesn't say.
+  let paidWith: PaymentMethod | undefined;
   // A gift card covering the whole order means nothing goes through the gateway.
   const payment =
     payableOf(booking) > 0
@@ -294,7 +294,7 @@ export async function confirmPayment(
       return { status: "failed", code, reason };
     }
     const outcome: PaymentOutcome = attempt.verified
-      ? { status: "succeeded", paymentRef: attempt.verified.paymentRef }
+      ? { status: "succeeded", ...attempt.verified }
       : await gateway.confirmPayment({
           providerRef: payment.providerRef,
           amountPaise: payment.amountPaise,
@@ -310,10 +310,14 @@ export async function confirmPayment(
       return { status: "failed", code, reason: outcome.reason };
     }
     // Stored before the booking is confirmed: a refund needs this id, and the money has already moved.
-    if (outcome.paymentRef) {
-      capturedRef = outcome.paymentRef;
-      await Payment.updateOne({ _id: payment._id }, { $set: { gatewayPaymentRef: outcome.paymentRef } });
-    }
+    // `method` is what the customer picked inside the gateway's checkout, which is the first time we learn it.
+    const settled = {
+      ...(outcome.paymentRef ? { gatewayPaymentRef: outcome.paymentRef } : {}),
+      ...(outcome.method ? { method: outcome.method } : {}),
+    };
+    if (outcome.paymentRef) capturedRef = outcome.paymentRef;
+    if (Object.keys(settled).length > 0) await Payment.updateOne({ _id: payment._id }, { $set: settled });
+    if (outcome.method) paidWith = outcome.method;
   }
 
   const mongoose = await connect();
@@ -323,7 +327,10 @@ export async function confirmPayment(
       state.result = "not_pending";
       const confirmed = await Booking.updateOne(
         { _id: booking._id, status: "pending_payment" },
-        { $set: { status: "confirmed", confirmedAt: now }, $unset: { failureReason: 1 } },
+        {
+          $set: { status: "confirmed", confirmedAt: now, ...(paidWith && { paymentMethod: paidWith }) },
+          $unset: { failureReason: 1 },
+        },
         { session },
       );
       if (confirmed.modifiedCount !== 1) return;
@@ -565,7 +572,7 @@ export async function cancelBooking(code: string, userId: string, now: Date): Pr
  */
 export async function settlePaymentFromWebhook(
   orderRef: string,
-  event: { kind: "captured"; paymentId: string } | { kind: "failed"; reason: string },
+  event: { kind: "captured"; paymentId: string; method?: PaymentMethod } | { kind: "failed"; reason: string },
   now: Date,
 ): Promise<PaymentResult | undefined> {
   await connect();
@@ -583,5 +590,10 @@ export async function settlePaymentFromWebhook(
     await closeOrder(booking, "payment_failed", event.reason, { releaseSeats: true });
     return { status: "failed", code: booking.code, reason: event.reason };
   }
-  return confirmPayment(booking.code, TRUSTED, { verified: { paymentRef: event.paymentId } }, now);
+  return confirmPayment(
+    booking.code,
+    TRUSTED,
+    { verified: { paymentRef: event.paymentId, ...(event.method ? { method: event.method } : {}) } },
+    now,
+  );
 }

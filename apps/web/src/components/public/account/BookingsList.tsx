@@ -12,7 +12,7 @@ import { IssuedGiftCard } from "@/components/public/gift-card/IssuedGiftCard";
 import { Modal } from "@showbuzz/ui/Modal";
 import { cn } from "@showbuzz/utils/cn";
 import { formatINR } from "@showbuzz/utils/money";
-import { PAYMENT_METHOD_LABELS, paymentLabel } from "@showbuzz/utils/payment";
+import { paymentLabel, refundTargetLabel } from "@showbuzz/utils/payment";
 import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { toast } from "@/stores/ui";
 import type { BookingView } from "@showbuzz/schemas/types/booking";
@@ -203,8 +203,8 @@ export function BookingsList({ bookings, cancellation, qrCodes }: BookingsListPr
               </strong>{" "}
               back{" "}
               {confirming.amounts.giftCardPaise > 0
-                ? `(${formatINR(giftCardReturn(confirming, policy.feePaise), { exact: true })} to your gift card, the rest to ${PAYMENT_METHOD_LABELS[confirming.paymentMethod]})`
-                : `to ${PAYMENT_METHOD_LABELS[confirming.paymentMethod]}`}
+                ? `(${formatINR(giftCardReturn(confirming, policy.feePaise), { exact: true })} to your gift card, the rest to ${refundTargetLabel(confirming.paymentMethod)})`
+                : `to ${refundTargetLabel(confirming.paymentMethod)}`}
               . Cancellation is possible {describeCutoff(policy.cutoffMinutes)}.
             </p>
             <div className="mt-5 flex gap-2">

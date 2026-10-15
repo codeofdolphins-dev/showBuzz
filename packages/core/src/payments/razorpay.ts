@@ -2,6 +2,7 @@ import "server-only";
 import Razorpay from "razorpay";
 import { log } from "@showbuzz/runtime/log";
 import { paymentEnv } from "@showbuzz/runtime/payment-env";
+import type { PaymentMethod } from "@showbuzz/schemas/booking";
 import type {
   CheckoutHandoff,
   ConfirmPaymentInput,
@@ -25,6 +26,22 @@ import type {
 /** A declined payment never tells the customer why in detail; the reason is logged instead. */
 const DECLINED = "The payment was declined. No money has been taken. Please try again.";
 const UNVERIFIED = "We couldn't verify this payment with the gateway. If money was taken it will be refunded.";
+
+/**
+ * Razorpay's own method names for the ones ShowBuzz reports separately. Anything else it supports (emi,
+ * paylater, bank_transfer...) is left as the booking's `online`, so a new Razorpay method never breaks a save.
+ */
+const METHODS: Record<string, PaymentMethod> = {
+  upi: "upi",
+  card: "card",
+  netbanking: "netbanking",
+  wallet: "wallet",
+};
+
+/** The method Razorpay reports for a payment, when it is one of the four ShowBuzz names. */
+export function toPaymentMethod(method: unknown): PaymentMethod | undefined {
+  return typeof method === "string" ? METHODS[method] : undefined;
+}
 
 export class RazorpayGateway implements PaymentGateway {
   readonly provider = "razorpay" as const;
@@ -83,13 +100,16 @@ export class RazorpayGateway implements PaymentGateway {
       return { status: "failed", reason: UNVERIFIED };
     }
 
-    if (payment.status === "captured") return { status: "succeeded", paymentRef: payment.id };
+    // What the customer chose inside Razorpay's modal; this is the only place the real method is known.
+    const method = toPaymentMethod(payment.method);
+    if (payment.status === "captured")
+      return { status: "succeeded", paymentRef: payment.id, ...(method && { method }) };
 
     // Authorised but not captured (manual-capture accounts): take the money now, or the hold lapses.
     if (payment.status === "authorized") {
       try {
         await this.client.payments.capture(payment.id, amountPaise, "INR");
-        return { status: "succeeded", paymentRef: payment.id };
+        return { status: "succeeded", paymentRef: payment.id, ...(method && { method }) };
       } catch (err) {
         log.error("payment.capture_failed", { provider: this.provider, paymentId: payment.id, err });
         return { status: "failed", reason: UNVERIFIED };

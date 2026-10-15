@@ -2,42 +2,36 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { Landmark, CreditCard, FlaskConical, Gift, QrCode, ShieldCheck, Wallet } from "lucide-react";
 import { confirmPaymentAction, placeOrderAction } from "@/app/(public)/_actions/booking";
 import { withAuthRetry } from "@/hooks/use-session-keep-alive";
 import { useOrderQuote } from "@/hooks/use-order-quote";
 import { useRazorpayCheckout } from "@/hooks/use-razorpay-checkout";
-import { cn } from "@showbuzz/utils/cn";
 import { formatINR } from "@showbuzz/utils/money";
-import type { PaymentMethod } from "@showbuzz/schemas/booking";
 import { useBookingCart } from "@/stores/booking-cart";
 import { useAuthStore } from "@/stores/auth";
 import { toast, useUiStore } from "@/stores/ui";
 import { QuoteFallback } from "./QuoteFallback";
 
-const METHODS: { value: PaymentMethod; label: string; icon: typeof QrCode }[] = [
-  { value: "upi", label: "UPI (GPay / PhonePe)", icon: QrCode },
-  { value: "card", label: "Credit / Debit Cards", icon: CreditCard },
-  { value: "netbanking", label: "Net Banking", icon: Landmark },
-  { value: "wallet", label: "Mobile Wallets", icon: Wallet },
+/** What Razorpay's checkout offers. Listed to set expectations; the choice itself is made in its own modal. */
+const ACCEPTED: { label: string; hint: string; icon: typeof QrCode }[] = [
+  { label: "UPI", hint: "GPay, PhonePe, Paytm, BHIM, Cred", icon: QrCode },
+  { label: "Cards", hint: "Visa, Mastercard, RuPay, Amex", icon: CreditCard },
+  { label: "Net Banking", hint: "All major Indian banks", icon: Landmark },
+  { label: "Wallets", hint: "Paytm, Amazon Pay, Mobikwik", icon: Wallet },
 ];
 
-const BANKS = ["HDFC Bank", "ICICI Bank", "State Bank of India", "Axis Bank", "Kotak Bank", "Other Banks"];
-const WALLETS = ["Paytm Wallet", "Amazon Pay Balance", "Mobikwik"];
-
 /**
- * Method picker. Card, bank and wallet details are entered on the payment gateway's own
- * page (Razorpay/Cashfree, still to be chosen), never in this app.
+ * Pay step. There is no method picker here: the gateway's own checkout is where the customer chooses UPI,
+ * a card, net banking or a wallet, and it reports the method back, so asking twice only duplicated its
+ * screen. Card, bank and wallet details are never entered in this app.
  */
 /** `simulated`: PAYMENT_PROVIDER=simulated, so the panel shows the "Demo payment" label and a failure button. */
 export function PaymentPanel({ simulated }: { simulated: boolean }) {
   const router = useRouter();
   const quoteState = useOrderQuote();
   const cart = useBookingCart();
-  const [method, setMethod] = useState<PaymentMethod>("upi");
-  const [bank, setBank] = useState(BANKS[0]);
-  const [wallet, setWallet] = useState(WALLETS[0]);
   const [isPending, startTransition] = useTransition();
   const authStatus = useAuthStore((s) => s.status);
   const openAuthModal = useUiStore((s) => s.openAuthModal);
@@ -71,7 +65,7 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
     }
     startTransition(async () => {
       const placed = await withAuthRetry(() =>
-        placeOrderAction({ tickets, food, couponCode, giftCardCode, contact, paymentMethod: method }),
+        placeOrderAction({ tickets, food, couponCode, giftCardCode, contact }),
       );
       if (!placed.success) {
         // The session couldn't be renewed: the sign-in modal is already open, the cart is kept.
@@ -165,109 +159,57 @@ export function PaymentPanel({ simulated }: { simulated: boolean }) {
             <FlaskConical className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
               <span className="mr-1.5 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-black uppercase">Demo payment</span>
-              No payment gateway is connected yet. <strong>Pay</strong> completes the booking without charging anything;{" "}
+              Payments are simulated here, so no gateway opens. <strong>Pay</strong> completes the booking without
+              charging anything;{" "}
               <strong>Simulate failure</strong> shows what happens when a payment is declined.
             </p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-lg md:grid-cols-3">
-          <div role="tablist" aria-label="Payment method" className="no-scrollbar flex gap-1 overflow-x-auto border-r border-slate-200/80 bg-slate-50 p-2 sm:p-4 md:flex-col">
-            {METHODS.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                role="tab"
-                aria-selected={method === m.value}
-                onClick={() => setMethod(m.value)}
-                className={cn(
-                  "tap-active flex w-full shrink-0 items-center gap-3 rounded-2xl p-3 text-left text-xs font-bold transition-all md:shrink",
-                  method === m.value ? "border border-rose-200 bg-white text-rose-600 shadow-sm" : "text-slate-700 hover:bg-white",
-                )}
-              >
-                <m.icon className="h-4 w-5 shrink-0" />
-                <span className="truncate">{m.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="space-y-5 p-5 sm:p-8 md:col-span-2">
-            {method === "upi" && (
-              <div className="flex flex-col items-center gap-6 rounded-2xl border border-slate-200/80 bg-slate-50 p-4 sm:flex-row sm:p-6">
-                <span className="flex h-28 w-28 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-300">
-                  <QrCode className="h-16 w-16" />
-                </span>
-                <div>
-                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-extrabold text-emerald-700 uppercase">Instant</span>
-                  <h4 className="mt-1 text-sm font-bold text-slate-900">Pay with any UPI app</h4>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Google Pay, PhonePe, Paytm, BHIM or Cred. A UPI QR and collect request open on the next screen.
-                  </p>
-                </div>
+        <div className="mx-auto max-w-xl space-y-5 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-lg sm:p-8">
+          {!simulated && (
+            <>
+              <div>
+                <h2 className="text-sm font-black text-slate-900 sm:text-base">Choose how to pay on the next screen</h2>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  Our payment partner&apos;s secure window opens when you continue. Pick your method there &mdash; ShowBuzz
+                  never sees or stores your card, UPI id or bank login.
+                </p>
               </div>
-            )}
 
-            {method === "card" && (
-              <p className="rounded-2xl border border-slate-200/80 bg-slate-50 p-4 text-xs leading-relaxed text-slate-600">
-                Visa, Mastercard, RuPay and Amex are accepted. You&apos;ll enter your card details on the secure gateway page;
-                ShowBuzz never sees or stores your card number.
-              </p>
-            )}
-
-            {method === "netbanking" && (
-              <fieldset>
-                <legend className="mb-2 text-xs font-bold text-slate-700">Select Your Bank</legend>
-                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-                  {BANKS.map((b) => (
-                    <label
-                      key={b}
-                      className="tap-active flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 font-semibold hover:bg-slate-100"
-                    >
-                      <input type="radio" name="bank" checked={bank === b} onChange={() => setBank(b)} className="accent-rose-600" /> {b}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-            )}
-
-            {method === "wallet" && (
-              <fieldset className="space-y-2 text-xs">
-                <legend className="mb-2 text-xs font-bold text-slate-700">Choose Wallet</legend>
-                {WALLETS.map((w) => (
-                  <label
-                    key={w}
-                    className="tap-active flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 p-3.5 font-bold hover:bg-slate-100"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Wallet className="h-4 w-4 text-rose-500" /> {w}
+              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {ACCEPTED.map((m) => (
+                  <li key={m.label} className="flex items-start gap-3 rounded-2xl border border-slate-200/80 bg-slate-50 p-3">
+                    <m.icon className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+                    <span className="min-w-0">
+                      <span className="block text-xs font-bold text-slate-900">{m.label}</span>
+                      <span className="block text-[11px] text-slate-500">{m.hint}</span>
                     </span>
-                    <input type="radio" name="wallet" checked={wallet === w} onChange={() => setWallet(w)} className="accent-rose-600" />
-                  </label>
+                  </li>
                 ))}
-              </fieldset>
-            )}
+              </ul>
+            </>
+          )}
 
+          <button
+            type="button"
+            onClick={() => pay("success")}
+            disabled={isPending}
+            className="gradient-btn tap-active w-full rounded-2xl py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/20 disabled:opacity-60 sm:text-sm"
+          >
+            {simulated ? `Pay ${total} (Demo)` : `Continue to Pay ${total}`}
+          </button>
+          {simulated && (
             <button
               type="button"
-              onClick={() => pay("success")}
+              onClick={() => pay("failure")}
               disabled={isPending}
-              className="gradient-btn tap-active w-full rounded-2xl py-3.5 text-xs font-black text-white shadow-xl shadow-rose-500/20 disabled:opacity-60 sm:text-sm"
+              className="tap-active w-full rounded-2xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
             >
-              {simulated ? `Pay ${total} (Demo)` : `Pay Securely ${total}`}
+              Simulate failure
             </button>
-            {simulated && (
-              <button
-                type="button"
-                onClick={() => pay("failure")}
-                disabled={isPending}
-                className="tap-active w-full rounded-2xl border border-slate-200 bg-white py-3 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-              >
-                Simulate failure
-              </button>
-            )}
-          </div>
+          )}
         </div>
-
         </>
       )}
 

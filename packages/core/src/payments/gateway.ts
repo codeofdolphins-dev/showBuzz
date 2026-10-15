@@ -27,7 +27,6 @@ export interface PaymentHandshake {
 export interface CreatePaymentInput {
   bookingCode: string;
   amountPaise: number;
-  method: PaymentMethod;
 }
 
 export interface ConfirmPaymentInput {
@@ -41,8 +40,14 @@ export interface ConfirmPaymentInput {
 }
 
 export type PaymentOutcome =
-  /** `paymentRef` is the gateway's own payment id, stored so a later refund can target it. */
-  { status: "succeeded"; paymentRef?: string } | { status: "failed"; reason: string };
+  | {
+      status: "succeeded";
+      /** The gateway's own payment id, stored so a later refund can target it. */
+      paymentRef?: string;
+      /** What the customer actually paid with, as the gateway reports it. Absent when it doesn't say. */
+      method?: PaymentMethod;
+    }
+  | { status: "failed"; reason: string };
 
 export interface RefundInput {
   /** The gateway's payment id (Payment.gatewayPaymentRef), not the order reference. */

@@ -196,7 +196,7 @@ const bookingSchema = new Schema<BookingAttrs>(
     giftCardId: { type: Schema.Types.ObjectId, ref: "GiftCard" },
     paymentMethod: {
       type: String,
-      enum: ["upi", "card", "netbanking", "wallet", "counter_cash", "counter_upi"],
+      enum: ["online", "upi", "card", "netbanking", "wallet", "counter_cash", "counter_upi"],
       required: true,
     },
     contact: { name: String, phone: String, email: String },

@@ -8,6 +8,7 @@ export function ProviderBadge({ provider }: { provider: "simulated" | "razorpay"
 }
 
 const METHOD_LABELS: Record<string, string> = {
+  online: "Online",
   upi: "UPI",
   card: "Card",
   netbanking: "NetBanking",

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { apiHandler } from "@showbuzz/core/http/api-handler";
 import { AppError } from "@showbuzz/core/http/app-error";
 import { ok } from "@showbuzz/core/http/responses";
-import { RazorpayGateway } from "@showbuzz/core/payments/razorpay";
+import { RazorpayGateway, toPaymentMethod } from "@showbuzz/core/payments/razorpay";
 import { settlePaymentFromWebhook } from "@showbuzz/core/services/booking.service";
 import { log } from "@showbuzz/runtime/log";
 
@@ -20,6 +20,8 @@ import { log } from "@showbuzz/runtime/log";
 const entitySchema = z.object({
   id: z.string(),
   order_id: z.string().nullish(),
+  /** "upi" | "card" | "netbanking" | "wallet" | anything else Razorpay supports; narrowed below. */
+  method: z.unknown(),
   error_description: z.string().nullish(),
 });
 
@@ -45,9 +47,10 @@ export const POST = apiHandler({}, async ({ request }) => {
   const entity = payload.payment.entity;
   if (!entity.order_id) return ok({ received: true, handled: false });
 
+  const method = toPaymentMethod(entity.method);
   const settlement =
     event === "payment.captured"
-      ? ({ kind: "captured", paymentId: entity.id } as const)
+      ? ({ kind: "captured", paymentId: entity.id, ...(method && { method }) } as const)
       : event === "payment.failed"
         ? ({ kind: "failed", reason: entity.error_description ?? "The payment was declined." } as const)
         : undefined;

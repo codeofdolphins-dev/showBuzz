@@ -42,7 +42,7 @@ const paymentSchema = new Schema<PaymentAttrs>(
     amountPaise: { type: Number, required: true, min: 0 },
     method: {
       type: String,
-      enum: ["upi", "card", "netbanking", "wallet", "counter_cash", "counter_upi"],
+      enum: ["online", "upi", "card", "netbanking", "wallet", "counter_cash", "counter_upi"],
       required: true,
     },
     status: { type: String, enum: ["created", "succeeded", "failed"], required: true, default: "created" },

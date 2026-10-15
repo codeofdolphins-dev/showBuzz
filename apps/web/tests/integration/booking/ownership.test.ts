@@ -25,7 +25,6 @@ const order: PlaceOrderInput = {
   tickets: { kind: "event", eventId: "eve-1", tierId: "ga", quantity: 1 },
   food: [],
   contact: { name: "Aarav Roy", phone: "9000000000", email: "someone-else@example.com" },
-  paymentMethod: "upi",
 };
 
 let alice: UserDocument;

@@ -50,20 +50,27 @@ export const contactDetailsSchema = z.object({
   email: z.email("Enter a valid email address"),
 });
 
+/**
+ * What an online payment actually went through. The customer picks this inside the gateway's own checkout,
+ * so it is reported back by the gateway after the fact; the app never asks for it up front.
+ */
 export const paymentMethodSchema = z.enum(["upi", "card", "netbanking", "wallet"]);
 
 /** Box-office sales in the partner portal: money taken at the counter and recorded, no gateway involved. */
 export const counterPaymentMethodSchema = z.enum(["counter_cash", "counter_upi"]);
 
-/** Every way a booking can be paid (online gateway methods + counter). */
+/**
+ * Every way a booking can be paid. `online` is what an order carries until the gateway says which method was
+ * used, and what it keeps when the gateway reports something we don't track separately (EMI, pay later...).
+ */
 export const bookingPaymentMethodSchema = z.enum([
+  "online",
   ...paymentMethodSchema.options,
   ...counterPaymentMethodSchema.options,
 ]);
 
 export const placeOrderSchema = orderDraftSchema.extend({
   contact: contactDetailsSchema,
-  paymentMethod: paymentMethodSchema,
 });
 
 export const bookingCodeSchema = z.string().regex(/^SB-\d{6}$/, "Invalid booking id");

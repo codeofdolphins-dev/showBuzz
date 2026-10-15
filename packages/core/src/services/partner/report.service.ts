@@ -32,6 +32,7 @@ import { contactOf, sharesContact } from "./booking.service";
  */
 
 const PAYMENT_LABELS: Record<string, string> = {
+  online: "Online",
   upi: "UPI",
   card: "Card",
   netbanking: "Net banking",
