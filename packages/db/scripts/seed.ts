@@ -489,6 +489,7 @@ async function backfillShows(): Promise<void> {
     const result = await Show.updateMany(
       { movieId: movie._id, startsAt: { $type: "date" }, endsAt: { $exists: false } },
       [{ $set: { endsAt: { $add: ["$startsAt", movie.durationMinutes * 60_000] } } }],
+      { updatePipeline: true },
     );
     ends += result.modifiedCount;
   }
@@ -500,6 +501,7 @@ async function backfillShows(): Promise<void> {
       endsAt: { $exists: false },
     },
     [{ $set: { endsAt: { $add: ["$startsAt", EVENT_DEFAULT_DURATION_MINUTES * 60_000] } } }],
+    { updatePipeline: true },
   );
   const templated = await Show.updateMany(
     { movieId: { $exists: true }, source: { $exists: false } },
@@ -530,9 +532,11 @@ async function seedVendorMovies(vendorIds: Types.ObjectId[]): Promise<void> {
 
 /** Cities from before prompt 7 get a tier (popular = metro) and an explicit status. */
 async function backfillCities(): Promise<void> {
-  const tiers = await City.updateMany({ tier: { $exists: false } }, [
-    { $set: { tier: { $cond: ["$popular", "metro", "tier2"] } } },
-  ]);
+  const tiers = await City.updateMany(
+    { tier: { $exists: false } },
+    [{ $set: { tier: { $cond: ["$popular", "metro", "tier2"] } } }],
+    { updatePipeline: true },
+  );
   const statuses = await City.updateMany({ status: { $exists: false } }, { $set: { status: "active" } });
   log.info("Backfilled", { collection: "cities", tier: tiers.modifiedCount, status: statuses.modifiedCount });
 }
