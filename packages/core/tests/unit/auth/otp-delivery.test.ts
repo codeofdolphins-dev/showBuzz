@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const message = { channel: "sms" as const, to: "+919876543210", code: "482913", purpose: "sign_in" as const };
+const message = {
+  channel: "sms" as const,
+  to: "+919876543210",
+  code: "482913",
+  purpose: "sign_in" as const,
+  challengeId: "6710f0d2c0ffee0000000001",
+};
 
 afterEach(() => {
   vi.unstubAllEnvs();
