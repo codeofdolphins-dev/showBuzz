@@ -112,7 +112,13 @@ export async function issueChallenge(input: IssueChallengeInput, ctx: AuthReques
 
   let sent;
   try {
-    sent = await getOtpSender().send({ channel: contact.channel, to: identifier, code, purpose });
+    sent = await getOtpSender().send({
+      channel: contact.channel,
+      to: identifier,
+      code,
+      purpose,
+      challengeId: challengeId.toString(),
+    });
   } catch (err) {
     await OtpChallenge.updateOne({ _id: challengeId }, { $set: { expiresAt: now } });
     throw err;

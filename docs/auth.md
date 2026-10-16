@@ -208,7 +208,7 @@ Security) and the OWASP API Security Top 10 (2023) on 2026-10-13.
 
 | #   | Severity | Finding                                                                                                                                                                          | Status                                                                                                                                                                                                                                     |
 | --- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| F1  | High     | With `OTP_PROVIDER=none` (the default) every sign-in code is written to the server log, in production too. Anyone with Vercel log access can sign in as any customer. ASVS V6.6. | **Accepted, temporary** (agreed 2026-10-12 for the build phase). Must be closed before launch by plugging in a provider (§7) and is the first item of the production checklist (§8).                                                       |
+| F1  | High     | With `OTP_PROVIDER=none` (the default) every sign-in code is written to the server log, in production too. Anyone with Vercel log access can sign in as any customer. ASVS V6.6. | **Partly fixed** (2026-10-16): with `OTP_PROVIDER=appdoot` SMS codes are really sent and never logged (§7.1). Codes to an **email** address still fall back to the log, because no email provider is chosen yet (§7.2) — still the first item of the production checklist (§8). |
 | F2  | Medium   | A stolen session (or an unattended signed-in device) could add the attacker's email, verify it, then remove the victim's phone and keep the account. ASVS V6.8, V7.5.            | **Fixed.** Step-up: changing or removing a phone/email needs a sign-in or "confirm it's you" code on this device within 10 minutes (`requireRecentAuth`, `purpose: reauthenticate`). Tests in `tests/integration/account/account.test.ts`. |
 | F3  | Medium   | "Change phone/email" answered 409 for identifiers taken by another account before any rate limit ran, an unlimited "is this number registered?" lookup. API3/API4.               | **Fixed.** Per-user (5/h) and per-IP (20/h) limits now run before the existence check, so probing stops after 5 tries an hour per account. Tested.                                                                                         |
 | F4  | Medium   | To verify: account, checkout and booking-success pages render personal data; with Cache Components their static shell might be cacheable by a CDN or shared proxy.               | **Pass, no change.** Production build checked with real cookies: every page is sent `Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate`; signed-out `/account/*` gets a 307 to the refresh route.                     |
@@ -243,34 +243,65 @@ Security) and the OWASP API Security Top 10 (2023) on 2026-10-13.
 Social login (buttons say "coming soon"), admin/staff authentication (Phase 5), bot protection such as CAPTCHA on
 OTP requests (revisit if SMS costs or abuse show up after launch), SIM-swap risk inherent to SMS OTP.
 
-## 7. Plugging in a real SMS or email provider
+## 7. Delivering codes: Appdoot for SMS, email still a stand-in
 
 Delivery is behind one interface in `packages/core/src/auth/otp-delivery.ts`:
 
 ```ts
 export interface OtpSender {
-  send(message: OtpMessage): Promise<OtpSendResult>; // { channel, to (E.164 or lowercase email), code, purpose }
+  // message: { channel, to (E.164 or lowercase email), code, purpose, challengeId }
+  send(message: OtpMessage): Promise<OtpSendResult>;
 }
 ```
 
-1. **Pick providers** (open question in `docs/roadmap.md`): one for SMS (India needs DLT-registered templates and a
-   sender ID), one for email. Ask before installing an SDK; a plain `fetch` to the provider's REST API is often enough.
-2. **Add the config** to `packages/runtime/src/env.ts` and `.env.example`: extend `OTP_PROVIDER` with the new value (e.g.
-   `"msg91"`) and add its credentials as `OTP_PROVIDER_*` variables, required only when that provider is selected
-   (a `.refine` like the existing ones).
-3. **Implement `OtpSender`** in a new class next to `LogOtpSender`. Choose the template by `purpose` (sign-in, change
-   contact, delete account, confirm it's you). Return `{}`: never put the code in the result or a log. Throw
-   `AppError("NOT_CONFIGURED", ..., 503)` or a generic error if the provider fails, so the customer sees "couldn't
-   send" and the challenge isn't usable.
-4. **Select it** in `getOtpSender()`. A composite sender can route `channel: "sms"` and `channel: "email"` to
-   different providers.
-5. **Remove the logging exception:** delete `LogOtpSender` (or make `none` refuse to start in production), and delete
-   the matching notes in CLAUDE.md §11/§12, the roadmap "OTP delivery" decision and §6.1 F1 here.
-6. **Test** with a mocked `fetch` (unit) and keep E2E on `OTP_PROVIDER=dev`; never call the real provider from tests.
+`getOtpSender()` picks the implementation from `OTP_PROVIDER`:
+
+| `OTP_PROVIDER`              | SMS                               | Email                             |
+| --------------------------- | --------------------------------- | --------------------------------- |
+| `appdoot`                   | `AppdootOtpSender` (really sends) | `LogOtpSender` (still a stand-in) |
+| `none` (default)            | `LogOtpSender`                    | `LogOtpSender`                    |
+| `dev` (E2E, not production) | `DevOtpSender` (on screen only)   | `DevOtpSender`                    |
+
+### 7.1 Appdoot (SMS, chosen 2026-10-16)
+
+`packages/core/src/auth/appdoot-otp.ts` posts to `{APPDOOT_BASE_URL}/send-transactional` with the `X-App-Id` and
+`X-Secret-Key` headers — no SDK, a plain `fetch` with an 8-second timeout — sending `recipient_phone`,
+`template_id`, `variables: { 1: code }` and `idempotency_key`.
+
+- **One template for every purpose.** The DLT-registered `authentication` template's only variable is the code
+  ("Your OTP for verification is {{1}}. It is valid for 5 minutes…"), so sign-in, contact change, deletion and
+  re-authentication all use it. Its "valid for 5 minutes" matches `AUTH.otpTtlSec`; change both together.
+- **The idempotency key is the challenge id** (`otp-<challengeId>`), so a retried send for the same challenge
+  can't bill or deliver a second SMS, while every new code is a new challenge and does send.
+- **Config:** `APPDOOT_APP_ID` and `APPDOOT_SECRET_KEY`, plus optional `APPDOOT_OTP_TEMPLATE_ID` (default
+  `authentication`) and `APPDOOT_BASE_URL`, validated lazily in `packages/runtime/src/appdoot-env.ts` so a
+  deployment still on `none`/`dev` boots without them. Both the web app (customer sign-in) and the partner app
+  (vendor signup mobile verification) need them; `turbo.json` declares them as `APPDOOT_*`.
+- **Failures** (timeout, network error, non-2xx) log `otp.appdoot_unreachable` / `otp.appdoot_rejected` with the
+  challenge id and throw `AppError("OTP_SEND_FAILED", …, 502)`. `issueChallenge` then expires the challenge it
+  just created, so the customer sees "We couldn't send the code right now" and no live code is left behind. The
+  code itself is never logged and never returned to the client.
+
+### 7.2 Remaining: an email provider
+
+Codes sent to an email address still go through `LogOtpSender`, which writes them to the server log (F1 above,
+now limited to the email channel). To close it:
+
+1. **Pick an email provider.** Ask before installing an SDK; a plain `fetch` to its REST API is usually enough.
+2. **Add its credentials** in a lazily-parsed module next to `appdoot-env.ts`, and list the variables in each
+   app's `.env.example` and in `turbo.json`.
+3. **Implement `OtpSender`** next to `AppdootOtpSender`: return `{}` (never the code), throw
+   `AppError("OTP_SEND_FAILED", …, 502)` on failure, and use `challengeId` as the idempotency key.
+4. **Route it** in `getOtpSender()`: `new ChannelOtpSender({ sms: new AppdootOtpSender(), email: new … })`.
+5. **Remove the logging exception:** delete `LogOtpSender` (or make `none` refuse to start in production), and
+   delete the matching notes in CLAUDE.md §11/§12, the roadmap "OTP delivery" decision and §6.1 F1 here.
+6. **Test** with a mocked `fetch` (unit) and keep E2E on `OTP_PROVIDER=dev`; never call a real provider from tests.
 
 ## 8. Production checklist
 
-- [ ] A real SMS and email provider is configured (§7) and `OTP_PROVIDER` names it in Production **and** Preview.
+- [ ] `OTP_PROVIDER=appdoot` with `APPDOOT_APP_ID` / `APPDOOT_SECRET_KEY` set in Production **and** Preview, in
+      the **web and partner** projects, and the `authentication` template approved on the DLT registration (§7.1).
+- [ ] An email provider is configured too (§7.2), so email codes stop going to the log (F1).
 - [ ] `OTP_PROVIDER` is not `dev` anywhere deployed (boot already rejects `dev` when `NODE_ENV=production`) and
       not `none` in Production (F1).
 - [ ] `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` and `OTP_HASH_SECRET` are set **separately** for Development,

@@ -73,14 +73,14 @@ documents → submit). The admin bell shows "New vendor signup".
 
 ## 4. What to say about stand-ins
 
-| Area           | In the demo                                                     | Before launch               |
-| -------------- | --------------------------------------------------------------- | --------------------------- |
-| Payments       | Simulated gateway ("Pay" / "Simulate failure"), instant refunds | Razorpay or Cashfree        |
-| OTP            | Code on screen (local) or in the server log                     | SMS provider                |
-| Email          | None (temporary passwords shown on screen once)                 | Email provider              |
-| Media          | Images stored in MongoDB (Media Library), Unsplash URLs         | S3 / Vercel Blob            |
-| Streaming      | Titles listed, Rent/Buy says "coming soon"                      | Streaming checkout + player |
-| Social sign-in | Google/Apple buttons say "coming soon"                          | OAuth                       |
+| Area           | In the demo                                                         | Before launch               |
+| -------------- | ------------------------------------------------------------------- | --------------------------- |
+| Payments       | Simulated gateway ("Pay" / "Simulate failure"), instant refunds     | Razorpay or Cashfree        |
+| OTP            | SMS via Appdoot; email codes on screen (local) or in the server log | Email provider              |
+| Email          | None (temporary passwords shown on screen once)                     | Email provider              |
+| Media          | Images stored in MongoDB (Media Library), Unsplash URLs             | S3 / Vercel Blob            |
+| Streaming      | Titles listed, Rent/Buy says "coming soon"                          | Streaming checkout + player |
+| Social sign-in | Google/Apple buttons say "coming soon"                              | OAuth                       |
 
 ## 5. If something looks empty
 

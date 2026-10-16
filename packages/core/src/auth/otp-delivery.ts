@@ -3,6 +3,7 @@ import { isDemoMode } from "@showbuzz/runtime/env";
 import { otpEnv } from "@showbuzz/runtime/otp-env";
 import type { OtpChannel, OtpPurpose } from "@showbuzz/schemas/user";
 import { log } from "@showbuzz/runtime/log";
+import { AppdootOtpSender } from "./appdoot-otp";
 
 export interface OtpMessage {
   channel: OtpChannel;
@@ -10,6 +11,8 @@ export interface OtpMessage {
   to: string;
   code: string;
   purpose: OtpPurpose;
+  /** The challenge this code belongs to: a provider's idempotency key, so a retry can't send twice. */
+  challengeId: string;
 }
 
 export interface OtpSendResult {
@@ -42,6 +45,23 @@ export class LogOtpSender implements OtpSender {
   }
 }
 
+/** Routes each channel to its own provider, so SMS can be live while email is still a stand-in. */
+export class ChannelOtpSender implements OtpSender {
+  constructor(private readonly senders: Record<OtpChannel, OtpSender>) {}
+
+  send(message: OtpMessage): Promise<OtpSendResult> {
+    return this.senders[message.channel].send(message);
+  }
+}
+
 export function getOtpSender(): OtpSender {
-  return otpEnv.OTP_PROVIDER === "dev" ? new DevOtpSender() : new LogOtpSender();
+  switch (otpEnv.OTP_PROVIDER) {
+    case "dev":
+      return new DevOtpSender();
+    // Appdoot sends SMS only; email codes keep the "none" behaviour until an email provider is chosen.
+    case "appdoot":
+      return new ChannelOtpSender({ sms: new AppdootOtpSender(), email: new LogOtpSender() });
+    default:
+      return new LogOtpSender();
+  }
 }

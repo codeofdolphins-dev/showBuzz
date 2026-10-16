@@ -13,6 +13,7 @@ export type AppErrorCode =
   | "PAYMENT_FAILED"
   | "OTP_INVALID"
   | "OTP_EXPIRED"
+  | "OTP_SEND_FAILED"
   | "RATE_LIMITED"
   | "NOT_CONFIGURED"
   | "STEP_UP_REQUIRED"
